@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="UTF-8">
+<title>KDPII 검출 비교 (Gold vs k-pii)</title>
+<style>
+body { font-family: -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+       max-width: 1100px; margin: 2em auto; padding: 0 1em; line-height: 1.7;
+       color: #212529; background: #f8f9fa; }
+h1 { border-bottom: 2px solid #0d6efd; padding-bottom: 0.3em; }
+.doc { background: white; padding: 1.5em; margin: 1.5em 0; border-radius: 8px;
+       box-shadow: 0 2px 4px rgba(0,0,0,0.08); }
+.doc-title { font-weight: bold; color: #0d6efd; margin-bottom: 0.5em; }
+.legend { background: #e9ecef; padding: 1em; border-radius: 6px; margin: 1em 0; }
+.legend span { padding: 2px 6px; border-radius: 3px; margin-right: 8px; }
+.stats { font-size: 0.85em; color: #6c757d; margin-top: 0.5em; }
+.summary-table { width: 100%; border-collapse: collapse; margin: 1em 0; }
+.summary-table th, .summary-table td { border: 1px solid #dee2e6; padding: 6px 10px; text-align: left; }
+.summary-table th { background: #e9ecef; }
+.text { font-family: "Apple SD Gothic Neo", "Malgun Gothic", monospace;
+        background: #fcfcfc; padding: 1em; border-radius: 4px; border: 1px solid #e9ecef; }
+sup { font-size: 0.7em; }
+</style></head><body>
+<h1>KDPII 검출 결과 비교 (Gold vs k-pii)</h1>
+<p>KDPII 데이터셋 (Li Fei et al., IEEE Access 2024) 의 30 문서에서
+   gold 라벨과 k-pii 검출 결과를 시각적으로 비교. 색상으로 표시.</p>
+
+<div class="legend">
+  <strong>범례:</strong><br>
+  <span style="background:#d4edda;">초록 정탐</span> = k-pii 가 잡았고 정답에도 있음 (정확히 잡음)<br>
+  <span style="background:#fff3cd;">노랑 미탐</span> = 정답에 있는데 k-pii 가 못 잡음 (놓침)<br>
+  <span style="background:#f8d7da;">빨강 오탐</span> = k-pii 가 잡았는데 정답에 없음 (잘못 잡음)<br>
+  ⚪ 색 없음 = TN (정확히 무시한 일반 텍스트 — 전체의 90%+)
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #1</div>
+  <div class="stats">정답: EDUCATION×2 · k-pii: 정탐=0 오탐=0 미탐=2</div>
+  <div class="text"><span class="span-fn" style="background:#fff3cd;padding:1px 3px;border-radius:3px;" title="미탐: EDUCATION">영지중<sup style="color:#6610f2;font-weight:bold;font-size:0.75em;"> [EDUCATION/미탐]</sup></span>다닐 때 3년 내내 전교 1등 하면 뭘 해, <span class="span-fn" style="background:#fff3cd;padding:1px 3px;border-radius:3px;" title="미탐: EDUCATION">영지고<sup style="color:#6610f2;font-weight:bold;font-size:0.75em;"> [EDUCATION/미탐]</sup></span> 가서는 맥도 못 추고 있구만.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #2</div>
+  <div class="stats">정답: POSITION×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text">저...<span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: POSITION">부장<sup style="color:#d63384;font-weight:bold;font-size:0.75em;"> [POSITION/정탐]</sup></span>님... 다시 한번만 천천히 알려주세요.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #3</div>
+  <div class="stats">정답: HEIGHT×1, WEIGHT×1 · k-pii: 정탐=2 오탐=0 미탐=0</div>
+  <div class="text">아, 저희 아이 키가 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: HEIGHT">110센티<sup style="color:#6c757d;font-weight:bold;font-size:0.75em;"> [HEIGHT/정탐]</sup></span>, 몸무게 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: WEIGHT">17키로<sup style="color:#6c757d;font-weight:bold;font-size:0.75em;"> [WEIGHT/정탐]</sup></span>로 평균보다 좀 큰데 110사이즈가 맞을까요?</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #4</div>
+  <div class="stats">정답: DT_BIRTH×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text">나는 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: DT_BIRTH">1992년 4월 12일<sup style="color:#20c997;font-weight:bold;font-size:0.75em;"> [DT_BIRTH/정탐]</sup></span>생인데 그때는 강남에 미도파백화점 2호점이 생겼대.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #5</div>
+  <div class="stats">정답: WEIGHT×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text">예전에 제가 공부만 하다가 대학 붙고 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: WEIGHT">53kg<sup style="color:#6c757d;font-weight:bold;font-size:0.75em;"> [WEIGHT/정탐]</sup></span>까지 뺐다는 거 기억나시죠?</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #6</div>
+  <div class="stats">정답: EDUCATION×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text">나도 일개 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: EDUCATION">외대<sup style="color:#6610f2;font-weight:bold;font-size:0.75em;"> [EDUCATION/정탐]</sup></span> 학생일 뿐인데 방법이 있겠냐?</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #7</div>
+  <div class="stats">정답: CARD×1 · k-pii: 정탐=0 오탐=0 미탐=1</div>
+  <div class="text"><span class="span-fn" style="background:#fff3cd;padding:1px 3px;border-radius:3px;" title="미탐: CARD">2000 0587 8200 5152<sup style="color:#dc3545;font-weight:bold;font-size:0.75em;"> [CARD/미탐]</sup></span>야.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #8</div>
+  <div class="stats">정답: PERSON×1 · k-pii: 정탐=0 오탐=1 미탐=1</div>
+  <div class="text"><span class="span-fn" style="background:#fff3cd;padding:1px 3px;border-radius:3px;" title="미탐: PERSON">알랭<sup style="color:#0d6efd;font-weight:bold;font-size:0.75em;"> [PERSON/미탐]</sup></span>은 내가 <span class="span-fp" style="background:#f8d7da;padding:1px 3px;border-radius:3px;" title="오탐: ADDRESS">프랑스<sup style="color:#fd7e14;font-weight:bold;font-size:0.75em;"> [ADDRESS/오탐]</sup></span> 갔을 때 많이 들어본 이름 같은데, 너 불어 거의 못하잖아.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #9</div>
+  <div class="stats">정답: EMAIL×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text"><span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: EMAIL">dusk24@dreiz.com<sup style="color:#0dcaf0;font-weight:bold;font-size:0.75em;"> [EMAIL/정탐]</sup></span> 이게 네 회사 메일이거든.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #10</div>
+  <div class="stats">정답: VEHICLE×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text">제가 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: VEHICLE">05 머 3890<sup style="color:#fd7e14;font-weight:bold;font-size:0.75em;"> [VEHICLE/정탐]</sup></span>을 오성 출장 갔을 때 봤거든요.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #11</div>
+  <div class="stats">정답: VEHICLE×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text">내가 아무한테도 말 안 하고 비밀로 할테니까, <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: VEHICLE">04 서 9287<sup style="color:#fd7e14;font-weight:bold;font-size:0.75em;"> [VEHICLE/정탐]</sup></span> 하나만 더 등록해줘요.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #12</div>
+  <div class="stats">정답: DT_BIRTH×1 · k-pii: 정탐=0 오탐=0 미탐=1</div>
+  <div class="text">내가 아무리 바빠도 <span class="span-fn" style="background:#fff3cd;padding:1px 3px;border-radius:3px;" title="미탐: DT_BIRTH">1996년 10월 23일<sup style="color:#20c997;font-weight:bold;font-size:0.75em;"> [DT_BIRTH/미탐]</sup></span>을 잊을만큼은 아니네요.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #13</div>
+  <div class="stats">정답: ADDRESS×1 · k-pii: 정탐=0 오탐=0 미탐=1</div>
+  <div class="text">근데 <span class="span-fn" style="background:#fff3cd;padding:1px 3px;border-radius:3px;" title="미탐: ADDRESS">일본<sup style="color:#fd7e14;font-weight:bold;font-size:0.75em;"> [ADDRESS/미탐]</sup></span>인이시길래 아직도 말 못 걸었어.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #14</div>
+  <div class="stats">정답: PHONE×1 · k-pii: 정탐=1 오탐=1 미탐=0</div>
+  <div class="text"><span class="span-fp" style="background:#f8d7da;padding:1px 3px;border-radius:3px;" title="오탐: PERSON">화나보험<sup style="color:#0d6efd;font-weight:bold;font-size:0.75em;"> [PERSON/오탐]</sup></span>은 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: PHONE">043-5478-3717<sup style="color:#198754;font-weight:bold;font-size:0.75em;"> [PHONE/정탐]</sup></span> 여기로 전화해서 담당 지점 변경하신다고 하세요.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #15</div>
+  <div class="stats">정답: PHONE×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text"><span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: PHONE">033-9464-1640<sup style="color:#198754;font-weight:bold;font-size:0.75em;"> [PHONE/정탐]</sup></span> 이건데, 지금 전화드리려고?</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #16</div>
+  <div class="stats">정답: ADDRESS×1 · k-pii: 정탐=0 오탐=0 미탐=1</div>
+  <div class="text">네, 오전에 <span class="span-fn" style="background:#fff3cd;padding:1px 3px;border-radius:3px;" title="미탐: ADDRESS">금오동<sup style="color:#fd7e14;font-weight:bold;font-size:0.75em;"> [ADDRESS/미탐]</sup></span>에 있는 우리아이종합병원에서 진료 받고 약도 타 왔어요.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #17</div>
+  <div class="stats">정답: POSITION×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text"><span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: POSITION">부장<sup style="color:#d63384;font-weight:bold;font-size:0.75em;"> [POSITION/정탐]</sup></span>님, 저희가 부부여서 한 차로 같이 다녀서 그렇습니다.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #18</div>
+  <div class="stats">정답: PERSON×1 · k-pii: 정탐=0 오탐=0 미탐=1</div>
+  <div class="text">아시다시피 <span class="span-fn" style="background:#fff3cd;padding:1px 3px;border-radius:3px;" title="미탐: PERSON">혁준<sup style="color:#0d6efd;font-weight:bold;font-size:0.75em;"> [PERSON/미탐]</sup></span>이가 이번에 휴가를 나와서, 오랜만에 일렉 해주기로 했어요.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #19</div>
+  <div class="stats">정답: CARD×1 · k-pii: 정탐=0 오탐=0 미탐=1</div>
+  <div class="text"><span class="span-fn" style="background:#fff3cd;padding:1px 3px;border-radius:3px;" title="미탐: CARD">4599-5399-7606-3001<sup style="color:#dc3545;font-weight:bold;font-size:0.75em;"> [CARD/미탐]</sup></span>이니까, 똑바로 다시 메모 해 놔.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #20</div>
+  <div class="stats">정답: ACCOUNT×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text"><span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: ACCOUNT">9285-220-542424<sup style="color:#198754;font-weight:bold;font-size:0.75em;"> [ACCOUNT/정탐]</sup></span> 우리은행이며 예약금 입금시 예약확정 됩니다.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #21</div>
+  <div class="stats">정답: PHONE×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text"><span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: PHONE">051-1827-5078<sup style="color:#198754;font-weight:bold;font-size:0.75em;"> [PHONE/정탐]</sup></span>이 가게 번호인데 전화로 빵 나오는 시간 물어보고 가세요.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #22</div>
+  <div class="stats">정답: ADDRESS×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text">그럼 지금 아이 엄마가 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: ADDRESS">한국<sup style="color:#fd7e14;font-weight:bold;font-size:0.75em;"> [ADDRESS/정탐]</sup></span> 국적이신거죠?</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #23</div>
+  <div class="stats">정답: CARD×2 · k-pii: 정탐=0 오탐=0 미탐=2</div>
+  <div class="text"><span class="span-fn" style="background:#fff3cd;padding:1px 3px;border-radius:3px;" title="미탐: CARD">3762 516771 71875<sup style="color:#dc3545;font-weight:bold;font-size:0.75em;"> [CARD/미탐]</sup></span> 이걸로 70만원 긁은 다음에, 한도 부족하니까 <span class="span-fn" style="background:#fff3cd;padding:1px 3px;border-radius:3px;" title="미탐: CARD">3779 732949 24118<sup style="color:#dc3545;font-weight:bold;font-size:0.75em;"> [CARD/미탐]</sup></span>로 22만원 더 긁더라고요.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #24</div>
+  <div class="stats">정답: PERSON×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text"><span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: PERSON">진우<sup style="color:#0d6efd;font-weight:bold;font-size:0.75em;"> [PERSON/정탐]</sup></span>가 교회 안 다니는 사람은 바보라고 해서요.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #25</div>
+  <div class="stats">정답: DT_BIRTH×1, EMAIL×1 · k-pii: 정탐=2 오탐=0 미탐=0</div>
+  <div class="text">생년월일은 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: DT_BIRTH">1999년 11월 29일<sup style="color:#20c997;font-weight:bold;font-size:0.75em;"> [DT_BIRTH/정탐]</sup></span>이고, 이메일은 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: EMAIL">emeraldbreeze783@naver.com<sup style="color:#0dcaf0;font-weight:bold;font-size:0.75em;"> [EMAIL/정탐]</sup></span>이야.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #26</div>
+  <div class="stats">정답: ACCOUNT×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text">입금은 전북은행 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: ACCOUNT">2531 43 3609305<sup style="color:#198754;font-weight:bold;font-size:0.75em;"> [ACCOUNT/정탐]</sup></span>로 해주시고요!</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #27</div>
+  <div class="stats">정답: URL×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text"><span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: URL">https://www.bluemountain.org<sup style="color:#0dcaf0;font-weight:bold;font-size:0.75em;"> [URL/정탐]</sup></span> 여기 출입 페이지요.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #28</div>
+  <div class="stats">정답: ACCOUNT×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text"><span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: ACCOUNT">304970-81-487095<sup style="color:#198754;font-weight:bold;font-size:0.75em;"> [ACCOUNT/정탐]</sup></span> 국민로 보낸 거 그거 못 돌려받아가지고 팀 전체로 전전긍긍한 거 생각하면 진짜!</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #29</div>
+  <div class="stats">정답: ADDRESS×1 · k-pii: 정탐=0 오탐=0 미탐=1</div>
+  <div class="text">아니 여기 <span class="span-fn" style="background:#fff3cd;padding:1px 3px;border-radius:3px;" title="미탐: ADDRESS">광주<sup style="color:#fd7e14;font-weight:bold;font-size:0.75em;"> [ADDRESS/미탐]</sup></span>에 큰고모네집.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #30</div>
+  <div class="stats">정답: WEIGHT×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text">작년에 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: WEIGHT">82kg<sup style="color:#6c757d;font-weight:bold;font-size:0.75em;"> [WEIGHT/정탐]</sup></span>일 때보다 훨씬 낫지 않아?</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #31</div>
+  <div class="stats">정답: DT_BIRTH×1 · k-pii: 정탐=0 오탐=0 미탐=1</div>
+  <div class="text">멍청하긴... <span class="span-fn" style="background:#fff3cd;padding:1px 3px;border-radius:3px;" title="미탐: DT_BIRTH">1997년 4월 15일<sup style="color:#20c997;font-weight:bold;font-size:0.75em;"> [DT_BIRTH/미탐]</sup></span>이니까 19970415를 붙이는 거지.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #32</div>
+  <div class="stats">정답: URL×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text">엄마, <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: URL">https://www.rusticforest.net<sup style="color:#0dcaf0;font-weight:bold;font-size:0.75em;"> [URL/정탐]</sup></span> 이거 봐봐.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #33</div>
+  <div class="stats">정답: EDUCATION×1, MAJOR×1 · k-pii: 정탐=0 오탐=0 미탐=2</div>
+  <div class="text">제가 <span class="span-fn" style="background:#fff3cd;padding:1px 3px;border-radius:3px;" title="미탐: EDUCATION">강동대<sup style="color:#6610f2;font-weight:bold;font-size:0.75em;"> [EDUCATION/미탐]</sup></span> <span class="span-fn" style="background:#fff3cd;padding:1px 3px;border-radius:3px;" title="미탐: MAJOR">조리학과<sup style="color:#6f42c1;font-weight:bold;font-size:0.75em;"> [MAJOR/미탐]</sup></span>인데 선배들도 다 이거 쓰라고 그랬어요.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #34</div>
+  <div class="stats">정답: POSITION×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text">아빠는 그때부터 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: POSITION">대표<sup style="color:#d63384;font-weight:bold;font-size:0.75em;"> [POSITION/정탐]</sup></span>님이었어요?</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #35</div>
+  <div class="stats">정답: PASSPORT×1 · k-pii: 정탐=0 오탐=0 미탐=1</div>
+  <div class="text">그래, 아빠 여권 번호 <span class="span-fn" style="background:#fff3cd;padding:1px 3px;border-radius:3px;" title="미탐: PASSPORT">M453P48335<sup style="color:#dc3545;font-weight:bold;font-size:0.75em;"> [PASSPORT/미탐]</sup></span>이야.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #36</div>
+  <div class="stats">정답: PERSON×1 · k-pii: 정탐=0 오탐=1 미탐=1</div>
+  <div class="text"><span class="span-fn" style="background:#fff3cd;padding:1px 3px;border-radius:3px;" title="미탐: PERSON">성재<sup style="color:#0d6efd;font-weight:bold;font-size:0.75em;"> [PERSON/미탐]</sup></span> 소개 받아서 전화한다고 하면 아마 <span class="span-fp" style="background:#f8d7da;padding:1px 3px;border-radius:3px;" title="오탐: PERSON">아실거<sup style="color:#0d6efd;font-weight:bold;font-size:0.75em;"> [PERSON/오탐]</sup></span>야.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #37</div>
+  <div class="stats">정답: PERSON×1 · k-pii: 정탐=0 오탐=0 미탐=1</div>
+  <div class="text">네, 삼성카드 <span class="span-fn" style="background:#fff3cd;padding:1px 3px;border-radius:3px;" title="미탐: PERSON">박혜령<sup style="color:#0d6efd;font-weight:bold;font-size:0.75em;"> [PERSON/미탐]</sup></span> 상담사입니다.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #38</div>
+  <div class="stats">정답: EDUCATION×1, MAJOR×1 · k-pii: 정탐=1 오탐=0 미탐=1</div>
+  <div class="text">그 오빠가 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: EDUCATION">고대<sup style="color:#6610f2;font-weight:bold;font-size:0.75em;"> [EDUCATION/정탐]</sup></span> <span class="span-fn" style="background:#fff3cd;padding:1px 3px;border-radius:3px;" title="미탐: MAJOR">경영<sup style="color:#6f42c1;font-weight:bold;font-size:0.75em;"> [MAJOR/미탐]</sup></span> 갔거든?</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #39</div>
+  <div class="stats">정답: WEIGHT×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text"><span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: WEIGHT">68kg<sup style="color:#6c757d;font-weight:bold;font-size:0.75em;"> [WEIGHT/정탐]</sup></span>입니다.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #40</div>
+  <div class="stats">정답: AGE×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text">외삼촌 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: AGE">서른 다섯살<sup style="color:#ffc107;font-weight:bold;font-size:0.75em;"> [AGE/정탐]</sup></span>에 돌아가신 거 보고도 그러냐.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #41</div>
+  <div class="stats">정답: ADDRESS×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text">한 번은 어떤 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: ADDRESS">중국<sup style="color:#fd7e14;font-weight:bold;font-size:0.75em;"> [ADDRESS/정탐]</sup></span>인이 내 발 전족한 거냐고 물어보더라.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #42</div>
+  <div class="stats">정답: ACCOUNT×1 · k-pii: 정탐=0 오탐=0 미탐=1</div>
+  <div class="text">저 오늘 지난번에 계약금 보냈던 <span class="span-fn" style="background:#fff3cd;padding:1px 3px;border-radius:3px;" title="미탐: ACCOUNT">426-479555-88-919 기업<sup style="color:#198754;font-weight:bold;font-size:0.75em;"> [ACCOUNT/미탐]</sup></span> 여기로 월세 보내면 될까요?</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #43</div>
+  <div class="stats">정답: AGE×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text"><span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: AGE">24살<sup style="color:#ffc107;font-weight:bold;font-size:0.75em;"> [AGE/정탐]</sup></span>이나 먹으니까 자신감이 생기더라고요.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #44</div>
+  <div class="stats">정답: ADDRESS×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text">저 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: ADDRESS">하남시<sup style="color:#fd7e14;font-weight:bold;font-size:0.75em;"> [ADDRESS/정탐]</sup></span> 살고 있는데 무슨 일이실까요?</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #45</div>
+  <div class="stats">정답: ADDRESS×1 · k-pii: 정탐=0 오탐=0 미탐=1</div>
+  <div class="text">그러면 <span class="span-fn" style="background:#fff3cd;padding:1px 3px;border-radius:3px;" title="미탐: ADDRESS">중구<sup style="color:#fd7e14;font-weight:bold;font-size:0.75em;"> [ADDRESS/미탐]</sup></span>로 적어주세요.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #46</div>
+  <div class="stats">정답: EMAIL×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text">음, 지금 등록된 메일 주소는 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: EMAIL">mysticgarden983@hanmail.net<sup style="color:#0dcaf0;font-weight:bold;font-size:0.75em;"> [EMAIL/정탐]</sup></span>로 뜨네요.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #47</div>
+  <div class="stats">정답: PERSON×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text">왜, 또 그 마루시스 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: PERSON">김해나<sup style="color:#0d6efd;font-weight:bold;font-size:0.75em;"> [PERSON/정탐]</sup></span> 씨 때문이야?</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #48</div>
+  <div class="stats">정답: POSITION×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text">갑자기 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: POSITION">부장<sup style="color:#d63384;font-weight:bold;font-size:0.75em;"> [POSITION/정탐]</sup></span>님이 코로나에 걸리셨지 뭐야.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #49</div>
+  <div class="stats">정답: DT_BIRTH×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text">응, 나 생일 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: DT_BIRTH">2004년 8월 11일<sup style="color:#20c997;font-weight:bold;font-size:0.75em;"> [DT_BIRTH/정탐]</sup></span>이잖아.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #50</div>
+  <div class="stats">정답: MAJOR×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text">왜, 내 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: MAJOR">일문과<sup style="color:#6f42c1;font-weight:bold;font-size:0.75em;"> [MAJOR/정탐]</sup></span> 친구 있잖아.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #51</div>
+  <div class="stats">정답: ADDRESS×1 · k-pii: 정탐=0 오탐=1 미탐=1</div>
+  <div class="text">저희가 <span class="span-fn" style="background:#fff3cd;padding:1px 3px;border-radius:3px;" title="미탐: ADDRESS">청담동<sup style="color:#fd7e14;font-weight:bold;font-size:0.75em;"> [ADDRESS/미탐]</sup></span>에서 일어난 사기사건 <span class="span-fp" style="background:#f8d7da;padding:1px 3px;border-radius:3px;" title="오탐: PERSON">사기범<sup style="color:#0d6efd;font-weight:bold;font-size:0.75em;"> [PERSON/오탐]</sup></span>을 추적 중에 있습니다.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #52</div>
+  <div class="stats">정답: CARD×1 · k-pii: 정탐=0 오탐=1 미탐=1</div>
+  <div class="text">해당 아이디에 등록되어 있는 카드번호가 <span class="span-fn" style="background:#fff3cd;padding:1px 3px;border-radius:3px;" title="미탐: CARD">우리 5119-1163-4661-2901<sup style="color:#dc3545;font-weight:bold;font-size:0.75em;"> [CARD/미탐]</sup></span>인데, 개인 카드이신가요?</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #53</div>
+  <div class="stats">정답: PHONE×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text">문의 사항이 생기시면 저희 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: PHONE">041-7055-4489<sup style="color:#198754;font-weight:bold;font-size:0.75em;"> [PHONE/정탐]</sup></span> 고객상담팀 직원에게 연락 부탁드립니다.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #54</div>
+  <div class="stats">정답: ADDRESS×1, PERSON×1, PHONE×1 · k-pii: 정탐=1 오탐=0 미탐=2</div>
+  <div class="text"><span class="span-fn" style="background:#fff3cd;padding:1px 3px;border-radius:3px;" title="미탐: PERSON">최진한<sup style="color:#0d6efd;font-weight:bold;font-size:0.75em;"> [PERSON/미탐]</sup></span>,<span class="span-fn" style="background:#fff3cd;padding:1px 3px;border-radius:3px;" title="미탐: ADDRESS">신갈동 761-18번지<sup style="color:#fd7e14;font-weight:bold;font-size:0.75em;"> [ADDRESS/미탐]</sup></span>이고, 전화번호는 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: PHONE">010-8102-1834<sup style="color:#198754;font-weight:bold;font-size:0.75em;"> [PHONE/정탐]</sup></span>입니다.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #55</div>
+  <div class="stats">정답: URL×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text"><span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: URL">https://www.oceanic.co.kr<sup style="color:#0dcaf0;font-weight:bold;font-size:0.75em;"> [URL/정탐]</sup></span> 한번만 들어봐.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #56</div>
+  <div class="stats">정답: IP×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text">내 아이피 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: IP">103.31.247.166<sup style="color:#0dcaf0;font-weight:bold;font-size:0.75em;"> [IP/정탐]</sup></span>야!</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #57</div>
+  <div class="stats">정답: DRIVER_LICENSE×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text">찾았다! <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: DRIVER_LICENSE">25-22-645702-56<sup style="color:#dc3545;font-weight:bold;font-size:0.75em;"> [DRIVER_LICENSE/정탐]</sup></span>로 하면 돼.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #58</div>
+  <div class="stats">정답: PERSON×1 · k-pii: 정탐=0 오탐=1 미탐=1</div>
+  <div class="text"><span class="span-fn" style="background:#fff3cd;padding:1px 3px;border-radius:3px;" title="미탐: PERSON">메이니<sup style="color:#0d6efd;font-weight:bold;font-size:0.75em;"> [PERSON/미탐]</sup></span>씨는 혼자 <span class="span-fp" style="background:#f8d7da;padding:1px 3px;border-radius:3px;" title="오탐: ADDRESS">한국<sup style="color:#fd7e14;font-weight:bold;font-size:0.75em;"> [ADDRESS/오탐]</sup></span>에서 사는 거 힘들지 않아요?</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #59</div>
+  <div class="stats">정답: FRN×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text">네, 제 외국인 번호는 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: FRN">790708-5440309<sup style="color:#dc3545;font-weight:bold;font-size:0.75em;"> [FRN/정탐]</sup></span>에요.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #60</div>
+  <div class="stats">정답: PHONE×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text">그러니까, <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: PHONE">041-396-6643<sup style="color:#198754;font-weight:bold;font-size:0.75em;"> [PHONE/정탐]</sup></span> 이 번호 검색하니까 공중전화라고 뜨더라고.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #61</div>
+  <div class="stats">정답: WEIGHT×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text"><span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: WEIGHT">52kg<sup style="color:#6c757d;font-weight:bold;font-size:0.75em;"> [WEIGHT/정탐]</sup></span>면 생각보다 많이 나가는 것 같네?</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #62</div>
+  <div class="stats">정답: DT_BIRTH×1 · k-pii: 정탐=0 오탐=0 미탐=1</div>
+  <div class="text">응, <span class="span-fn" style="background:#fff3cd;padding:1px 3px;border-radius:3px;" title="미탐: DT_BIRTH">1961년 5월 9일<sup style="color:#20c997;font-weight:bold;font-size:0.75em;"> [DT_BIRTH/미탐]</sup></span> 생이시거든.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #63</div>
+  <div class="stats">정답: DT_BIRTH×1 · k-pii: 정탐=0 오탐=0 미탐=1</div>
+  <div class="text">맞아 내 동생은 <span class="span-fn" style="background:#fff3cd;padding:1px 3px;border-radius:3px;" title="미탐: DT_BIRTH">2000년 1월 1일<sup style="color:#20c997;font-weight:bold;font-size:0.75em;"> [DT_BIRTH/미탐]</sup></span>이 생일이야.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #64</div>
+  <div class="stats">정답: PERSON×1, POSITION×1 · k-pii: 정탐=1 오탐=1 미탐=1</div>
+  <div class="text">그래도 <span class="span-fn" style="background:#fff3cd;padding:1px 3px;border-radius:3px;" title="미탐: PERSON">임<sup style="color:#0d6efd;font-weight:bold;font-size:0.75em;"> [PERSON/미탐]</sup></span> <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: POSITION">중사<sup style="color:#d63384;font-weight:bold;font-size:0.75em;"> [POSITION/정탐]</sup></span>님 전갈부대로 <span class="span-fp" style="background:#f8d7da;padding:1px 3px;border-radius:3px;" title="오탐: PERSON">전출가시<sup style="color:#0d6efd;font-weight:bold;font-size:0.75em;"> [PERSON/오탐]</sup></span>는 것만 하겠습니까?</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #65</div>
+  <div class="stats">정답: PHONE×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text">저희가 바로 확인하고, 등록되어 있는 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: PHONE">01069207871<sup style="color:#198754;font-weight:bold;font-size:0.75em;"> [PHONE/정탐]</sup></span>로 연락드리면 될까요?</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #66</div>
+  <div class="stats">정답: FRN×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text"><span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: FRN">960909-6235798<sup style="color:#dc3545;font-weight:bold;font-size:0.75em;"> [FRN/정탐]</sup></span> 이거 맞지?</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #67</div>
+  <div class="stats">정답: PHONE×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text"><span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: PHONE">010-3363-1623<sup style="color:#198754;font-weight:bold;font-size:0.75em;"> [PHONE/정탐]</sup></span>이니까 잘해봐.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #68</div>
+  <div class="stats">정답: HEIGHT×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text">응, 엄마가 나 키가 아직 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: HEIGHT">150cm<sup style="color:#6c757d;font-weight:bold;font-size:0.75em;"> [HEIGHT/정탐]</sup></span>밖에 안 된다고 지어줬어.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #69</div>
+  <div class="stats">정답: CARD×1 · k-pii: 정탐=0 오탐=0 미탐=1</div>
+  <div class="text"><span class="span-fn" style="background:#fff3cd;padding:1px 3px;border-radius:3px;" title="미탐: CARD">3703 001296 35046<sup style="color:#dc3545;font-weight:bold;font-size:0.75em;"> [CARD/미탐]</sup></span>, 전화해봐.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #70</div>
+  <div class="stats">정답: WEIGHT×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text">근데 오늘 재보니까, <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: WEIGHT">55kg<sup style="color:#6c757d;font-weight:bold;font-size:0.75em;"> [WEIGHT/정탐]</sup></span>까지 내려간 거 있지?</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #71</div>
+  <div class="stats">정답: POSITION×1 · k-pii: 정탐=1 오탐=1 미탐=0</div>
+  <div class="text">요즘 일 때문에 심란해 하시던데 모친상까지 <span class="span-fp" style="background:#f8d7da;padding:1px 3px;border-radius:3px;" title="오탐: PERSON">치르시고<sup style="color:#0d6efd;font-weight:bold;font-size:0.75em;"> [PERSON/오탐]</sup></span> <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: POSITION">부장<sup style="color:#d63384;font-weight:bold;font-size:0.75em;"> [POSITION/정탐]</sup></span>님 걱정되네요...</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #72</div>
+  <div class="stats">정답: DT_BIRTH×1, PERSON×1 · k-pii: 정탐=0 오탐=0 미탐=2</div>
+  <div class="text"><span class="span-fn" style="background:#fff3cd;padding:1px 3px;border-radius:3px;" title="미탐: DT_BIRTH">2002년 8월 8일<sup style="color:#20c997;font-weight:bold;font-size:0.75em;"> [DT_BIRTH/미탐]</sup></span> <span class="span-fn" style="background:#fff3cd;padding:1px 3px;border-radius:3px;" title="미탐: PERSON">최유리<sup style="color:#0d6efd;font-weight:bold;font-size:0.75em;"> [PERSON/미탐]</sup></span>님 맞으시고요?</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #73</div>
+  <div class="stats">정답: EDUCATION×1, MAJOR×1 · k-pii: 정탐=2 오탐=0 미탐=0</div>
+  <div class="text">헉, 그 깐깐하다는 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: EDUCATION">성균관대<sup style="color:#6610f2;font-weight:bold;font-size:0.75em;"> [EDUCATION/정탐]</sup></span> <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: MAJOR">문예창작학과<sup style="color:#6f42c1;font-weight:bold;font-size:0.75em;"> [MAJOR/정탐]</sup></span>교수님께서 인정이라니?</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #74</div>
+  <div class="stats">정답: WEIGHT×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text">저번에 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: WEIGHT">68kg<sup style="color:#6c757d;font-weight:bold;font-size:0.75em;"> [WEIGHT/정탐]</sup></span>라 왕창 빼서 비키니 입을 거라며.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #75</div>
+  <div class="stats">정답: ACCOUNT×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text">전북은행 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: ACCOUNT">3641-21-8095325<sup style="color:#198754;font-weight:bold;font-size:0.75em;"> [ACCOUNT/정탐]</sup></span>로 계약금 100만 원 보내주시면, 계약금 영수증 써서 보내드릴게요.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #76</div>
+  <div class="stats">정답: PERSON×1, POSITION×1 · k-pii: 정탐=0 오탐=0 미탐=2</div>
+  <div class="text"><span class="span-fn" style="background:#fff3cd;padding:1px 3px;border-radius:3px;" title="미탐: PERSON">김<sup style="color:#0d6efd;font-weight:bold;font-size:0.75em;"> [PERSON/미탐]</sup></span> <span class="span-fn" style="background:#fff3cd;padding:1px 3px;border-radius:3px;" title="미탐: POSITION">대리<sup style="color:#d63384;font-weight:bold;font-size:0.75em;"> [POSITION/미탐]</sup></span>, 오늘 품질 2팀 사람들이랑 영주 좀 갔다 와야겠어.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #77</div>
+  <div class="stats">정답: WEIGHT×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text">6개월 전만 해도 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: WEIGHT">72키로<sup style="color:#6c757d;font-weight:bold;font-size:0.75em;"> [WEIGHT/정탐]</sup></span>셨다고 하더라고.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #78</div>
+  <div class="stats">정답: DRIVER_LICENSE×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text">운전면허번호는 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: DRIVER_LICENSE">15-15-727167-31<sup style="color:#dc3545;font-weight:bold;font-size:0.75em;"> [DRIVER_LICENSE/정탐]</sup></span>이니까 이걸로 등록해주쇼.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #79</div>
+  <div class="stats">정답: VEHICLE×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text">아니, 나 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: VEHICLE">01 허 3617<sup style="color:#fd7e14;font-weight:bold;font-size:0.75em;"> [VEHICLE/정탐]</sup></span> 흰색 차!</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #80</div>
+  <div class="stats">정답: EDUCATION×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text">저도 예전에 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: EDUCATION">경희대<sup style="color:#6610f2;font-weight:bold;font-size:0.75em;"> [EDUCATION/정탐]</sup></span> 다닐 때는 학교 축제가 너무 좋았는데요.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #81</div>
+  <div class="stats">정답: EDUCATION×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text">나 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: EDUCATION">부산대<sup style="color:#6610f2;font-weight:bold;font-size:0.75em;"> [EDUCATION/정탐]</sup></span> 간 후로 연락을 통 못 했잖아.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #82</div>
+  <div class="stats">정답: POSITION×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text"><span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: POSITION">회장<sup style="color:#d63384;font-weight:bold;font-size:0.75em;"> [POSITION/정탐]</sup></span>님, 결국 못 나오시는 거예요?</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #83</div>
+  <div class="stats">정답: ACCOUNT×1 · k-pii: 정탐=0 오탐=0 미탐=1</div>
+  <div class="text"><span class="span-fn" style="background:#fff3cd;padding:1px 3px;border-radius:3px;" title="미탐: ACCOUNT">41 27 307510 제주<sup style="color:#198754;font-weight:bold;font-size:0.75em;"> [ACCOUNT/미탐]</sup></span> 여기에 30만원 정도 입금해주시면 될 것 같습니다.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #84</div>
+  <div class="stats">정답: HEIGHT×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text">저는 아직 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: HEIGHT">135cm<sup style="color:#6c757d;font-weight:bold;font-size:0.75em;"> [HEIGHT/정탐]</sup></span>인데...</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #85</div>
+  <div class="stats">정답: HEIGHT×1 · k-pii: 정탐=0 오탐=0 미탐=1</div>
+  <div class="text">아, 저 <span class="span-fn" style="background:#fff3cd;padding:1px 3px;border-radius:3px;" title="미탐: HEIGHT">174센치<sup style="color:#6c757d;font-weight:bold;font-size:0.75em;"> [HEIGHT/미탐]</sup></span>예요.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #86</div>
+  <div class="stats">정답: FRN×1, PERSON×1 · k-pii: 정탐=1 오탐=0 미탐=1</div>
+  <div class="text"><span class="span-fn" style="background:#fff3cd;padding:1px 3px;border-radius:3px;" title="미탐: PERSON">티나 디아<sup style="color:#0d6efd;font-weight:bold;font-size:0.75em;"> [PERSON/미탐]</sup></span>이고 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: FRN">160319-8902574<sup style="color:#dc3545;font-weight:bold;font-size:0.75em;"> [FRN/정탐]</sup></span>에요.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #87</div>
+  <div class="stats">정답: AGE×1, WEIGHT×1 · k-pii: 정탐=1 오탐=0 미탐=1</div>
+  <div class="text">나, <span class="span-fn" style="background:#fff3cd;padding:1px 3px;border-radius:3px;" title="미탐: AGE">15살<sup style="color:#ffc107;font-weight:bold;font-size:0.75em;"> [AGE/미탐]</sup></span>인데 벌써 몸무게가 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: WEIGHT">68kg<sup style="color:#6c757d;font-weight:bold;font-size:0.75em;"> [WEIGHT/정탐]</sup></span>이야.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #88</div>
+  <div class="stats">정답: EDUCATION×2 · k-pii: 정탐=2 오탐=2 미탐=0</div>
+  <div class="text">그럼 너 지금 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: EDUCATION">서경대<sup style="color:#6610f2;font-weight:bold;font-size:0.75em;"> [EDUCATION/정탐]</sup></span> <span class="span-fp" style="background:#f8d7da;padding:1px 3px;border-radius:3px;" title="오탐: EDUCATION">졸업하고<sup style="color:#6610f2;font-weight:bold;font-size:0.75em;"> [EDUCATION/오탐]</sup></span> <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: EDUCATION">울산대<sup style="color:#6610f2;font-weight:bold;font-size:0.75em;"> [EDUCATION/정탐]</sup></span> 출신인 남자 <span class="span-fp" style="background:#f8d7da;padding:1px 3px;border-radius:3px;" title="오탐: EDUCATION">만나고<sup style="color:#6610f2;font-weight:bold;font-size:0.75em;"> [EDUCATION/오탐]</sup></span> 있잖아.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #89</div>
+  <div class="stats">정답: DRIVER_LICENSE×1, PERSON×1 · k-pii: 정탐=1 오탐=0 미탐=1</div>
+  <div class="text">네, <span class="span-fn" style="background:#fff3cd;padding:1px 3px;border-radius:3px;" title="미탐: PERSON">김미영<sup style="color:#0d6efd;font-weight:bold;font-size:0.75em;"> [PERSON/미탐]</sup></span> 고객님 운전면허번호 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: DRIVER_LICENSE">18-19-090751-58<sup style="color:#dc3545;font-weight:bold;font-size:0.75em;"> [DRIVER_LICENSE/정탐]</sup></span>로 확인 되었습니다.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #90</div>
+  <div class="stats">정답: EMAIL×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text">저 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: EMAIL">iccottage123@gmail.com<sup style="color:#0dcaf0;font-weight:bold;font-size:0.75em;"> [EMAIL/정탐]</sup></span>로 분명 동아리 정보 다 적어서 제출했어요.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #91</div>
+  <div class="stats">정답: ACCOUNT×1, PERSON×1 · k-pii: 정탐=0 오탐=0 미탐=2</div>
+  <div class="text"><span class="span-fn" style="background:#fff3cd;padding:1px 3px;border-radius:3px;" title="미탐: ACCOUNT">시티 116-946376-340-43<sup style="color:#198754;font-weight:bold;font-size:0.75em;"> [ACCOUNT/미탐]</sup></span> <span class="span-fn" style="background:#fff3cd;padding:1px 3px;border-radius:3px;" title="미탐: PERSON">최치원<sup style="color:#0d6efd;font-weight:bold;font-size:0.75em;"> [PERSON/미탐]</sup></span>으로 보내주시면 됩니다.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #92</div>
+  <div class="stats">정답: URL×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text"><span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: URL">https://www.cinnamon.com로<sup style="color:#0dcaf0;font-weight:bold;font-size:0.75em;"> [URL/정탐]</sup></span> 들어가시면 됩니다.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #93</div>
+  <div class="stats">정답: HEIGHT×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text">너 키도 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: HEIGHT">165cm<sup style="color:#6c757d;font-weight:bold;font-size:0.75em;"> [HEIGHT/정탐]</sup></span>라 이 정도면 괜찮은 거 아냐?</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #94</div>
+  <div class="stats">정답: HEIGHT×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text">에이, 저 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: HEIGHT">170센티<sup style="color:#6c757d;font-weight:bold;font-size:0.75em;"> [HEIGHT/정탐]</sup></span>밖에 안 돼요.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #95</div>
+  <div class="stats">정답: FRN×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text"><span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: FRN">970211-6833316<sup style="color:#dc3545;font-weight:bold;font-size:0.75em;"> [FRN/정탐]</sup></span>이라고 하신 거 맞죠?</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #96</div>
+  <div class="stats">정답: DRIVER_LICENSE×1 · k-pii: 정탐=0 오탐=0 미탐=1</div>
+  <div class="text">영어 NO 뒤에 <span class="span-fn" style="background:#fff3cd;padding:1px 3px;border-radius:3px;" title="미탐: DRIVER_LICENSE">강원 01-343882-08<sup style="color:#dc3545;font-weight:bold;font-size:0.75em;"> [DRIVER_LICENSE/미탐]</sup></span>이라고 쓰여진 부분이요.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #97</div>
+  <div class="stats">정답: FRN×1, PERSON×1 · k-pii: 정탐=1 오탐=0 미탐=1</div>
+  <div class="text"><span class="span-fn" style="background:#fff3cd;padding:1px 3px;border-radius:3px;" title="미탐: PERSON">낫니차 니밋<sup style="color:#0d6efd;font-weight:bold;font-size:0.75em;"> [PERSON/미탐]</sup></span>, <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: FRN">910924-6907861<sup style="color:#dc3545;font-weight:bold;font-size:0.75em;"> [FRN/정탐]</sup></span></div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #98</div>
+  <div class="stats">정답: HEIGHT×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text">피지컬이 좋아서 그렇지, 키는 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: HEIGHT">182cm<sup style="color:#6c757d;font-weight:bold;font-size:0.75em;"> [HEIGHT/정탐]</sup></span>로 너랑 비슷해.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #99</div>
+  <div class="stats">정답: AGE×1 · k-pii: 정탐=0 오탐=0 미탐=1</div>
+  <div class="text">저는 올해 <span class="span-fn" style="background:#fff3cd;padding:1px 3px;border-radius:3px;" title="미탐: AGE">58세<sup style="color:#ffc107;font-weight:bold;font-size:0.75em;"> [AGE/미탐]</sup></span>입니다.</div>
+</div>
+
+<div class="doc">
+  <div class="doc-title">문서 #100</div>
+  <div class="stats">정답: AGE×1 · k-pii: 정탐=1 오탐=0 미탐=0</div>
+  <div class="text">아 우리 엄마 <span class="span-tp" style="background:#d4edda;padding:1px 3px;border-radius:3px;" title="정탐: AGE">52살<sup style="color:#ffc107;font-weight:bold;font-size:0.75em;"> [AGE/정탐]</sup></span>이야.</div>
+</div>
+
+<h2>이 샘플 30 문서 전체 점수</h2>
+<table class="summary-table">
+  <tr><th>지표</th><th>값</th></tr>
+  <tr><td>정탐 (정확히 잡음)</td><td>74</td></tr>
+  <tr><td>오탐 (잘못 잡음)</td><td>10</td></tr>
+  <tr><td>미탐 (놓침)</td><td>44</td></tr>
+  <tr><td>정확도</td><td>0.881</td></tr>
+  <tr><td>재현율</td><td>0.627</td></tr>
+  <tr><td>F1</td><td>0.733</td></tr>
+</table>
+
+<p style="margin-top:2em;color:#6c757d;font-size:0.9em;">
+KDPII 전체 53,778 문서 F1 = 0.665 (정식 평가).
+본 30 문서 샘플은 시각적 검증용 — 전체 분포 대표 아님.
+</p>
+</body></html>

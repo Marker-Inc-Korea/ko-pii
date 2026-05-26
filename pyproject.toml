@@ -1,0 +1,108 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ko-pii"
+version = "1.2.0"
+description = "한국어 PII 검출 + 가역 가명화 라이브러리 (ML 없이 룰 기반)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [
+    { name = "modak000", email = "rlaehrud63@gmail.com" },
+]
+maintainers = [
+    { name = "modak000", email = "rlaehrud63@gmail.com" },
+]
+keywords = [
+    "pii", "privacy", "korean", "anonymization", "pseudonymization",
+    "government", "pipa", "kpipa", "hwp", "hwpx", "public-sector",
+    "비식별", "가명화", "개인정보", "공공", "한국어",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Legal Industry",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: Apache Software License",
+    "Natural Language :: Korean",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Text Processing :: Linguistic",
+    "Typing :: Typed",
+]
+dependencies = []
+
+[project.optional-dependencies]
+# 개발
+dev = ["pytest>=7.0", "pytest-cov>=4.0"]
+# 입력 포맷 — HWP 5.x, PDF
+file = ["olefile>=0.46", "pypdf>=3.0"]
+# Vault 암호화 — AES-GCM
+security = ["cryptography>=41.0"]
+# 외부 ML 모델 통합 (OpenAI Privacy Filter 등) — *optional*, 코어는 ML 없이 동작
+ml = ["transformers>=4.40", "torch>=2.0"]
+# Microsoft Presidio plugin
+presidio = ["presidio-analyzer>=2.2", "presidio-anonymizer>=2.2"]
+# MCP (Model Context Protocol) 서버
+mcp = ["mcp>=1.0"]
+# 모든 옵션 통합
+all = [
+    "olefile>=0.46", "pypdf>=3.0",
+    "cryptography>=41.0",
+    "transformers>=4.40", "torch>=2.0",
+    "presidio-analyzer>=2.2", "presidio-anonymizer>=2.2",
+    "mcp>=1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/modak000/ko-pii"
+Repository = "https://github.com/modak000/ko-pii"
+Issues = "https://github.com/modak000/ko-pii/issues"
+Documentation = "https://github.com/modak000/ko-pii/tree/main/docs"
+Changelog = "https://github.com/modak000/ko-pii/blob/main/CHANGELOG.md"
+
+[project.scripts]
+ko-pii = "ko_pii.cli:main"
+ko-pii-benchmark = "ko_pii.eval.benchmark:main"
+ko-pii-klue-bench = "ko_pii.eval.klue_benchmark:main"
+ko-pii-mcp-server = "ko_pii.integrations.mcp_server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ko_pii"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/ko_pii",
+    "tests",
+    "docs",
+    "examples",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-ra"
+
+[tool.coverage.run]
+source = ["src/ko_pii"]
+omit = ["*/integrations/openai_privacy_filter.py", "*/integrations/mcp_server.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]

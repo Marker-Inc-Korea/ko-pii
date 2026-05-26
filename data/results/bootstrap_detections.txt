@@ -1,0 +1,66 @@
+
+=== data/corpus/wikipedia.txt — 11 docs, 25,782 bytes ===
+  ko-pii: 0.3s, total=308
+
+Fetching 5 files:   0%|          | 0/5 [00:00<?, ?it/s]
+Fetching 5 files: 100%|██████████| 5/5 [00:00<00:00, 364.68it/s]
+  device: cpu
+  openai: 74.3s, total=48
+
+=== data/corpus/korea_kr.txt — 19 docs, 43,238 bytes ===
+  ko-pii: 0.5s, total=558
+
+Fetching 5 files:   0%|          | 0/5 [00:00<?, ?it/s]
+Fetching 5 files: 100%|██████████| 5/5 [00:00<00:00, 9283.54it/s]
+  device: cpu
+  openai: 159.7s, total=64
+## wikipedia.txt
+- 문서 수: 11, 텍스트: 25,782 bytes
+
+| 카테고리 | ko-pii 탐지 | openai 탐지 |
+|---|---:|---:|
+| ACCOUNT | 0 | 3 |
+| ADDRESS | 36 | 5 |
+| AGE | 4 | 0 |
+| DT_BIRTH | 7 | 16 |
+| EDUCATION | 2 | 0 |
+| MAJOR | 1 | 0 |
+| PERSON | 253 | 20 |
+| URL | 4 | 4 |
+| VEHICLE | 1 | 0 |
+| **합계** | **308** | **48** |
+
+## korea_kr.txt
+- 문서 수: 19, 텍스트: 43,238 bytes
+
+| 카테고리 | ko-pii 탐지 | openai 탐지 |
+|---|---:|---:|
+| ACCOUNT | 0 | 3 |
+| ADDRESS | 27 | 13 |
+| AGE | 3 | 0 |
+| COURT_CASE | 3 | 0 |
+| DT_BIRTH | 3 | 15 |
+| EDUCATION | 2 | 0 |
+| MAJOR | 2 | 0 |
+| PERSON | 491 | 12 |
+| PHONE | 27 | 21 |
+| **합계** | **558** | **64** |
+
+## 합계 (전체 부트스트랩 코퍼스)
+- 문서 수: 30, 텍스트: 69,020 bytes
+
+| 카테고리 | ko-pii 탐지 | openai 탐지 |
+|---|---:|---:|
+| ACCOUNT | 0 | 6 |
+| ADDRESS | 63 | 18 |
+| AGE | 7 | 0 |
+| COURT_CASE | 3 | 0 |
+| DT_BIRTH | 10 | 31 |
+| EDUCATION | 4 | 0 |
+| MAJOR | 3 | 0 |
+| PERSON | 744 | 32 |
+| PHONE | 27 | 21 |
+| URL | 4 | 4 |
+| VEHICLE | 1 | 0 |
+| **합계** | **866** | **112** |
+

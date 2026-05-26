@@ -1,0 +1,7 @@
+Presidio (default) — KLUE-NER PS (korean_only=True, 3-5자)
+  Sentences: 5000, eval time: 40.4s
+
+  TP=0  FP=0  FN=1912
+  Precision = 0.000
+  Recall    = 0.000
+  F1        = 0.000

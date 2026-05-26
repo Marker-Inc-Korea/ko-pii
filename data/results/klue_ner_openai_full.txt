@@ -1,0 +1,35 @@
+=== openai/privacy-filter on KLUE-NER PS ===
+  korean_only=True, mode=partial, device=cpu
+Fetching 5 files:   0%|          | 0/5 [00:00<?, ?it/s]Fetching 5 files: 100%|██████████| 5/5 [00:00<00:00, 103819.41it/s]
+Sentences: 5000, device: cpu
+  200/5000 (193s, 1.0 sent/sec)
+  400/5000 (373s, 1.1 sent/sec)
+  600/5000 (564s, 1.1 sent/sec)
+  800/5000 (762s, 1.1 sent/sec)
+  1000/5000 (962s, 1.0 sent/sec)
+  1200/5000 (1167s, 1.0 sent/sec)
+  1400/5000 (1368s, 1.0 sent/sec)
+  1600/5000 (1568s, 1.0 sent/sec)
+  1800/5000 (1779s, 1.0 sent/sec)
+  2000/5000 (1982s, 1.0 sent/sec)
+  2200/5000 (2182s, 1.0 sent/sec)
+  2400/5000 (2375s, 1.0 sent/sec)
+  2600/5000 (2670s, 1.0 sent/sec)
+  2800/5000 (2858s, 1.0 sent/sec)
+  3000/5000 (3051s, 1.0 sent/sec)
+  3200/5000 (3236s, 1.0 sent/sec)
+  3400/5000 (3428s, 1.0 sent/sec)
+  3600/5000 (3620s, 1.0 sent/sec)
+  3800/5000 (3807s, 1.0 sent/sec)
+  4000/5000 (3997s, 1.0 sent/sec)
+  4200/5000 (4186s, 1.0 sent/sec)
+  4400/5000 (4375s, 1.0 sent/sec)
+  4600/5000 (4563s, 1.0 sent/sec)
+  4800/5000 (4753s, 1.0 sent/sec)
+
+openai/privacy-filter — KLUE-NER PS (korean_only=True)
+  Sentences: 5000
+  TP=163  FP=33  FN=1749
+  Precision = 0.832
+  Recall    = 0.085
+  F1        = 0.155

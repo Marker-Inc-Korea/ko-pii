@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Distribution / packaging
+.eggs/
+build/
+dist/
+sdist/
+wheels/
+*.egg-info/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Test & coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.cache/
+coverage.xml
+*.cover
+
+# Type checkers
+.mypy_cache/
+.pyright/
+.ruff_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Vault output (sensitive when populated)
+*.vault.json
+vaults/
+
+# Eval results (reproducible via scripts)
+data/results/*.txt
+
+# Local-only working files (not for public repo)
+CLAUDE.md
+CONTRIBUTING.md
+models/
