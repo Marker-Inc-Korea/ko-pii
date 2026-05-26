@@ -1,7 +1,9 @@
 # ko-pii
 
-[![Apache 2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![CI](https://github.com/modak000/ko-pii/actions/workflows/ci.yml/badge.svg)](https://github.com/modak000/ko-pii/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/ko-pii.svg)](https://pypi.org/project/ko-pii/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
+[![Apache 2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-699%20passed-brightgreen.svg)](#)
 [![Korean PII](https://img.shields.io/badge/도메인-한국-red.svg)](#)
 

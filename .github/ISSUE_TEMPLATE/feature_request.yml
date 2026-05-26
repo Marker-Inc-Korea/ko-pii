@@ -1,0 +1,50 @@
+name: 기능 요청 (Feature Request)
+description: 신규 PII 카테고리 / 사전 확장 / 입력 포맷 / 통합 어댑터 등
+title: "[feat] "
+labels: ["enhancement"]
+body:
+  - type: dropdown
+    id: type
+    attributes:
+      label: 요청 유형
+      options:
+        - 신규 PII 카테고리
+        - 사전 데이터 확장 (성씨/직책/주소 등)
+        - 새 입력 포맷
+        - 외부 도구 통합 어댑터
+        - CLI / API 개선
+        - 문서 / 예제
+        - 기타
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: 배경 / 사용 사례
+      description: 어떤 도메인·문서·워크플로우에서 필요한지
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 제안하는 동작 / API
+      placeholder: |
+        예) `ProcessingMode.MEDICAL` 모드 추가 — 의약품 성분명/제조사명을
+        PERSON 에서 자동 제외.
+    validations:
+      required: true
+
+  - type: textarea
+    id: legal
+    attributes:
+      label: 법적 근거 (신규 PII 카테고리 시)
+      description: 개인정보보호법 / 시행령 / 가이드라인 조항
+      placeholder: "개인정보보호법 제24조의2 / 시행령 제19조 ..."
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 대안 / 회피 방법
+      description: 이미 가능한 방법이 있다면

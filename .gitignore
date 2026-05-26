@@ -51,6 +51,5 @@ vaults/
 data/results/*.txt
 
 # Local-only working files (not for public repo)
-CLAUDE.md
-CONTRIBUTING.md
+DESIGN_NOTES.md
 models/

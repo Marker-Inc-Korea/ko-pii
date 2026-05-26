@@ -1,0 +1,78 @@
+name: 버그 리포트 (Bug Report)
+description: 검출 오류 / 가명화 오작동 / 크래시 등
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ⚠️ **보안 취약점은 공개 이슈로 올리지 마세요.** [SECURITY.md](../../SECURITY.md) 참고.
+
+        실제 PII 가 포함된 입력은 절대 붙여넣지 말고, 합성 예시로 재구성해주세요.
+
+  - type: input
+    id: version
+    attributes:
+      label: ko-pii 버전
+      placeholder: "1.2.0"
+    validations:
+      required: true
+
+  - type: input
+    id: python
+    attributes:
+      label: Python / OS
+      placeholder: "3.12 / Ubuntu 24.04"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: 영향 받는 PII 카테고리
+      multiple: true
+      options:
+        - RRN / FRN
+        - PHONE / EMAIL
+        - CARD / BUSINESS_REG / CORP_REG
+        - PASSPORT / DRIVER_LICENSE
+        - ADDRESS
+        - PERSON
+        - POSITION / EDUCATION / MAJOR
+        - 기타
+    validations:
+      required: false
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 재현 코드 + 입력
+      description: 합성 PII 만 사용
+      render: python
+      placeholder: |
+        from ko_pii import Anonymizer, ProcessingMode
+        anon = Anonymizer(mode=ProcessingMode.STRICT)
+        result = anon.process("신청인 홍길동 (880101-1234568)")
+        print(result.text)
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 기대 동작
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 실제 동작 (출력 / 에러 전체)
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: 기타
+      description: 도메인 / 모드 / extras 조합 등

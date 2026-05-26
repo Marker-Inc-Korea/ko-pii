@@ -12,7 +12,7 @@ Phase 3 (manually placed files):
     behind login + 활용승인. If a user supplies the downloaded/extracted text
     files under data/corpus/aihub_*/ they will be picked up by
     `concat_aihub_text()` below and folded into the combined corpus.
-    See CLAUDE.md §5 D-027 for the access path.
+    See README.md 설치 섹션 for the access path.
 
 Not part of the library. Output goes to data/corpus/ and feeds
 ``python -m ko_pii.eval.fp_collector``.

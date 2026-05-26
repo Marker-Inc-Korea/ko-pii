@@ -1,4 +1,4 @@
-Loading corpus: data/corpus/opus_eval_corpus.jsonl
+Loading corpus: data/corpus/eval_corpus.jsonl
 Docs: 187, gold spans: 1160
 
 === ko-pii (rules) ===

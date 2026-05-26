@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 보안 취약점 보고
+    url: https://github.com/modak000/ko-pii/security/advisories/new
+    about: PII 검출 누락·Vault 우회 등 보안 이슈는 비공개로 보고해주세요.
+  - name: 질문 / 도메인 논의
+    url: https://github.com/modak000/ko-pii/discussions
+    about: 사용법 질문·도메인 판단 논의는 Discussions 로.

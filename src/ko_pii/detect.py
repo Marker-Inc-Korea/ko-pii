@@ -77,7 +77,7 @@ def detect_all(
 
     Overlapping spans are resolved by (a) higher risk level, then (b) longer
     span, then (c) earlier start. This matches the design decisions D-002 /
-    D-003 / D-006 / D-008 in CLAUDE.md.
+    See CHANGELOG.md decision log (D-002 / D-003 / D-006 / D-008).
 
     ``include`` / ``exclude`` filter on the resulting DetectionResult labels.
     """
