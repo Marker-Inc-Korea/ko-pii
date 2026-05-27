@@ -13,10 +13,11 @@ class TestHwpOptional:
 
 
 class TestPdfOptional:
-    def test_missing_pypdf_raises_clear(self, tmp_path, monkeypatch):
+    def test_missing_all_pdf_libs_raises_clear(self, tmp_path, monkeypatch):
         from ko_pii.io_ import pdf as pdf_mod
+        monkeypatch.setattr(pdf_mod, "_HAS_PDFPLUMBER", False)
         monkeypatch.setattr(pdf_mod, "_HAS_PYPDF", False)
-        with pytest.raises(ImportError, match="pypdf"):
+        with pytest.raises(ImportError, match="pdfplumber"):
             pdf_mod.read_text(str(tmp_path / "dummy.pdf"))
 
 
