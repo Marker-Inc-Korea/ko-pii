@@ -447,13 +447,25 @@ for r in detect("신청인 880101-1234568"):
 
 | 기능 | 설명 | 설치 |
 |---|---|:---:|
-| **HWP/HWPX/DOCX/PDF 파서** | 한컴오피스·MS Word·PDF 자동 파싱 (본문 + 표 + 머리말 + 메타데이터) | `[file]` |
+| **HWP/HWPX/DOCX/PDF 파서** | 한컴오피스·MS Word·PDF 자동 파싱 (본문 + 표 + 머리말 + 메타데이터). 아래 파서 상세 참고 | `[file]` |
 | **Vault 암호화** | AES-256-GCM + PBKDF2 480k 반복 | `[security]` |
 | **감사 로그 (JSONL)** | 모든 `reveal()` 호출 기록 (개인정보보호법 제29조) | 코어 |
 | **배치 처리** | 디렉토리 일괄 + 병렬 워커 | 코어 |
 | **검토 큐** | confidence 낮은 검출 → 사람 검토 → 오탐 어휘 자동 학습 | 코어 |
 | **HTML 리포트** | 정탐 초록 / 오탐 빨강 / 미탐 노랑 시각화 | 코어 |
 | **한자/로마자 변형** | `洪吉童` → `홍길동`, `Hong Gildong` → `홍길동` | 코어 |
+
+### 파서 상세
+
+| 포맷 | 사용 라이브러리 | 비고 |
+|---|---|---|
+| HWP 5.x | [olefile](https://pypi.org/project/olefile/) | OLE 바이너리 레코드 직접 파싱, 본문 텍스트 추출 |
+| HWPX | stdlib (`zipfile` + `xml`) | ZIP+XML 구조, 외부 의존성 없음 |
+| DOCX | stdlib (`zipfile` + `xml`) | ZIP+XML 구조, 외부 의존성 없음 |
+| XLSX | stdlib (`zipfile` + `xml`) | sharedStrings + sheet XML |
+| PDF | [pdfplumber](https://pypi.org/project/pdfplumber/) (우선) / [pypdf](https://pypi.org/project/pypdf/) (fallback) | 텍스트 레이어만 추출 (스캔 PDF는 OCR 필요) |
+
+> **PDF 참고:** PDF는 글자 좌표 기반이라 칸별 공백·줄바꿈 삽입이 흔합니다. ko-pii는 내장 정규화 엔진(`text_normalizer`)으로 PII 패턴 중간의 불필요 공백/줄바꿈을 자동 보정합니다. pdfplumber가 pypdf보다 레이아웃 분석이 우수하므로 pdfplumber 설치를 권장합니다.
 
 ---
 
