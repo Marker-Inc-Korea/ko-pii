@@ -193,14 +193,16 @@ logging.info("신청인 홍길동 (880101-1234568) 처리 완료")
 
 ## 평가 결과
 
-| 평가 도메인 | 문서 수 | F1 |
-|---|---:|---:|
-| **행정문서 + PII 주입 (메인)** | 200 | **0.901** |
-| KDPII (한국어 일상 대화) | 4,891 | 0.656 |
-| KLUE-NER (신문기사 풀네임) | 5,000 | 0.419 |
+| 평가 도메인 | 문서 수 | ko-pii | openai/PF | Presidio |
+|---|---:|---:|---:|---:|
+| **행정문서 + PII 주입 (메인)** | 200 | **0.901** | 0.480 | 0.455 |
+| LLM 생성 벤치마크 | 187 | **0.770** | 0.434 | 0.446 |
+| KDPII (한국어 일상 대화) | 4,891 | **0.656** | 0.382 | 0.367 |
+| KLUE-NER (신문기사 풀네임) | 5,000 | **0.419** | 0.155 | 0.000 |
 
-행정문서 F1 **0.901**. 결정적 PII (RRN·PHONE·EMAIL·카드·사업자) 는 F1 ≈ 1.000.
-비교 모델 (openai/privacy-filter, Microsoft Presidio) 과의 상세 비교는 [`docs/EVALUATION_REPORT.md`](docs/EVALUATION_REPORT.md) 참조.
+모든 벤치마크에서 [openai/privacy-filter](https://huggingface.co/openai/privacy-filter) (660M 다국어 ML 모델) 와 [Microsoft Presidio](https://github.com/microsoft/presidio) (가장 인기 OSS PII 프레임워크) 대비 우위.
+결정적 PII (RRN·PHONE·EMAIL·카드·사업자) 는 체크섬 검증이라 F1 ≈ 1.000.
+상세 비교는 [`docs/EVALUATION_REPORT.md`](docs/EVALUATION_REPORT.md) 참조.
 
 > **운영 전 권장:** 사용하시는 도메인의 실제 문서 30~100건을 직접 테스트해보세요. 도메인마다 성능 차이가 있습니다.
 
