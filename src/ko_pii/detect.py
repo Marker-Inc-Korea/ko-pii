@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Iterable, Iterator, Optional
 
 from ko_pii.core.types import DetectionResult
+from ko_pii.core.unicode_norm import normalize_unicode, remap_to_source
 from ko_pii.domain import civil_petition as _dom_petition
 from ko_pii.domain import government as _dom_gov
 from ko_pii.domain import hr as _dom_hr
@@ -74,6 +75,8 @@ def detect_all(
     text: str,
     include: Optional[Iterable[str]] = None,
     exclude: Optional[Iterable[str]] = None,
+    *,
+    normalize: bool = True,
 ) -> list[DetectionResult]:
     """Run every detector and return a merged, conflict-resolved list.
 
@@ -82,7 +85,18 @@ def detect_all(
     See CHANGELOG.md decision log (D-002 / D-003 / D-006 / D-008).
 
     ``include`` / ``exclude`` filter on the resulting DetectionResult labels.
+
+    ``normalize`` (기본 True): 전각/호환문자 폴딩 + 제로폭 문자 제거로 검출
+    우회를 차단한다. 결과 offset 은 원본 ``text`` 기준으로 역매핑된다.
+    ASCII 입력은 우회 벡터가 없어 그대로 통과한다.
     """
+    source = text
+    offset_map: Optional[list[int]] = None
+    if normalize and not text.isascii():
+        norm, omap = normalize_unicode(text)
+        if norm != text:
+            text, offset_map = norm, omap
+
     raw: list[DetectionResult] = []
     for fn in DETECTORS:
         raw.extend(fn(text))
@@ -94,7 +108,10 @@ def detect_all(
     if exc:
         raw = [d for d in raw if d.label not in exc]
 
-    return _resolve_overlaps(raw)
+    resolved = _resolve_overlaps(raw)
+    if offset_map is not None:
+        resolved = remap_to_source(resolved, offset_map, source)
+    return resolved
 
 
 def _resolve_overlaps(

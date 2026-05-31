@@ -5,6 +5,19 @@
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-05-31
+
+### Added
+- **유니코드 정규화 (검출 우회 차단)** — `detect_all` 진입점에 **기본 적용** (`core.unicode_norm`):
+  - 전각→반각 NFKC 폴딩: `０１０` → `010`, `①` → `1`, `㈜` → `(주)`
+  - 제로폭/보이지 않는 문자 제거: 제로폭 공백(U+200B)·조이너·BOM·소프트하이픈·방향마크
+  - 검출 offset 은 **원본 문자열 기준으로 역매핑** (redaction 정확성 보존), `.text` 원본 복원
+  - ASCII 입력·정상 텍스트는 fast-path no-op (오버헤드 ~0), `normalize=False` 로 비활성화 가능
+  - 외부 의존성 없음 (표준 `unicodedata`)
+
+### Security
+- 전각 숫자·제로폭 문자 삽입으로 RRN/전화/카드 검출을 우회하던 문제 차단
+
 ## [1.4.0] - 2026-05-31
 
 ### Added
@@ -68,7 +81,8 @@ Phase 9 — 실데이터 평가 + 룰 정제.
 
 전체 Phase 1~11 개발 히스토리는 git log 및 `docs/` 참조.
 
-[Unreleased]: https://github.com/modak000/ko-pii/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/modak000/ko-pii/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/modak000/ko-pii/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/modak000/ko-pii/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/modak000/ko-pii/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/modak000/ko-pii/compare/v1.1.0...v1.2.0
