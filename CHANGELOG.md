@@ -5,6 +5,15 @@
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-05-31
+
+### Added
+- **룰+ML 하이브리드 분류기 (opt-in `[classifier]`)** — 문서 수준 ML 분류기로 룰 검출 보강:
+  - `PIIClassifier` (transformers 시퀀스 분류) + `HybridAnonymizer` (SCORE/GATED/REVIEW_FLAG/UNION_BLOCK 4 모드) + `tfidf_baseline` (초경량 TF-IDF) + `ko-pii-classify` CLI
+  - **코어는 ML 없이 그대로 동작** — `[classifier]` 설치 시에만 활성화, `import ko_pii` 는 torch 불필요
+  - **모델 가중치는 미배포** (학습 데이터 라이선스: KLUE=CC-BY-SA-4.0 / KDPII=CC-BY-4.0 / AIHub=재배포 제한). 코드·학습 레시피(`ko_pii.classifier.train`)만 제공 → 본인 데이터로 학습
+  - 분류기 테스트는 가중치/의존성 없으면 자동 skip (CI green 유지)
+
 ## [1.6.0] - 2026-05-31
 
 ### Added
@@ -92,7 +101,8 @@ Phase 9 — 실데이터 평가 + 룰 정제.
 
 전체 Phase 1~11 개발 히스토리는 git log 및 `docs/` 참조.
 
-[Unreleased]: https://github.com/modak000/ko-pii/compare/v1.6.0...HEAD
+[Unreleased]: https://github.com/modak000/ko-pii/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/modak000/ko-pii/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/modak000/ko-pii/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/modak000/ko-pii/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/modak000/ko-pii/compare/v1.3.0...v1.4.0

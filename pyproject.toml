@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ko-pii"
-version = "1.6.0"
+version = "1.7.0"
 description = "한국어 PII 검출 + 가역 가명화 라이브러리 (ML 없이 룰 기반)"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -57,6 +57,9 @@ mcp = ["mcp>=1.0"]
 # RAG 연동 — 검색 노드/문서 PII 마스킹 (core 패키지만, 경량)
 llamaindex = ["llama-index-core>=0.10"]
 langchain = ["langchain-core>=0.1"]
+# 룰+ML 하이브리드 분류기 (opt-in) — *코어는 ML 없이 동작*, 본 extra 설치 시에만 활성화.
+# 모델 가중치는 미배포 (학습 데이터 라이선스) — `python -m ko_pii.classifier.train` 으로 직접 학습.
+classifier = ["torch>=2.0", "transformers>=4.40", "scikit-learn>=1.0"]
 # 모든 옵션 통합
 all = [
     "olefile>=0.46", "pypdf>=3.0",
@@ -65,6 +68,7 @@ all = [
     "presidio-analyzer>=2.2", "presidio-anonymizer>=2.2",
     "mcp>=1.0",
     "llama-index-core>=0.10", "langchain-core>=0.1",
+    "scikit-learn>=1.0",
 ]
 
 [project.urls]
@@ -79,6 +83,7 @@ ko-pii = "ko_pii.cli:main"
 ko-pii-benchmark = "ko_pii.eval.benchmark:main"
 ko-pii-klue-bench = "ko_pii.eval.klue_benchmark:main"
 ko-pii-mcp-server = "ko_pii.integrations.mcp_server:main"
+ko-pii-classify = "ko_pii.classifier.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/ko_pii"]
