@@ -5,6 +5,19 @@
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-05-31
+
+### Added
+- **NATIONALITY 카테고리 신설** — 국가명/국적을 ADDRESS 에서 분리 (`patterns/nationality.py`, 70+ 국가 사전). "대한민국·미국·한국인" 등이 더 이상 주소로 오탐되지 않음 → 33 PII 카테고리
+- RRN PDF 서식 prefix 검출 — 관계코드 등 1자리 숫자 접두 허용
+- 사업자번호 칸별 공백+하이픈 혼합 패턴 정규화
+- PDF 텍스트 정규화 + 전화번호 괄호 포맷 + 주소 공백 허용
+- Gradio 실시간 비교 데모 (`demo/app.py`) + HF Spaces 배포
+
+### Changed
+- 주소 동호수+층 반복 확장 — "판교역로 235 103동 1502호" 전체를 단일 ADDRESS 로 검출
+- README: openai/privacy-filter·Presidio 비교 수치 표, 파서 라이브러리 표, 조합 차단 FAQ 추가
+
 ## [1.2.0] - 2026-05-26
 
 유지보수 릴리스. 1.1.0 이후 누적 정비 (상세는 git log 참조).
@@ -45,7 +58,8 @@ Phase 9 — 실데이터 평가 + 룰 정제.
 
 전체 Phase 1~11 개발 히스토리는 git log 및 `docs/` 참조.
 
-[Unreleased]: https://github.com/modak000/ko-pii/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/modak000/ko-pii/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/modak000/ko-pii/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/modak000/ko-pii/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/modak000/ko-pii/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/modak000/ko-pii/releases/tag/v1.0.0
