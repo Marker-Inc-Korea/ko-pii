@@ -100,3 +100,27 @@ class TestAddressBuildingDetail:
         # K-apt 단지명으로 가제티어가 시드 수준이 아니라 실제로 채워져 있어야 함
         from ko_pii.dictionaries.buildings import building_names
         assert len(building_names()) > 1000
+
+
+class TestLegalDongAnchorConditional:
+    """법정동 가제티어 — 강한 anchor 있을 때만 emit (FP 방지)."""
+
+    def _addr(self, text):
+        return [r.text for r in _detect_list(text) if r.label == "ADDRESS"]
+
+    def test_legal_dong_with_anchor(self):
+        # 희귀 법정동 + 주거 anchor → 검출
+        assert "갈월동" in str(self._addr("갈월동으로 이사했어"))
+
+    def test_legal_dong_without_anchor(self):
+        # anchor 없으면 단독 동은 emit 안 함
+        assert self._addr("애월읍 특산물이 유명하다") == []
+
+    def test_common_word_dong_excluded(self):
+        # 일반어 충돌(변동/관리/거리 등)은 가제티어에서 제외 → anchor 있어도 동으로 안 잡힘
+        from ko_pii.dictionaries.legal_dongs import is_legal_dong
+        assert not is_legal_dong("변동") and not is_legal_dong("관리")
+
+    def test_legal_dongs_populated(self):
+        from ko_pii.dictionaries.legal_dongs import legal_dongs
+        assert len(legal_dongs()) > 5000

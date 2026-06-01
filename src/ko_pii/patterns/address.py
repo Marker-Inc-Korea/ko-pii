@@ -21,6 +21,7 @@ from ko_pii.dictionaries.districts import (
     is_country, is_common_dong, is_extra_city,
 )
 from ko_pii.dictionaries.buildings import is_building_name
+from ko_pii.dictionaries.legal_dongs import is_legal_dong
 
 LABEL = "ADDRESS"
 LEGAL_BASIS = "개인정보보호법 제2조"
@@ -327,6 +328,9 @@ def detect(text: str) -> Iterator[DetectionResult]:
         elif is_extra_city(token):
             kind = "city"
         elif is_common_dong(token):
+            kind = "dong"
+        elif is_legal_dong(token):
+            # 법정동 가제티어 — 빈출 동(COMMON_DONGS)보다 희귀/모호 → anchor 필수(아래)
             kind = "dong"
         else:
             continue

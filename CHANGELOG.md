@@ -5,6 +5,15 @@
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-06-01
+
+### Added
+- **법정동 가제티어 (anchor 조건부)** — 전국 법정동(동/읍/면/리) **10,368건** (국토부 법정동코드, data.go.kr). 단독 행정구역 검출 분기에서 **강한 주거 anchor(살던/이사/거주 등)가 있을 때만** emit → 대화체 주소 커버리지 확대 (`is_legal_dong`, `legal_dongs`)
+- 2글자·일반어 충돌(변동·수리·관리·거리 등) 제외, 길이 3+ 만 채택
+
+### Notes
+- **FP 측정**: KDPII 9,902 대화문장에서 법정동으로 추가된 ADDRESS 검출은 **+2건뿐, 둘 다 진짜 주소**("애월읍 살아서", "갈월동 내 집 주소") → anchor 게이트로 FP 0 확인
+
 ## [1.8.0] - 2026-06-01
 
 ### Added
@@ -109,7 +118,8 @@ Phase 9 — 실데이터 평가 + 룰 정제.
 
 전체 Phase 1~11 개발 히스토리는 git log 및 `docs/` 참조.
 
-[Unreleased]: https://github.com/modak000/ko-pii/compare/v1.8.0...HEAD
+[Unreleased]: https://github.com/modak000/ko-pii/compare/v1.9.0...HEAD
+[1.9.0]: https://github.com/modak000/ko-pii/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/modak000/ko-pii/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/modak000/ko-pii/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/modak000/ko-pii/compare/v1.5.0...v1.6.0
