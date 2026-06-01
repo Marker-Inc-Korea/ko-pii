@@ -20,7 +20,6 @@ from ko_pii.core.types import DetectionResult, RiskLevel
 from ko_pii.dictionaries.districts import (
     is_country, is_common_dong, is_extra_city,
 )
-from ko_pii.dictionaries.buildings import is_building_name
 from ko_pii.dictionaries.legal_dongs import is_legal_dong
 
 LABEL = "ADDRESS"
@@ -96,9 +95,6 @@ _PATTERN_BLDG = re.compile(
     r'|\s+[가-힣A-Za-z0-9]*(?:' + _BLDG_SUFFIX + r')'     # (b) 건물 접미사
 )
 
-# (c) 가제티어 — 접미사 없는 고유 건물명 ("그랑서울" 등). 다음 토큰만 추출해 멤버십 확인.
-_PATTERN_NEXT_TOKEN = re.compile(r'\s+([가-힣A-Za-z0-9]+)')
-
 # 대화체 단독 주소 — 시군구 또는 동 (번지 옵션), 광역 없음
 # 강한 anchor keyword 25자 윈도우 내 필수.
 _PATTERN_LOOSE = re.compile(
@@ -148,18 +144,13 @@ def _extend_with_detail(det: DetectionResult, text: str) -> DetectionResult:
     pos = det.end
     extended_end = det.end
 
-    # 동호수/층 + 건물명 반복 적용
+    # 동호수/층 + 건물명(접미사·bridge) 반복 적용
     #   "396 누리꿈스퀘어 12층" → [건물명] 누리꿈스퀘어 → [층] 12층 순차 확장
     #   "396 401호 12층"        → [호] 401호 → [층] 12층
     while True:
         m = _PATTERN_DETAIL.match(text, pos)
         if not m:
             m = _PATTERN_BLDG.match(text, pos)
-        if not m:
-            # (c) 가제티어 멤버십 — 다음 토큰이 알려진 건물명이면 포함
-            mt = _PATTERN_NEXT_TOKEN.match(text, pos)
-            if mt and is_building_name(mt.group(1)):
-                m = mt
         if not m:
             break
         extended_end = m.end()

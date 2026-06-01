@@ -5,6 +5,12 @@
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-06-01
+
+### Removed
+- **건물명 가제티어 제거** (1.4.0~1.8.0의 `dictionaries.buildings`, `is_building_name`/`building_names`, `building_names.txt.gz`, `scripts/build_address_gazetteer.py`). 실효 검증 결과 실제 코퍼스(KDPII 5만 + 행정 gold)에서 발동 0회 — 자연스러운 주소는 동/호/층 bridge 또는 건물 접미사 룰이 이미 커버하기 때문. 11K 데이터·API 유지 가치 없음 → 제거
+- **참고(BREAKING)**: `is_building_name`/`building_names` 직접 사용 시 영향. 주소 내 건물명 검출 자체는 **bridge(동/호/층 앞 토큰) + 접미사 38종 룰로 그대로 유지** (대부분 케이스 동일 동작)
+
 ## [1.9.0] - 2026-06-01
 
 ### Added
@@ -118,7 +124,8 @@ Phase 9 — 실데이터 평가 + 룰 정제.
 
 전체 Phase 1~11 개발 히스토리는 git log 및 `docs/` 참조.
 
-[Unreleased]: https://github.com/modak000/ko-pii/compare/v1.9.0...HEAD
+[Unreleased]: https://github.com/modak000/ko-pii/compare/v1.10.0...HEAD
+[1.10.0]: https://github.com/modak000/ko-pii/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/modak000/ko-pii/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/modak000/ko-pii/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/modak000/ko-pii/compare/v1.6.0...v1.7.0
