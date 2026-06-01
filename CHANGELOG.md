@@ -5,7 +5,15 @@
 
 ## [Unreleased]
 
-## [1.7.0] - 2026-05-31
+## [1.8.0] - 2026-06-01
+
+### Added
+- **건물명 가제티어 실데이터 탑재** — 시드 10건 → **11,124건**. K-apt 공동주택관리정보시스템 관리비공개의무단지 기본정보(2026.05.29, data.go.kr)의 전국 단지명에서, 접미사 룰이 못 잡는 비접미사 고유명만 증류(단일토큰·길이4+·일반어 제외). "수성하늘채르레브"처럼 브랜드가 끝이 아닌 단지명까지 ADDRESS 로 검출
+- `scripts/build_address_gazetteer.py` — `.xlsx` 입력 + `--header-row`/`--source` 지원 (K-apt 재현 가능)
+
+### Notes
+- 가제티어 멤버십은 도로명+번호 주소 *직후* 토큰에만 적용 → 비주소 문맥에서 FP 없음 (검증)
+- 법정동(10,635)·기관코드(157,303)도 검토했으나, 기관코드는 파출소·유치원·동사무소까지 초세분이라 PERSON/ADDRESS 오탐을 유발 → 미반영
 
 ### Added
 - **룰+ML 하이브리드 분류기 (opt-in `[classifier]`)** — 문서 수준 ML 분류기로 룰 검출 보강:
@@ -101,7 +109,8 @@ Phase 9 — 실데이터 평가 + 룰 정제.
 
 전체 Phase 1~11 개발 히스토리는 git log 및 `docs/` 참조.
 
-[Unreleased]: https://github.com/modak000/ko-pii/compare/v1.7.0...HEAD
+[Unreleased]: https://github.com/modak000/ko-pii/compare/v1.8.0...HEAD
+[1.8.0]: https://github.com/modak000/ko-pii/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/modak000/ko-pii/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/modak000/ko-pii/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/modak000/ko-pii/compare/v1.4.0...v1.5.0

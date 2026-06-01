@@ -95,3 +95,8 @@ class TestAddressBuildingDetail:
         assert self._addr("서울 강남구 테헤란로 152 본사에서 회의") == [
             "강남구 테헤란로 152"
         ]
+
+    def test_gazetteer_is_populated(self):
+        # K-apt 단지명으로 가제티어가 시드 수준이 아니라 실제로 채워져 있어야 함
+        from ko_pii.dictionaries.buildings import building_names
+        assert len(building_names()) > 1000
