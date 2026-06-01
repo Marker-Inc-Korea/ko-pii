@@ -474,7 +474,7 @@ for r in detect("신청인 880101-1234568"):
 | **HTML 리포트** | 정탐 초록 / 오탐 빨강 / 미탐 노랑 시각화 | 코어 |
 | **한자/로마자 변형** | `洪吉童` → `홍길동`, `Hong Gildong` → `홍길동` | 코어 |
 | **RAG 연동** | LlamaIndex·LangChain 검색 결과 PII 마스킹 (검색→마스킹→LLM) | `[llamaindex]` / `[langchain]` |
-| **룰+ML 하이브리드** | 문서 수준 ML 분류기로 룰 검출 보강 (opt-in, 가중치 미배포) | `[classifier]` |
+| **룰+ML 하이브리드** | 룰+ML 결합 모드 4종 + 임계값으로 검출 민감도 조절 (opt-in) | `[classifier]` |
 
 ### 파서 상세
 
@@ -508,23 +508,35 @@ chain = retriever | KoPiiRedactor(mode="STRICT") | prompt | llm
 
 ### 룰+ML 하이브리드 (opt-in)
 
-**코어는 ML 없이 동작합니다.** 더 높은 재현율이 필요하면 `[classifier]` extra 로 문서 수준 ML 분류기를 얹어 룰 검출을 보강할 수 있습니다 (룰 결과와 분류기 확신도를 결합 — SCORE / GATED / REVIEW_FLAG / UNION_BLOCK 4 모드).
+**코어는 ML 없이 동작**하되, 정확도가 더 필요하면 `[classifier]` extra 로 ML 분류기를 얹어 **룰과 ML을 원하는 방식으로 결합**할 수 있습니다. 결합 방식과 민감도를 직접 설정:
 
-```bash
-pip install ko-pii[classifier]          # torch + transformers + scikit-learn
-python -m ko_pii.classifier.train ...   # 직접 학습 (가중치는 배포하지 않음)
-```
+| 결합 모드 | 동작 | 용도 |
+|---|---|---|
+| `SCORE` | 룰 검출 + 분류기 확신도 보강 | 기본 |
+| `GATED` | 분류기 점수 < 임계값이면 룰 skip | 속도 우선 |
+| `REVIEW_FLAG` | 룰 0건인데 분류기 높으면 '검토 권고' | 사람 검토 트리거 |
+| `UNION_BLOCK` | 한쪽이라도 PII로 보면 차단 | 보수적 마스킹 |
+
+`classifier_threshold` · `gate_threshold` 로 **룰 ↔ ML 결합 비율(민감도)을 세밀하게 조절**합니다.
 
 ```python
 from ko_pii import Anonymizer, ProcessingMode
 from ko_pii.classifier import PIIClassifier, HybridAnonymizer, HybridMode
 
-clf = PIIClassifier.from_pretrained("models/내가-학습한-모델/final")
-hybrid = HybridAnonymizer(Anonymizer(mode=ProcessingMode.BALANCED), clf,
-                          mode=HybridMode.REVIEW_FLAG)
+clf = PIIClassifier.from_pretrained("models/...")
+hybrid = HybridAnonymizer(
+    Anonymizer(mode=ProcessingMode.BALANCED), clf,
+    mode=HybridMode.REVIEW_FLAG,     # 결합 방식
+    classifier_threshold=0.5,        # 민감도(비율) 조절
+)
 ```
 
-> **가중치 미배포:** 학습 데이터(KLUE 베이스 = CC-BY-SA-4.0, KDPII = CC-BY-4.0, AIHub = 재배포 제한) 라이선스 때문에 사전학습 가중치는 배포하지 않습니다. 코드·학습 레시피만 제공하며, 본인 데이터로 학습해 사용하세요.
+```bash
+pip install ko-pii[classifier]      # torch + transformers + scikit-learn
+python -m ko_pii.classifier.train ...   # 모델은 직접 학습
+```
+
+> 사전학습 가중치는 배포하지 않습니다(학습 데이터 라이선스) — 코드·학습 레시피 제공.
 
 ---
 
