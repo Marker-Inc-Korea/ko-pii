@@ -189,11 +189,12 @@ def load_kdpii(path: str | Path) -> list[KdpiiDocument]:
     return docs
 
 
-def _matched_overlap(pred: set[str], gold: set[str]) -> tuple[set[str], set[str]]:
-    """``(matched_pred, matched_gold)`` substring overlap 매칭.
+def match_forms_overlap(pred: set[str], gold: set[str]) -> tuple[set[str], set[str]]:
+    """``(matched_pred, matched_gold)`` substring overlap 매칭. **단일 canonical 매처.**
 
     예측 텍스트가 gold form 의 부분이거나 반대이면 TP. 1:N / N:1 모두 허용
-    (per-label set 평가; 위치 무시).
+    (per-label set 평가; 위치 무시). model_comparison.run_kdpii_three_way 도
+    *이 함수* 를 import 해 쓴다 — 채점 방식이 모듈마다 갈리지 않도록.
     """
     mp: set[str] = set()
     mg: set[str] = set()
@@ -212,14 +213,15 @@ def evaluate_kdpii(
     docs: Iterable[KdpiiDocument],
     detector: Callable[[str], Iterable[DetectionResult]] = detect_all,
     *,
-    person_min_length: int = 1,
+    person_min_length: int = 3,
 ) -> KdpiiReport:
     """KDPII 평가.
 
-    ``person_min_length``: PERSON gold form 의 최소 길이.
-    - 1 (기본): 모든 PERSON 평가
-    - 3: 풀네임 (3자+) 만 평가 — 한국어 PII 정의 (제2조: 단독 별명·1-2자 이름은
-      그 자체로 PII 아님) 에 부합. 외자 이름·단성 성씨 제외.
+    ``person_min_length``: PERSON gold form 의 최소 길이. **기본 3** —
+    모든 진입점(이 함수 · CLI · run_kdpii_three_way)에서 동일하게 3 으로 통일.
+    - 3 (기본): 풀네임 (3자+) 만 평가 — 한국어 PII 정의 (제2조: 단독 별명·1-2자
+      이름은 그 자체로 PII 아님) 에 부합. 외자 이름·단성 성씨 제외.
+    - 1: 모든 PERSON 평가 (1-2자 포함; 부분문자열 매칭과 결합 시 recall 부풀림 주의)
 
     예측 (prediction) 도 동일한 길이 필터 적용.
     """
@@ -238,7 +240,7 @@ def evaluate_kdpii(
             if lab == "PERSON" and person_min_length > 1:
                 g = {gi for gi in g if len(gi) >= person_min_length}
             p = pred_by_label.get(lab, set())
-            mp, mg = _matched_overlap(p, g)
+            mp, mg = match_forms_overlap(p, g)
             m = report.per_label.setdefault(lab, LabelMetrics(label=lab))
             m.tp += len(mp)
             m.fp += len(p - mp)

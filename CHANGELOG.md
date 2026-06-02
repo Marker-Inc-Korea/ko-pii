@@ -5,6 +5,11 @@
 
 ## [Unreleased]
 
+### Changed (eval 내부 — 채점 정합)
+- **KDPII 채점 단일 매처 통일** — 매칭 알고리즘이 `kdpii.py`(substring-set)와 `model_comparison.run_kdpii_three_way`(중복 인라인)에 따로 존재해 숫자가 갈리던 결함 수정. canonical `kdpii.match_forms_overlap`(public)로 일원화.
+- **person_min_length 기본값 통일** — `evaluate_kdpii`(이전 1) / CLI / `run_kdpii_three_way` 모두 **3**(풀네임만; 한국어 PII 정의 부합)으로 일치.
+- **3-way 에 Presidio 추가** — `run_kdpii_three_way(include_presidio=True)` / CLI `--include-presidio` → ko-pii·openai/PF·Presidio 를 *동일 매처*로 채점하는 재현 가능한 3-way 표. 회귀 테스트 추가(채점 정합 고정).
+
 ## [1.11.2] - 2026-06-02
 
 ### Security

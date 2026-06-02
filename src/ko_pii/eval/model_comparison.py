@@ -579,15 +579,21 @@ def run_kdpii_three_way(
     max_docs: int | None = None,
     person_min_length: int = 3,
     cache_dir: str | None = "./models",
+    include_presidio: bool = False,
+    presidio_mode: str = "kr_adapt",
 ) -> dict[str, ComparisonReport]:
     """Three-way evaluation on KDPII (which HAS real gold labels):
         - ko-pii vs KDPII gold
         - HF model vs KDPII gold
-        - (ko-pii vs HF as pseudo-GT is in run_comparison())
+        - (optional) Presidio vs KDPII gold   [include_presidio=True]
 
-    Returns two reports indexed by 'ko-pii' and 'hf'.
+    채점은 ``kdpii.match_forms_overlap`` (단일 canonical 매처) 로 *모든* 시스템에
+    동일 적용 — 모듈마다 다른 매칭으로 숫자가 갈리지 않도록. person_min_length
+    기본 3 (다른 진입점과 통일).
+
+    Returns reports indexed by 'ko-pii', 'hf', and (if requested) 'presidio'.
     """
-    from ko_pii.eval.kdpii import KDPII_LABEL_MAP, load_kdpii
+    from ko_pii.eval.kdpii import load_kdpii, match_forms_overlap
     from ko_pii.detect import detect_all
 
     docs = load_kdpii(kdpii_path)
@@ -596,14 +602,20 @@ def run_kdpii_three_way(
 
     detector = HFPrivacyDetector(gt_model_id, backend=backend, cache_dir=cache_dir)
 
-    kpii_rep = ComparisonReport(
-        gt_model="KDPII gold (real human labels)",
-        corpus_label=f"KDPII ({len(docs)} docs)",
-    )
-    hf_rep = ComparisonReport(
-        gt_model="KDPII gold (real human labels)",
-        corpus_label=f"KDPII ({len(docs)} docs)",
-    )
+    presidio_predict = None
+    if include_presidio:
+        from ko_pii.eval.presidio_compare import PresidioDetector, make_presidio_predict
+        presidio_predict = make_presidio_predict(PresidioDetector(mode=presidio_mode))
+
+    def _new_report() -> ComparisonReport:
+        return ComparisonReport(
+            gt_model="KDPII gold (real human labels)",
+            corpus_label=f"KDPII ({len(docs)} docs)",
+        )
+
+    kpii_rep = _new_report()
+    hf_rep = _new_report()
+    presidio_rep = _new_report() if include_presidio else None
 
     for doc in docs:
         text = doc.query
@@ -611,6 +623,8 @@ def run_kdpii_three_way(
             continue
         kpii_rep.n_documents += 1
         hf_rep.n_documents += 1
+        if presidio_rep is not None:
+            presidio_rep.n_documents += 1
 
         # ko-pii predictions
         kpii_pred: dict[str, set[str]] = defaultdict(set)
@@ -629,55 +643,61 @@ def run_kdpii_three_way(
                 continue
             hf_pred[mapped].add(s.text.strip())
 
+        systems = [(kpii_pred, kpii_rep), (hf_pred, hf_rep)]
+
+        # Presidio predictions (adapter already maps to ko-pii labels)
+        if presidio_rep is not None:
+            presidio_pred: dict[str, set[str]] = defaultdict(set)
+            for r in presidio_predict(text):
+                if r.label == "PERSON" and len(r.text) < person_min_length:
+                    continue
+                presidio_pred[r.label].add(r.text)
+            systems.append((presidio_pred, presidio_rep))
+
         # KDPII gold (already mapped to ko-pii LABEL by load_kdpii)
         gold = dict(doc.gold)
         if person_min_length > 1 and "PERSON" in gold:
             gold["PERSON"] = {g for g in gold["PERSON"] if len(g) >= person_min_length}
 
-        # Score each detector against gold
-        for system_pred, report in [(kpii_pred, kpii_rep), (hf_pred, hf_rep)]:
+        # Score each system against gold with the SINGLE canonical matcher
+        for system_pred, report in systems:
             for lab in set(gold) | set(system_pred):
                 g = gold.get(lab, set())
                 p = system_pred.get(lab, set())
-                matched_p: set[str] = set()
-                matched_g: set[str] = set()
-                for pi in p:
-                    for gi in g:
-                        if pi in gi or gi in pi:
-                            matched_p.add(pi)
-                            matched_g.add(gi)
+                matched_p, matched_g = match_forms_overlap(p, g)
                 m = report.per_label.setdefault(lab, LabelMetrics(label=lab))
                 m.tp += len(matched_p)
                 m.fp += len(p - matched_p)
                 m.fn += len(g - matched_g)
 
-    return {"ko-pii": kpii_rep, "hf": hf_rep}
+    out = {"ko-pii": kpii_rep, "hf": hf_rep}
+    if presidio_rep is not None:
+        out["presidio"] = presidio_rep
+    return out
 
 
 def format_kdpii_threeway(reports: dict[str, ComparisonReport]) -> str:
-    kpii = reports["ko-pii"]
-    hf = reports["hf"]
+    # 표시 순서: ko-pii, HF(openai/privacy-filter), Presidio (있을 때만)
+    order = [("ko-pii", "ko-pii"), ("hf", "HF(openai/PF)"), ("presidio", "Presidio")]
+    systems = [(disp, reports[key]) for key, disp in order if key in reports]
+    n_docs = systems[0][1].n_documents
     lines: list[str] = []
-    lines.append(f"KDPII 평가 ({kpii.n_documents} 문서) — gold = 실제 인간 라벨")
-    lines.append(f"GT model used as third detector: {hf.gt_model.replace('KDPII gold', '')} (openai/privacy-filter)")
+    lines.append(f"KDPII 평가 ({n_docs} 문서) — gold = 실제 인간 라벨")
+    lines.append(f"채점: kdpii.match_forms_overlap (단일 canonical 매처, person_min_length=3)")
     lines.append("")
-    lines.append(f"{'라벨':<15}  {'ko-pii(TP/FP/FN/F1)':<28}  {'HF(TP/FP/FN/F1)':<28}")
-    lines.append("-" * 75)
-    all_labels = sorted(set(kpii.per_label) | set(hf.per_label))
+    cell = lambda m: f"{m.tp:>4}/{m.fp:>4}/{m.fn:>4} F1={m.f1:>5.3f}"
+    header = f"{'라벨':<15}  " + "  ".join(f"{disp+'(TP/FP/FN/F1)':<28}" for disp, _ in systems)
+    lines.append(header)
+    lines.append("-" * len(header))
+    all_labels = sorted(set().union(*(set(r.per_label) for _, r in systems)))
     for lab in all_labels:
-        kp = kpii.per_label.get(lab, LabelMetrics(label=lab))
-        hp = hf.per_label.get(lab, LabelMetrics(label=lab))
-        lines.append(
-            f"{lab:<15}  "
-            f"{kp.tp:>4}/{kp.fp:>4}/{kp.fn:>4} F1={kp.f1:>5.3f}  "
-            f"{hp.tp:>4}/{hp.fp:>4}/{hp.fn:>4} F1={hp.f1:>5.3f}"
+        row = f"{lab:<15}  " + "  ".join(
+            cell(r.per_label.get(lab, LabelMetrics(label=lab))) for _, r in systems
         )
-    lines.append("-" * 75)
-    lines.append(
-        f"{'(micro)':<15}  "
-        f"{kpii.micro_tp:>4}/{kpii.micro_fp:>4}/{kpii.micro_fn:>4} F1={kpii.micro_f1:>5.3f}  "
-        f"{hf.micro_tp:>4}/{hf.micro_fp:>4}/{hf.micro_fn:>4} F1={hf.micro_f1:>5.3f}"
-    )
+        lines.append(row)
+    lines.append("-" * len(header))
+    micro = lambda r: f"{r.micro_tp:>4}/{r.micro_fp:>4}/{r.micro_fn:>4} F1={r.micro_f1:>5.3f}"
+    lines.append(f"{'(micro)':<15}  " + "  ".join(micro(r) for _, r in systems))
     return "\n".join(lines)
 
 
@@ -697,6 +717,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--max-docs", type=int, default=None)
     p.add_argument("--cache-dir", default="./models")
     p.add_argument("--person-min-length", type=int, default=3)
+    p.add_argument("--include-presidio", action="store_true",
+                   help="Presidio 를 3번째 검출기로 포함 (presidio-analyzer + spaCy ko 필요)")
     args = p.parse_args(argv)
 
     path = Path(args.path)
@@ -709,7 +731,7 @@ def main(argv: list[str] | None = None) -> int:
         reports = run_kdpii_three_way(
             path, gt_model_id=args.model, backend=args.backend,
             max_docs=args.max_docs, person_min_length=args.person_min_length,
-            cache_dir=args.cache_dir,
+            cache_dir=args.cache_dir, include_presidio=args.include_presidio,
         )
         print(format_kdpii_threeway(reports))
     else:
