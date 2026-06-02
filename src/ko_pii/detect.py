@@ -117,25 +117,29 @@ def detect_all(
 def _resolve_overlaps(
     detections: Iterable[DetectionResult],
 ) -> list[DetectionResult]:
-    """Deterministic overlap resolution.
+    """Priority-based overlap resolution.
 
-    Sort by (start asc, -risk_level, -length, -confidence). Then sweep:
-    a later detection that *starts inside* an already-accepted one is dropped.
+    Accept highest-priority detections first — higher risk level, then higher
+    confidence, then longer span — and drop any later detection that overlaps an
+    already-accepted one. Sorting by *priority* rather than start position
+    prevents a lower-priority span (an over-matched address, a URL) from
+    shadowing a higher-confidence PII span (phone / RRN / email) merely because
+    it begins earlier — which previously caused such PII to leak unmasked.
+    Returns detections in document order.
     """
     items = sorted(
         detections,
         key=lambda d: (
-            d.start,
             -int(d.risk_level),
-            -(d.end - d.start),
             -d.confidence,
+            -(d.end - d.start),
+            d.start,
         ),
     )
-    out: list[DetectionResult] = []
-    occupied_end = -1
+    accepted: list[DetectionResult] = []
     for d in items:
-        if d.start < occupied_end:
+        if any(d.start < a.end and a.start < d.end for a in accepted):
             continue
-        out.append(d)
-        occupied_end = max(occupied_end, d.end)
-    return out
+        accepted.append(d)
+    accepted.sort(key=lambda d: (d.start, d.end))
+    return accepted

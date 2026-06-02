@@ -44,42 +44,15 @@ HWPTAG_PARA_CHAR_SHAPE = HWPTAG_BEGIN + 52
 HWPTAG_PARA_LINE_SEG = HWPTAG_BEGIN + 53
 
 
-# HWP inline control codepoints — UTF-16LE 에서 이 값들은 단순 문자가 아니라
-# 객체 (각주·표·하이퍼링크 등) 의 anchor. 8 char (16 byte) 의 extended data 가
-# 뒤따른다 — 텍스트 추출 시 건너뜀.
-_INLINE_CONTROL_CODES = frozenset({
-    0x01,  # extended (object)
-    0x02,  # section column def
-    0x03,  # field begin
-    0x04,  # field end
-    0x05,  # ?
-    0x06,  # bookmark
-    0x07,  # date
-    0x08,  # date format
-    0x09,  # tab (실제 줄바꿈)  — 보존
-    0x0A,  # ?
-    0x0B,  # drawing/table
-    0x0C,  # ?
-    0x0D,  # paragraph break — 줄바꿈 보존
-    0x0E,  # ?
-    0x0F,  # hidden info
-    0x10,  # header/footer
-    0x11,  # footnote
-    0x12,  # auto number
-    0x13,  # new number
-    0x14,  # page hide
-    0x15,  # page oddeven adjustment
-    0x16,  # page number position
-    0x17,  # ?
-    0x18,  # column def
-    0x19,  # hyperlink
-    0x1A,  # additional info
-    0x1B,  # ?
-    0x1C,  # ?
-    0x1D,  # ?
-    0x1E,  # ?
-    0x1F,  # ?
-})
+# HWP PARA_TEXT 제어문자 (UTF-16LE 코드포인트 0~31) — HWP 5.0 명세 + java-hwp 참조 구현 기준.
+# inline ∪ extended controls 는 코드 1워드 + 14바이트(7워드) inline data → data 를 건너뛴다.
+# (이전 구현은 5~8·12·14·15 등을 누락해 14바이트 payload 가 텍스트로 새어나왔고,
+#  반대로 24~26 은 데이터 없는 char control 인데 14바이트를 더 소비해 정렬이 깨졌다.)
+_CTRL_WITH_DATA = frozenset(
+    {1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23}
+)
+# 추가 데이터 없는 char control (0x0D=문단구분·0x09=탭은 _decode_para_text 에서 별도 처리)
+_CTRL_NO_DATA = frozenset({0, 10, 24, 25, 26, 27, 28, 29, 30, 31})
 
 
 def _ensure_olefile() -> None:
@@ -121,17 +94,17 @@ def _decode_para_text(body: bytes) -> str:
     while i + 2 <= n:
         cp = struct.unpack_from("<H", body, i)[0]
         i += 2
-        if cp in _INLINE_CONTROL_CODES:
-            if cp == 0x0D:
-                chars.append("\n")
-            elif cp == 0x09:
-                chars.append("\t")
-            # extended control 은 14 bytes 더 따라옴
-            if cp in {0x01, 0x02, 0x03, 0x04, 0x0B, 0x10, 0x11, 0x12,
-                      0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A}:
-                i += 14
+        if cp == 0x0D:                 # 문단 구분 (char control, 데이터 없음)
+            chars.append("\n")
             continue
-        if cp == 0x00:
+        if cp == 0x09:                 # 탭 — inline control: \t + 14바이트 데이터
+            chars.append("\t")
+            i += 14
+            continue
+        if cp in _CTRL_WITH_DATA:      # inline/extended control: 14바이트 데이터 건너뜀
+            i += 14
+            continue
+        if cp in _CTRL_NO_DATA:        # 데이터 없는 char control (0x00 포함)
             continue
         try:
             chars.append(chr(cp))

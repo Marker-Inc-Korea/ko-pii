@@ -2,11 +2,11 @@
 
 13-digit format: NNNNNN-NNNNNNN. The 13th digit is the check digit.
 
-Algorithm (Luhn-like):
+Algorithm (법인등록번호 공식 규격):
   weights = (1, 2) alternating across digits 1..12.
-  For each digit*weight product p, add (p // 10) + (p % 10) — i.e., the sum
-  of its decimal digits.
+  각 digit*weight 곱을 *그대로* 합산 (Luhn식 자릿수 축약 아님).
   check = (10 - sum % 10) % 10
+  예: 삼성전자 130111-0006246 → check digit 6 (실제 13번째 자리와 일치).
 """
 from __future__ import annotations
 
@@ -18,8 +18,7 @@ def compute_check_digit(twelve_digits: str) -> int:
         raise ValueError("expected a 12-digit numeric string")
     total = 0
     for d, w in zip(twelve_digits, WEIGHTS):
-        product = int(d) * w
-        total += (product // 10) + (product % 10)
+        total += int(d) * w
     return (10 - total % 10) % 10
 
 

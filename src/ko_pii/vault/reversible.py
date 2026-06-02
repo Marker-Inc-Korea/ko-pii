@@ -122,9 +122,10 @@ class ReversibleVault:
         else:
             if offset >= 0:
                 entry.occurrences.append(offset)
-        if self._audit is not None and is_new:
+        if self._audit is not None:
             try:
-                self._audit.record_store(token, label)
+                # 모든 store 호출 기록 (재저장 포함). new=False 면 기존 토큰 재사용.
+                self._audit.record_store(token, label, extra={"new": is_new})
             except Exception:
                 pass  # audit failure never blocks data flow
         return token
@@ -138,9 +139,15 @@ class ReversibleVault:
         a reason ("export to BI dashboard", "user request id=42", etc.).
         """
         entry = self._entries.get(token)
-        if self._audit is not None and entry is not None:
+        if self._audit is not None:
             try:
-                self._audit.record_reveal(token, entry.label, context=context)
+                # 실패(존재하지 않는 토큰 probing)도 기록 — found=False 로 표시.
+                self._audit.record_reveal(
+                    token,
+                    entry.label if entry is not None else None,
+                    context=context,
+                    extra={"found": entry is not None},
+                )
             except Exception:
                 pass
         return entry.original if entry is not None else None

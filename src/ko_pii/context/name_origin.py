@@ -64,13 +64,14 @@ def classify_name_origin(name: str) -> str:
     from ko_pii.dictionaries.surnames import surname_prefix_len
     sp = surname_prefix_len(name)
 
-    # ㄹ 두음 시작 — 한국 이름은 거의 ㄹ 으로 시작 안 함
-    if name[0] in _FOREIGN_INITIAL_SYLLABLES:
-        return "foreign"
-
-    # 한국 성씨 + 2~4자 = 한국 이름
+    # 한국 성씨 + 2~4자 = 한국 이름 (성씨 판정을 먼저 — 류현진·라미란·노무현 등
+    # ㄹ/ㄴ 두음 성씨가 아래 외래어-두음 규칙에 걸려 'foreign' 으로 오분류되던 문제 수정)
     if sp > 0 and 2 <= len(name) <= 4:
         return "korean"
+
+    # ㄹ/ㄴ 두음 시작 — 한국 이름은 거의 이렇게 시작 안 함 (성씨가 아닌 경우만)
+    if name[0] in _FOREIGN_INITIAL_SYLLABLES:
+        return "foreign"
 
     # 외래어 빈출 음절 다수 포함 (surname 없는 케이스만)
     if sp == 0:

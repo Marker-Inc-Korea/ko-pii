@@ -55,6 +55,26 @@ def _cell_value(c: ET.Element, sst: list[str]) -> str:
     return v.text if v is not None and v.text is not None else ""
 
 
+def _col_index(ref: str) -> int:
+    """셀 참조('C5')의 0-based 열 인덱스. 참조 없으면 -1.
+
+    빈 셀은 XML 에서 ``<c>`` 가 생략되므로, 좌표를 무시하고 순서대로 이으면
+    열이 왼쪽으로 밀려 정렬이 깨진다. r 속성으로 정확한 열에 배치한다.
+    """
+    letters = ""
+    for ch in ref:
+        if ch.isalpha():
+            letters += ch
+        elif letters:
+            break
+    if not letters:
+        return -1
+    idx = 0
+    for ch in letters.upper():
+        idx = idx * 26 + (ord(ch) - 64)
+    return idx - 1
+
+
 def read_text(path: str) -> str:
     """탭/줄바꿈 구분된 텍스트로 모든 시트 + 셀 반환."""
     parts: list[str] = []
@@ -70,9 +90,15 @@ def read_text(path: str) -> str:
             except ET.ParseError:
                 continue
             for row in root.iter("{http://schemas.openxmlformats.org/spreadsheetml/2006/main}row"):
-                row_vals = []
+                cells: dict[int, str] = {}
+                seq = -1
                 for c in row.findall("main:c", NS):
-                    row_vals.append(_cell_value(c, sst))
+                    ci = _col_index(c.attrib.get("r", ""))
+                    if ci < 0:
+                        ci = seq + 1
+                    seq = max(seq, ci)
+                    cells[ci] = _cell_value(c, sst)
+                row_vals = [cells.get(i, "") for i in range(seq + 1)]
                 parts.append("\t".join(row_vals))
                 parts.append("\n")
             parts.append("\n")  # sheet separator

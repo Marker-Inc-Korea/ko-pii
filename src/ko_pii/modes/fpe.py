@@ -54,6 +54,19 @@ def _alpha_from_hash(fp: str, n: int) -> str:
     return "".join(out)
 
 
+def _hangul_from_hash(fp: str, n: int) -> str:
+    """Convert hex fingerprint into ``n`` Hangul syllables (U+AC00..U+D7A3)."""
+    val = int(fp, 16)
+    count = 0xD7A3 - 0xAC00 + 1  # 11172
+    out = []
+    for _ in range(n):
+        out.append(chr(0xAC00 + (val % count)))
+        val //= count
+        if val == 0:
+            val = int(fp, 16)
+    return "".join(out)
+
+
 def _fpe_rrn(original: str, fp: str) -> str:
     """RRN: 13자리, 6-7 사이 하이픈, 7번째 자리(gender) 유지."""
     digits = re.sub(r"\D", "", original)
@@ -154,15 +167,18 @@ def _fpe_default(original: str, fp: str) -> str:
     chars = []
     digit_pool = _digits_from_hash(fp, len(original))
     alpha_pool = _alpha_from_hash(fp, len(original))
-    di = ai = 0
+    hangul_pool = _hangul_from_hash(fp, len(original))
+    di = ai = hi = 0
     for ch in original:
         if ch.isdigit():
             chars.append(digit_pool[di]); di += 1
-        elif ch.isalpha():
+        elif "가" <= ch <= "힣":  # 한글 음절 → 한글로 치환 (형식 유지; isalpha 가 한글도 True 라 먼저 처리)
+            chars.append(hangul_pool[hi]); hi += 1
+        elif ch.isascii() and ch.isalpha():
             chars.append(alpha_pool[ai] if ch.isupper() else alpha_pool[ai].lower())
             ai += 1
         else:
-            chars.append(ch)  # 구분자·한글은 그대로
+            chars.append(ch)  # 구분자 등은 그대로
     return "".join(chars)
 
 

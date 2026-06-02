@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import csv
+import io
 
 from ko_pii.io_.plain import read_text as _plain_read
 
@@ -22,5 +23,7 @@ def read_records(path: str) -> list[dict[str, str]]:
     except csv.Error:
         # Fallback to comma or tab heuristic
         dialect = csv.excel_tab if "\t" in raw[:1024] else csv.excel
-    reader = csv.DictReader(raw.splitlines(), dialect=dialect)
+    # io.StringIO 로 넘겨야 csv 파서가 따옴표 안의 줄바꿈(멀티라인 셀)을 보존한다.
+    # raw.splitlines() 는 따옴표 내부 줄바꿈에서 끊어 셀을 깨뜨림.
+    reader = csv.DictReader(io.StringIO(raw), dialect=dialect)
     return [dict(row) for row in reader if any(row.values())]

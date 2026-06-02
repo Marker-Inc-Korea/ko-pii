@@ -199,7 +199,10 @@ def _matched_overlap(pred: set[str], gold: set[str]) -> tuple[set[str], set[str]
     mg: set[str] = set()
     for pi in pred:
         for gi in gold:
-            if pi in gi or gi in pi:
+            # 정확 일치, 또는 한쪽이 다른 쪽을 포함하되 *짧은 쪽이 2자 이상* 일 때만 TP.
+            # (1자 성씨 예측이 풀네임 gold 의 부분문자열로 TP 처리되어 recall 을
+            #  부풀리던 문제 방지.)
+            if pi == gi or ((pi in gi or gi in pi) and min(len(pi), len(gi)) >= 2):
                 mp.add(pi)
                 mg.add(gi)
     return mp, mg

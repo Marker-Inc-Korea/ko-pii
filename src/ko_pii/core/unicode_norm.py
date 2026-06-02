@@ -31,6 +31,15 @@ _INVISIBLE = re.compile(
 )
 
 
+def _is_conjoining_jamo(ch: str) -> bool:
+    """NFD \uBD84\uD574\uD615 \uD55C\uAE00 \uC790\uBAA8(\uCD08\uC131/\uC911\uC131/\uC885\uC131) \uC5EC\uBD80 \u2014 \uD569\uC131 \uD074\uB7EC\uC2A4\uD130\uC5D0 \uD3EC\uD568."""
+    return (
+        "\u1100" <= ch <= "\u11FF"      # Hangul Jamo
+        or "\uA960" <= ch <= "\uA97F"   # Jamo Extended-A
+        or "\uD7B0" <= ch <= "\uD7FF"   # Jamo Extended-B
+    )
+
+
 def normalize_unicode(text: str) -> tuple[str, list[int]]:
     """NFKC 폴딩 + 보이지 않는 문자 제거.
 
@@ -44,12 +53,24 @@ def normalize_unicode(text: str) -> tuple[str, list[int]]:
 
     out: list[str] = []
     omap: list[int] = []
-    for i, ch in enumerate(text):
+    n = len(text)
+    i = 0
+    while i < n:
+        ch = text[i]
         if _INVISIBLE.match(ch):
+            i += 1
             continue
-        for fc in unicodedata.normalize("NFKC", ch):
+        # 기본 문자 + 뒤따르는 결합표시/한글 자모를 한 클러스터로 묶어 NFKC.
+        # 글자별 NFKC 는 NFD 분해형(예: 한글 "홍"=홍, 라틴 "é"=e+´)을 합치지
+        # 못해 우회를 허용함 → 클러스터 단위 합성으로 차단. 합성 결과는 모두
+        # 클러스터 시작 위치(i)로 매핑한다.
+        j = i + 1
+        while j < n and (unicodedata.combining(text[j]) or _is_conjoining_jamo(text[j])):
+            j += 1
+        for fc in unicodedata.normalize("NFKC", text[i:j]):
             out.append(fc)
             omap.append(i)
+        i = j
     return "".join(out), omap
 
 
@@ -67,8 +88,12 @@ def remap_to_source(
     out: list[DetectionResult] = []
     for det in detections:
         start = offset_map[det.start] if det.start < n else det.start
-        if det.end > 0 and det.end - 1 < n:
-            end = offset_map[det.end - 1] + 1
+        # 검출 끝 = 다음 정규화 글자의 원본 시작 위치(= 마지막 글자 클러스터의 원본 끝).
+        # 합성(다대일)·제거(invisible)에도 정확하며, 0길이 검출의 start>end 역전도 방지.
+        if det.end < n:
+            end = offset_map[det.end]
+        elif det.end == n:
+            end = len(source)
         else:
             end = det.end
         out.append(replace(det, start=start, end=end, text=source[start:end]))

@@ -34,8 +34,9 @@ def _extract_text_from_section(xml_bytes: bytes) -> list[str]:
         local = elem.tag.split("}", 1)[-1]
         if local == "t" and elem.text:
             parts.append(elem.text)
-        # 줄바꿈 표시 — <hp:lineBreak/> 또는 <hp:p> 종료
-        if local in {"lineBreak", "linesegarray"}:
+        # 문단 경계 — <hp:p> 마다 줄바꿈 삽입(문단 융합 방지). lineBreak/linesegarray 도 보존.
+        # ("p" 누락으로 linesegarray 없는 문단이 다음 문단과 분리자 없이 붙던 문제 수정.)
+        if local in {"p", "lineBreak", "linesegarray"}:
             parts.append("\n")
     return parts
 

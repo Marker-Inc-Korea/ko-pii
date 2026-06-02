@@ -21,6 +21,9 @@ from datetime import date
 from typing import Iterator
 
 from ko_pii.checksum.rrn_checksum import is_valid_checksum
+from ko_pii.checksum.corp_reg_checksum import (
+    is_valid_checksum as _is_valid_corp_checksum,
+)
 from ko_pii.core.types import DetectionResult, RiskLevel
 
 LABEL = "RRN"
@@ -77,6 +80,13 @@ def _emit(m: re.Match, offset: int = 0) -> DetectionResult | None:
 
     digits_only = front + back
     checksum_ok = is_valid_checksum(digits_only)
+
+    # RRN 체크섬 실패 + 성별자리(7번째)=0 + 법인 체크섬 통과 → 법인등록번호로 판단해
+    # RRN 미방출. (설계 D-003: 130111-0006246·191211-0006639 류 CORP_REG.)
+    # 성별자리 0 은 법인번호 종류코드의 전형값이자 1800년대 RRN(실질 무의미)이라,
+    # 실사용 RRN(성별 1~8)은 법인 체크섬을 우연히 통과해도 그대로 RRN 으로 보호.
+    if not checksum_ok and back[0] == "0" and _is_valid_corp_checksum(digits_only):
+        return None
 
     evidence = ["pattern:rrn", f"date_valid:{birth.isoformat()}"]
     if checksum_ok:

@@ -1,3 +1,6 @@
+import unicodedata
+
+from ko_pii import Anonymizer, ProcessingMode
 from ko_pii.detect import detect_all
 
 
@@ -77,3 +80,64 @@ class TestUnicodeEvasion:
         # 명시적으로 끄면 전각 우회가 통과(검출 안 됨) — 플래그 동작 확인
         text = "연락처 ０１０-１２３４-５６７８"
         assert not any(d.label == "PHONE" for d in detect_all(text, normalize=False))
+
+
+class TestOverlapLeaks:
+    """겹침 해소가 낮은 우선순위 span 으로 고신뢰 PII 를 삼켜 누출하던 회귀 방지."""
+
+    def test_phone_after_jibun_address_not_swallowed(self):
+        # 지번주소 직후 전화번호 — 주소 regex 가 전화 앞자리를 삼키면 안 됨
+        t = "주소: 서울특별시 강남구 역삼동 010-9876-5432"
+        phone = [d for d in detect_all(t) if d.label == "PHONE"]
+        assert phone and phone[0].text == "010-9876-5432"
+
+    def test_balanced_mode_masks_phone_after_address(self):
+        # BALANCED(기본)에서 전화번호가 평문으로 새지 않아야 함
+        t = "주소: 서울특별시 강남구 역삼동 010-9876-5432"
+        out = Anonymizer(mode=ProcessingMode.BALANCED).process(t).text
+        assert "010-9876-5432" not in out
+        assert "<PHONE" in out
+
+    def test_url_embedded_rrn_and_email_detected(self):
+        # URL(INFO) 이 내부 RRN/EMAIL 을 삼켜 마스킹 누락되면 안 됨
+        t = "참고 http://x.com/u?ssn=900101-1234567&m=a@b.com 끝"
+        labels = {d.label for d in detect_all(t)}
+        assert "RRN" in labels and "EMAIL" in labels
+
+    def test_jibun_with_real_lot_number_keeps_both(self):
+        # 진짜 번지 + 전화 — 주소와 전화 모두 보존
+        t = "서울특별시 강남구 역삼동 123-45 010-9876-5432"
+        labels = {d.label for d in detect_all(t)}
+        assert "PHONE" in labels and "ADDRESS" in labels
+
+
+class TestNfdEvasion:
+    """NFD(분해형) 한글로 검출을 우회하던 문제 회귀 방지."""
+
+    def test_nfd_name_and_rrn_detected(self):
+        nfc = "홍길동 900101-1234567"
+        nfd = unicodedata.normalize("NFD", nfc)
+        assert nfd != nfc  # 실제로 분해됐는지 확인
+        labels = {d.label for d in detect_all(nfd)}
+        assert "PERSON" in labels and "RRN" in labels
+
+    def test_nfd_offset_invariant(self):
+        nfd = unicodedata.normalize("NFD", "홍길동 900101-1234567")
+        for d in detect_all(nfd):
+            assert nfd[d.start:d.end] == d.text
+
+
+class TestCorpRegPipeline:
+    """detect_all 파이프라인 수준에서 법인번호가 RRN 으로 오라벨되지 않아야 함 (D-003)."""
+
+    def test_corp_number_labeled_corp_reg(self):
+        # 삼성전자 130111-0006246 — 법인 체크섬 통과, RRN 아님
+        ds = detect_all("법인등록번호 130111-0006246")
+        labels = {d.label for d in ds}
+        assert "CORP_REG" in labels and "RRN" not in labels
+
+    def test_real_rrn_not_stolen_by_corp(self):
+        # 실제 RRN 은 법인 체크섬을 우연히 통과해도 RRN 으로 보호
+        ds = detect_all("880101-1234568")
+        labels = {d.label for d in ds}
+        assert "RRN" in labels and "CORP_REG" not in labels

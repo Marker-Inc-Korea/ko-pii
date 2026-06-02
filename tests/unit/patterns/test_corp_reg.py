@@ -8,29 +8,29 @@ def _detect_list(text):
 
 class TestCorpRegPositive:
     def test_kepco_corp_number(self):
-        # 191211-0006637 — date-like prefix (19-12-11) but RRN checksum fails
+        # 191211-0006639 — date-like prefix (19-12-11) but RRN checksum fails
         # so disambiguation correctly emits as CORP_REG.
-        results = _detect_list("법인등록번호 191211-0006637")
+        results = _detect_list("법인등록번호 191211-0006639")
         assert len(results) == 1
         r = results[0]
         assert r.label == "CORP_REG"
-        assert r.text == "191211-0006637"
+        assert r.text == "191211-0006639"
         assert r.risk_level == RiskLevel.MEDIUM
         assert r.confidence == 1.0
 
     def test_invalid_date_prefix(self):
         # 99-00-99 — month 0 invalid; clearly not a date.
-        results = _detect_list("법인 990099-0000004")
+        results = _detect_list("법인 990099-0000006")
         assert len(results) == 1
         assert results[0].label == "CORP_REG"
 
     def test_without_hyphen(self):
-        results = _detect_list("1912110006637")
+        results = _detect_list("1912110006639")
         assert len(results) == 1
         assert results[0].label == "CORP_REG"
 
     def test_legal_basis_attached(self):
-        results = _detect_list("191211-0006637")
+        results = _detect_list("191211-0006639")
         assert "상법" in results[0].legal_basis or "법인" in results[0].legal_basis
         assert results[0].extra["category"] == "법인식별정보"
 
