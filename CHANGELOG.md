@@ -5,6 +5,11 @@
 
 ## [Unreleased]
 
+## [1.11.3] - 2026-06-02
+
+### Fixed
+- **`[all]` extra 에 `pdfplumber` 누락 수정** — `pip install ko-pii[all]` 시 `pdfplumber` 가 설치되지 않아 PDF 파싱이 degraded 되던 패키징 결함. `[file]` 과 일치하도록 `[all]` 에 추가.
+
 ### Changed (eval 내부 — 채점 정합)
 - **KDPII 채점 단일 매처 통일** — 매칭 알고리즘이 `kdpii.py`(substring-set)와 `model_comparison.run_kdpii_three_way`(중복 인라인)에 따로 존재해 숫자가 갈리던 결함 수정. canonical `kdpii.match_forms_overlap`(public)로 일원화.
 - **person_min_length 기본값 통일** — `evaluate_kdpii`(이전 1) / CLI / `run_kdpii_three_way` 모두 **3**(풀네임만; 한국어 PII 정의 부합)으로 일치.
@@ -180,7 +185,8 @@ Phase 9 — 실데이터 평가 + 룰 정제.
 
 전체 Phase 1~11 개발 히스토리는 git log 및 `docs/` 참조.
 
-[Unreleased]: https://github.com/modak000/ko-pii/compare/v1.11.2...HEAD
+[Unreleased]: https://github.com/modak000/ko-pii/compare/v1.11.3...HEAD
+[1.11.3]: https://github.com/modak000/ko-pii/compare/v1.11.2...v1.11.3
 [1.11.2]: https://github.com/modak000/ko-pii/compare/v1.11.1...v1.11.2
 [1.11.1]: https://github.com/modak000/ko-pii/compare/v1.11.0...v1.11.1
 [1.11.0]: https://github.com/modak000/ko-pii/compare/v1.10.0...v1.11.0
