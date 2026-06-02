@@ -112,3 +112,50 @@ class TestFingerprint:
         a = v.fingerprint("RRN", "880101-1234568")
         b = v.fingerprint("CORP_REG", "880101-1234568")
         assert a != b
+
+
+class TestFingerprintHardening:
+    """지문 KDF 강화 (비밀 키 + PBKDF2) — 저엔트로피 PII 무차별 대입 방어."""
+
+    def test_fingerprint_is_secret_key_dependent(self):
+        a = ReversibleVault(salt="s", secret_key="k1", fingerprint_iterations=1000)
+        b = ReversibleVault(salt="s", secret_key="k2", fingerprint_iterations=1000)
+        assert a.fingerprint("RRN", "900101-1234567") != b.fingerprint("RRN", "900101-1234567")
+
+    def test_secret_key_not_persisted(self):
+        v = ReversibleVault(salt="s", secret_key="topsecret", fingerprint_iterations=1000)
+        d = v.to_dict()
+        assert "secret_key" not in d
+        assert "topsecret" not in json.dumps(d)
+
+    def test_saltonly_attacker_cannot_reproduce(self):
+        # vault JSON(salt·scheme·iters)만 가진 공격자는 비밀 키 없이 지문 재현 불가
+        v = ReversibleVault(salt="s", secret_key="k", fingerprint_iterations=1000)
+        target = v.fingerprint("RRN", "900101-1234567")
+        pub = v.to_dict()
+        attacker = ReversibleVault(
+            salt=pub["salt"], fingerprint_iterations=pub["fingerprint_iterations"]
+        )
+        attacker._fp_scheme = pub["fingerprint_scheme"]
+        assert attacker.fingerprint("RRN", "900101-1234567") != target
+
+    def test_legacy_vault_keeps_sha256_scheme(self):
+        import hashlib
+        legacy = {"schema_version": 1, "created_at": "t", "salt": "s", "entries": {}}
+        v = ReversibleVault.from_dict(legacy)
+        expected = hashlib.sha256(b"s:RRN:900101-1234567").hexdigest()
+        assert v.fingerprint("RRN", "900101-1234567") == expected
+
+    def test_kdf_fingerprint_deterministic_after_reload(self):
+        v = ReversibleVault(salt="s", secret_key="k", fingerprint_iterations=1000)
+        before = v.fingerprint("RRN", "900101-1234567")
+        v2 = ReversibleVault.from_dict(v.to_dict())
+        v2._secret_key = "k"  # 운영자가 같은 키를 env/param 으로 재공급
+        assert v2.fingerprint("RRN", "900101-1234567") == before
+
+    def test_env_secret_key_used(self, monkeypatch):
+        monkeypatch.setenv("KPII_FINGERPRINT_KEY", "envkey")
+        with_env = ReversibleVault(salt="s", fingerprint_iterations=1000)
+        monkeypatch.delenv("KPII_FINGERPRINT_KEY")
+        without = ReversibleVault(salt="s", fingerprint_iterations=1000)
+        assert with_env.fingerprint("RRN", "900101-1234567") != without.fingerprint("RRN", "900101-1234567")

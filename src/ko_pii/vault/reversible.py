@@ -41,6 +41,12 @@ from typing import Optional
 
 SCHEMA_VERSION = 1
 
+# 지문(fingerprint) KDF 반복 횟수 기본값 — 저엔트로피 PII 무차별 대입을 늦춘다.
+# (실제 보안의 핵심은 secret_key: 키가 있으면 키 없이는 대입 자체가 불가능.)
+_DEFAULT_FP_ITERATIONS = 100_000
+_FP_SCHEME_LEGACY = "sha256-v1"        # 강화 전 vault (불려온 경우 호환 유지)
+_FP_SCHEME_KDF = "pbkdf2-sha256-v2"    # 신규 vault 기본
+
 
 @dataclass
 class VaultEntry:
@@ -67,12 +73,24 @@ class ReversibleVault:
     if the same ``salt`` is reused.
     """
 
-    def __init__(self, salt: Optional[str] = None, audit_log=None):
+    def __init__(
+        self,
+        salt: Optional[str] = None,
+        audit_log=None,
+        secret_key: Optional[str] = None,
+        fingerprint_iterations: Optional[int] = None,
+    ):
         """``audit_log``: optional :class:`AuditLog` for compliance tracking.
 
         When provided, every ``store()`` and ``reveal()`` call is appended to
         the log — directly answering 개인정보보호법 제29조 안전조치의무 의
         처리 이력 요건.
+
+        ``secret_key``: hashed/FPE 지문용 비밀 키(pepper). 미지정 시 env
+        ``KPII_FINGERPRINT_KEY`` 사용. **vault JSON 에 저장되지 않는다.** salt 는
+        공개돼도 무방하지만, salt 만으론 저엔트로피 PII(주민·전화 등)가 무차별
+        대입으로 복원될 수 있어 비밀 키가 권장된다. 실행 간 hashed/FPE 출력
+        일관성을 위해선 같은 키(+같은 vault)를 재사용해야 한다.
         """
         self.salt: str = salt if salt is not None else _random_salt()
         self.created_at: str = datetime.now(timezone.utc).isoformat()
@@ -80,6 +98,13 @@ class ReversibleVault:
         self._reverse: dict[tuple[str, str], str] = {}  # (label, original) -> token
         self._counters: dict[str, int] = {}             # label -> next id
         self._audit = audit_log
+        self._secret_key: str = (
+            secret_key if secret_key is not None
+            else os.environ.get("KPII_FINGERPRINT_KEY", "")
+        )
+        self._fp_iterations: int = fingerprint_iterations or _DEFAULT_FP_ITERATIONS
+        self._fp_scheme: str = _FP_SCHEME_KDF          # 신규 vault = 강화 KDF
+        self._fp_cache: dict[tuple[str, str], str] = {}  # (label,original)->fp 메모이즈
 
     # ------------------------------------------------------------------ token
 
@@ -178,6 +203,8 @@ class ReversibleVault:
             "schema_version": SCHEMA_VERSION,
             "created_at": self.created_at,
             "salt": self.salt,
+            "fingerprint_scheme": self._fp_scheme,        # secret_key 는 저장 X
+            "fingerprint_iterations": self._fp_iterations,
             "entries": {
                 token: entry.to_dict() for token, entry in self._entries.items()
             },
@@ -198,6 +225,10 @@ class ReversibleVault:
             )
         v = cls(salt=payload["salt"])
         v.created_at = payload.get("created_at", v.created_at)
+        # 강화 전(legacy) vault 는 fingerprint_scheme 필드가 없음 → SHA-256 v1 유지
+        # (불려온 vault 의 hashed/FPE 출력 일관성 보존). secret_key 는 env 에서.
+        v._fp_scheme = payload.get("fingerprint_scheme", _FP_SCHEME_LEGACY)
+        v._fp_iterations = int(payload.get("fingerprint_iterations", v._fp_iterations))
         for token, data in payload.get("entries", {}).items():
             entry = VaultEntry(
                 token=token,
@@ -233,18 +264,34 @@ class ReversibleVault:
     # ----------------------------------------------------- hash-based id
 
     def fingerprint(self, label: str, original: str) -> str:
-        """A salted SHA-256 fingerprint for ``(label, original)``.
+        """``(label, original)`` 의 안정적·비가역 지문 (hashed/FPE 모드용).
 
-        Used by hashed-mode pseudonymization when a non-reversible but
-        consistent identifier is desired.
+        강화 scheme(``pbkdf2-sha256-v2``): 비밀 키(pepper)를 섞은 salt 위에
+        PBKDF2-HMAC-SHA256 을 ``iterations`` 회 적용 — 저엔트로피 PII 의 무차별
+        대입을 막는다. 비밀 키가 있으면 키 없이는 대입 자체가 불가능하고, 키가
+        없어도 stretching 으로 비용을 높인다. (legacy vault 는 기존 SHA-256 유지.)
+        같은 값은 메모이즈되어 KDF 비용이 *고유 값당 1회* 로 제한된다.
         """
-        h = hashlib.sha256()
-        h.update(self.salt.encode("utf-8"))
-        h.update(b":")
-        h.update(label.encode("utf-8"))
-        h.update(b":")
-        h.update(original.encode("utf-8"))
-        return h.hexdigest()
+        cache_key = (label, original)
+        cached = self._fp_cache.get(cache_key)
+        if cached is not None:
+            return cached
+        if self._fp_scheme == _FP_SCHEME_LEGACY:
+            h = hashlib.sha256()
+            h.update(self.salt.encode("utf-8")); h.update(b":")
+            h.update(label.encode("utf-8")); h.update(b":")
+            h.update(original.encode("utf-8"))
+            fp = h.hexdigest()
+        else:
+            material = f"{label}:{original}".encode("utf-8")
+            # 비밀 키를 salt 에 결합 — 키가 vault JSON 에 없으므로, 키 없이는
+            # salt 를 알아도 (label,original) 을 복원할 수 없다.
+            kdf_salt = f"{self.salt}:{self._secret_key}".encode("utf-8")
+            fp = hashlib.pbkdf2_hmac(
+                "sha256", material, kdf_salt, self._fp_iterations
+            ).hex()
+        self._fp_cache[cache_key] = fp
+        return fp
 
 
 def _random_salt(n_bytes: int = 16) -> str:

@@ -5,6 +5,14 @@
 
 ## [Unreleased]
 
+## [1.11.2] - 2026-06-02
+
+### Security
+- **지문(fingerprint) KDF 강화** — `hashed`/FPE 모드의 단일 SHA-256(salt 평문 저장)은 저엔트로피 PII(주민·전화)를 vault JSON 만으로 무차별 대입해 복원할 수 있었음. 개선:
+  - **비밀 키(pepper)** 지원 — `ReversibleVault(secret_key=...)` 또는 env `KPII_FINGERPRINT_KEY`. **vault JSON 에 저장되지 않으므로**, 키 없이는 salt 를 알아도 원본 복원 불가.
+  - **PBKDF2-HMAC-SHA256 stretching**(기본 100,000회) — 키가 없어도 대입 비용을 크게 높임. 고유 값당 1회만 계산(메모이즈)해 처리량 유지.
+  - scheme 버전화(`pbkdf2-sha256-v2`) — 기존 vault(필드 없음)는 자동으로 legacy SHA-256 유지해 hashed/FPE 출력 일관성 보존.
+
 ## [1.11.1] - 2026-06-02
 
 코드 점검 LOW 항목 중 실 영향 있는 것 + 무료 정확성/정리 반영.
@@ -167,7 +175,8 @@ Phase 9 — 실데이터 평가 + 룰 정제.
 
 전체 Phase 1~11 개발 히스토리는 git log 및 `docs/` 참조.
 
-[Unreleased]: https://github.com/modak000/ko-pii/compare/v1.11.1...HEAD
+[Unreleased]: https://github.com/modak000/ko-pii/compare/v1.11.2...HEAD
+[1.11.2]: https://github.com/modak000/ko-pii/compare/v1.11.1...v1.11.2
 [1.11.1]: https://github.com/modak000/ko-pii/compare/v1.11.0...v1.11.1
 [1.11.0]: https://github.com/modak000/ko-pii/compare/v1.10.0...v1.11.0
 [1.10.0]: https://github.com/modak000/ko-pii/compare/v1.9.0...v1.10.0
