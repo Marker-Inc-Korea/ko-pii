@@ -93,8 +93,10 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     # 암호화 vault
     p.add_argument(
-        "--vault-password",
-        help="Password for encrypted vault (use env var $KPII_VAULT_PASSWORD).",
+        "--vault-password", nargs="?", const="__PROMPT__", default=None,
+        help="Encrypted vault password. 값 없이 주면 프롬프트로 안전하게 입력. "
+             "값을 직접 주면 프로세스 목록/히스토리에 노출되니 비권장 — "
+             "env var $KPII_VAULT_PASSWORD 권장.",
     )
     p.add_argument(
         "--audit-log",
@@ -150,8 +152,16 @@ def _split_csv(value: Optional[str]) -> Optional[list[str]]:
 
 
 def _resolve_vault_password(args) -> Optional[str]:
-    if args.vault_password:
-        return args.vault_password
+    pw = args.vault_password
+    if pw == "__PROMPT__":          # 값 없는 --vault-password → 안전한 프롬프트 입력
+        import getpass
+        return getpass.getpass("Vault password: ")
+    if pw:
+        import sys
+        print("경고: --vault-password 값은 프로세스 목록/셸 히스토리에 노출됩니다. "
+              "env var $KPII_VAULT_PASSWORD 또는 값 없는 --vault-password(프롬프트) 사용 권장.",
+              file=sys.stderr)
+        return pw
     return os.environ.get("KPII_VAULT_PASSWORD")
 
 

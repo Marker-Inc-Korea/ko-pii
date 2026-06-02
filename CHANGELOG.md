@@ -5,6 +5,24 @@
 
 ## [Unreleased]
 
+## [1.11.1] - 2026-06-02
+
+코드 점검 LOW 항목 중 실 영향 있는 것 + 무료 정확성/정리 반영.
+
+### Fixed
+- 가명화 모드(`modes/_apply`)의 겹침 해소가 `detect_all` 과 다른 키(시작위치 우선)를 써, 모드를 직접 쓸 때 낮은 우선순위 span 이 고신뢰 PII 를 가릴 수 있던 문제 → 동일 우선순위로 통일.
+- `redact` 모드가 NATIONALITY 를 `[국적]` 대신 영문 라벨 `[NATIONALITY]` 로 치환하던 문제.
+- FPE 전화 핸들러의 02 지역번호 dead branch — 02 번호의 가입자 1자리가 마스킹되지 않던 문제.
+- PDF 칸 정규화(`_SPACED_FIELD`)가 띄어쓴 영문 단어("I a m f i n e"→"Iamfine")까지 붙이던 문제 → 숫자 칸만 정규화.
+- classifier CLI 가 `[classifier]` 미설치 시 raw ImportError 대신 친절한 설치 안내 출력.
+
+### Security
+- `--vault-password` 에 값 없이 주면 프롬프트로 안전하게 입력(getpass), 값 직접 지정 시 노출 경고.
+
+### Changed
+- 죽은 코드 정리 — name_origin 의 매칭 불가 다글자 음절(뷔트·비스·위치·샹송), name_syllables 중복 엔트리(건·달), context_rules 미사용 import 제거.
+- 문서 정정 — README 사업자등록번호 위험도 LOW→HIGH(코드와 일치), surnames 개수(~286→187), `io_` docstring(PDF/HWP `[file]` 지원 명시), `detect_all` docstring(겹침 우선순위 + 없는 CHANGELOG 참조 제거), README 테스트 수 표기.
+
 ## [1.11.0] - 2026-06-02
 
 코드 전수 점검(8개 차원 다중 에이전트 리뷰 + 적대적 검증)에서 확인된 HIGH 5 + MEDIUM 11 수정. 각 수정은 전체 테스트 + 실데이터 재현으로 검증.
@@ -149,7 +167,8 @@ Phase 9 — 실데이터 평가 + 룰 정제.
 
 전체 Phase 1~11 개발 히스토리는 git log 및 `docs/` 참조.
 
-[Unreleased]: https://github.com/modak000/ko-pii/compare/v1.11.0...HEAD
+[Unreleased]: https://github.com/modak000/ko-pii/compare/v1.11.1...HEAD
+[1.11.1]: https://github.com/modak000/ko-pii/compare/v1.11.0...v1.11.1
 [1.11.0]: https://github.com/modak000/ko-pii/compare/v1.10.0...v1.11.0
 [1.10.0]: https://github.com/modak000/ko-pii/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/modak000/ko-pii/compare/v1.8.0...v1.9.0

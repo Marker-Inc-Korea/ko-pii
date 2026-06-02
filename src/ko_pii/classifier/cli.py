@@ -103,6 +103,13 @@ def _process_single(text: str, args) -> dict:
 def main():
     args = _build_parser().parse_args()
 
+    try:  # [classifier] extra 미설치 시 친절한 안내 (mcp/presidio 진입점과 동일 패턴)
+        import ko_pii.classifier.predict  # noqa: F401
+    except ImportError:
+        print("ko-pii classifier 는 추가 의존성이 필요합니다 (torch·transformers·scikit-learn).\n"
+              "  pip install ko-pii[classifier]", file=sys.stderr)
+        sys.exit(1)
+
     if args.input_jsonl:
         # 배치 모드
         from ko_pii.classifier import PIIClassifier

@@ -7,7 +7,8 @@
 - ``.xlsx``        — Microsoft Excel OOXML (텍스트 셀)
 - ``.csv``, ``.tsv`` — 표 형식 (헤더 + 행 단위)
 
-PDF 와 HWP (5.x OLE) 는 외부 의존성이 필요해 별도 모듈로 제공 가능 (현재 미포함).
+PDF (pdfplumber/pypdf) 와 HWP 5.x (olefile) 도 ``pip install ko-pii[file]`` 설치 시
+dispatcher 가 자동 라우팅해 지원한다.
 
 사용:
     from ko_pii.io_ import read_text

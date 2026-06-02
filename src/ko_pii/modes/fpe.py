@@ -96,7 +96,7 @@ def _fpe_phone(original: str, fp: str) -> str:
     # 통신사·지역 prefix 보존 (식별과 무관한 *통계* 정보)
     if digits.startswith(("010", "011", "016", "017", "018", "019",
                           "070", "02")):
-        prefix_len = 3 if digits[:3] != "02" else 2
+        prefix_len = 2 if digits.startswith("02") else 3
     elif digits.startswith(("031", "032", "033", "041", "042", "043", "044",
                             "051", "052", "053", "054", "055",
                             "061", "062", "063", "064")):

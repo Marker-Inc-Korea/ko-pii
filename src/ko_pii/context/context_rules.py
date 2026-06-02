@@ -21,8 +21,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from ko_pii.dictionaries.common_words import is_common_word
-from ko_pii.dictionaries.field_labels import is_name_field_label
-from ko_pii.dictionaries.surnames import surname_prefix_len, is_surname
+from ko_pii.dictionaries.surnames import surname_prefix_len
 from ko_pii.dictionaries.titles import is_title, is_gov_title
 from ko_pii.dictionaries.agencies import is_agency
 

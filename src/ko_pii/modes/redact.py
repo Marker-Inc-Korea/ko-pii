@@ -30,6 +30,7 @@ _LABEL_TO_HANGUL: dict[str, str] = {
     "VEHICLE": "차량번호",
     "URL": "URL",
     "ADDRESS": "주소",
+    "NATIONALITY": "국적",
     "ACCOUNT": "계좌번호",
     "PERSON": "성명",
     "DOC_ID": "문서번호",

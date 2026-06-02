@@ -338,7 +338,7 @@ for r in detect("신청인 880101-1234568"):
 |---|---|---|
 | RRN (주민등록번호) | 13자리 + 날짜 + 한국 체크섬 | CRITICAL |
 | FRN (외국인등록번호) | gender 5-8 + 체크섬 | CRITICAL |
-| 사업자등록번호 | 국세청 가중합 체크섬 | LOW |
+| 사업자등록번호 | 국세청 가중합 체크섬 | HIGH |
 | 법인등록번호 | 법인 체크섬 (RRN 우선) | MEDIUM |
 | 운전면허번호 | 지방청 코드 11-28 화이트리스트 | HIGH |
 | 여권번호 | prefix (M/S/PP/PD 등) + 8자리 | CRITICAL |
@@ -575,7 +575,7 @@ if result.combined_risk.combined_risk >= RiskLevel.HIGH:
 git clone https://github.com/modak000/ko-pii
 cd ko-pii
 pip install -e ".[dev]"
-pytest    # 699 passed
+pytest    # 전체 테스트 통과
 ```
 
 상세 문서: [`docs/`](docs/) 디렉토리 참조.

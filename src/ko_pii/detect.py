@@ -80,9 +80,9 @@ def detect_all(
 ) -> list[DetectionResult]:
     """Run every detector and return a merged, conflict-resolved list.
 
-    Overlapping spans are resolved by (a) higher risk level, then (b) longer
-    span, then (c) earlier start. This matches the design decisions D-002 /
-    See CHANGELOG.md decision log (D-002 / D-003 / D-006 / D-008).
+    Overlapping spans are resolved by priority — higher risk level, then higher
+    confidence, then longer span, then earlier start — so a lower-priority span
+    never shadows a higher-confidence PII span (see ``_resolve_overlaps``).
 
     ``include`` / ``exclude`` filter on the resulting DetectionResult labels.
 
