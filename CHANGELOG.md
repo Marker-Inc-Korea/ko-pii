@@ -5,6 +5,44 @@
 
 ## [Unreleased]
 
+## [1.12.0] - 2026-06-04
+
+심층 적대적 누출 스윕(27 에이전트, 발견별 실행 재현 검증)에서 확인된 **PII 평문
+누출 10건 + 데이터 손실 + ReDoS** 수정. 각 수정은 전체 테스트 + repro 재현으로
+검증, 회귀 테스트 22개 추가. 핵심 발견: **정규화 계층("우회 차단" 기능)이 일부
+입력에서 오히려 누출을 *만들고* 있었다.**
+
+### Security (PII 평문 누출 차단)
+- **보이지 않는 문자가 인접 PII 를 융합** — 제로폭 공백(U+200B)·소프트하이픈·BOM
+  등 제거가 `RRN​전화` 처럼 붙은 두 PII 의 경계를 지워 양쪽 검출기 가드가 둘 다
+  거부 → 평문 누출. 정규화본 + 원본 **dual-pass 검출 합집합**으로 해소.
+- **U+2A74(⩴) NFKC→'::='** — PII 숫자열에 `::` 가 주입돼 검출을 쪼개고 가짜 IPv6
+  매치를 유발. 제거 대상에 추가.
+- **제어문자·결합표시가 PII 를 쪼갬** — C0 제어문자(탭·개행 제외)·DEL·C1·숫자
+  결합표시(U+0301 등)가 PII 숫자열 한가운데 끼면 미검출. `needs_normalization`
+  가드로 ASCII 제어문자도 정규화 경로를 타게 하고, 숫자 베이스 결합표시 제거.
+- **구분자 변형으로 유효 PII 미검출** — 점(.) 구분 주민등록번호, `+82` 국제표기
+  유선전화, 점/슬래시 구분 카드번호가 검출 안 돼 평문 통과. 패턴 확장(체크섬·Luhn
+  이 오탐 차단).
+- **셀 줄바꿈 래핑(`-\n`)으로 분리된 PII** — 표 셀 래핑·복붙 줄바꿈으로 쪼개진
+  RRN/전화/카드 미검출. 구분자 슬롯 `{0,2}` 확장 + 모든 IO 포맷에
+  `normalize_for_detection` 적용(이전엔 PDF 만).
+- **표 처리 누출** — `anonymize_records` 가 `records[0]` 키만으로 컬럼을 추론해
+  이질/희소 레코드의 PII 컬럼이 평문 통과 → 전체 키 합집합 추론. ragged CSV 의
+  초과 셀(csv restkey 리스트)도 자동 검출 스캔.
+
+### Fixed
+- **배치 출력 경로 충돌 데이터 손실** — 서로 다른 디렉토리의 동명 파일이 같은
+  `out/<stem>.txt` 로 충돌해 마지막 결과가 이전 결과를 덮어쓰던 문제. 충돌 시
+  입력 경로 해시로 disambiguate.
+- **ReDoS (주소 정규식)** — 도로명/지번 패턴의 중첩 `[가-힣]+` 가 긴 한글런에서
+  super-quadratic 백트래킹(8,000자 수초). 길이 제한으로 선형화(~23ms).
+
+### Known / Deferred
+- 설계 결정이 필요한 3건은 별도 보류: `BALANCED` 모드가 MEDIUM 위험(유선전화·
+  이메일)을 통과, `partial` 전략이 짧은 값을 과노출, `fpe` 형식보존이 일부 정보
+  (도메인·성별자리·prefix)를 유지.
+
 ## [1.11.3] - 2026-06-02
 
 ### Fixed
@@ -185,7 +223,8 @@ Phase 9 — 실데이터 평가 + 룰 정제.
 
 전체 Phase 1~11 개발 히스토리는 git log 및 `docs/` 참조.
 
-[Unreleased]: https://github.com/modak000/ko-pii/compare/v1.11.3...HEAD
+[Unreleased]: https://github.com/modak000/ko-pii/compare/v1.12.0...HEAD
+[1.12.0]: https://github.com/modak000/ko-pii/compare/v1.11.3...v1.12.0
 [1.11.3]: https://github.com/modak000/ko-pii/compare/v1.11.2...v1.11.3
 [1.11.2]: https://github.com/modak000/ko-pii/compare/v1.11.1...v1.11.2
 [1.11.1]: https://github.com/modak000/ko-pii/compare/v1.11.0...v1.11.1
