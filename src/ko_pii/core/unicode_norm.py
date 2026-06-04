@@ -27,8 +27,31 @@ if TYPE_CHECKING:
 # 방향 임베딩/오버라이드/아이솔레이트·word joiner(202A–202E, 2060–206F),
 # BOM/ZWNBSP(FEFF).
 _INVISIBLE = re.compile(
-    r"[\u00AD\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF]"
+    # U+2A74(\u2A74) \uCD94\uAC00: NFKC \uD655\uC7A5\uC774 '::=' \uC778 \uC720\uC77C \uBB38\uC790 \u2014 PII \uC22B\uC790\uC5F4\uC5D0 '::' \uC8FC\uC785\uC73C\uB85C
+    # RRN/\uC804\uD654\uB97C \uCABC\uAC1C \uBBF8\uAC80\uCD9C\uC2DC\uD0A4\uACE0 \uAC00\uC9DC IPv6 \uB97C \uC720\uBC1C. \uC81C\uAC70\uD558\uBA74 \uC22B\uC790\uC5F4\uC774 \uC7AC\uACB0\uD569\uB428.
+    # C0 \uC81C\uC5B4\uBB38\uC790(\uD0ED\t\u00B7\uC904\uBC14\uAFC8\n\u00B7CR\r \uC81C\uC678)\u00B7DEL\u00B7C1 \uCD94\uAC00: PII \uC22B\uC790\uC5F4 \uD55C\uAC00\uC6B4\uB370 \uB07C\uBA74
+    # \uAC80\uCD9C\uC744 \uCABC\uAC1C\uB294 \uC6B0\uD68C. XML(HWPX/XLSX) \uCD94\uCD9C \uD14D\uC2A4\uD2B8\uC5D0 \uC0B4\uC544\uB0A8\uB294 \uCF00\uC774\uC2A4 \uD3EC\uD568.
+    r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f"
+    r"\u00AD\u200B-\u200F\u202A-\u202E\u2060-\u206F\u2A74\uFEFF]"
 )
+
+# \uACB0\uD569\uD45C\uC2DC(nonspacing marks) \u2014 \uC22B\uC790 \uC0AC\uC774\uC5D0 \uB07C\uBA74 PII \uB97C \uCABC\uAC1C\uB294 \uC6B0\uD68C. \uD074\uB7EC\uC2A4\uD130 NFKC
+# \uB2E8\uACC4\uC5D0\uC11C \uBB38\uC790\uC5D4 \uBCF4\uC874(\u00E9)\u00B7\uC22B\uC790\uC5D4 \uC81C\uAC70. fast-path \uAC00 \uACB0\uD569\uD45C\uC2DC \uD14D\uC2A4\uD2B8(\uC774\uBBF8 NFKC \uB77C\uB3C4)\uB97C
+# \uAC74\uB108\uB6F0\uC9C0 \uC54A\uB3C4\uB85D \uBCC4\uB3C4 \uAC80\uC0AC\uD55C\uB2E4.
+_COMBINING = re.compile(
+    r"[\u0300-\u036F\u0483-\u0489\u0591-\u05BD\u0610-\u061A"
+    r"\u064B-\u065F\u0670\u06D6-\u06DC\u1AB0-\u1AFF\u1DC0-\u1DFF"
+    r"\u20D0-\u20FF\uFE20-\uFE2F]"
+)
+
+
+def needs_normalization(text: str) -> bool:
+    """\uC815\uADDC\uD654(\uC6B0\uD68C \uCC28\uB2E8)\uAC00 \uD544\uC694\uD55C\uAC00 \u2014 \uBE44ASCII\uC774\uAC70\uB098 \uC81C\uC5B4/\uBCF4\uC774\uC9C0 \uC54A\uB294 \uBB38\uC790 \uD3EC\uD568.
+
+    ``detect_all`` \uC758 \uC9C4\uC785 \uAC00\uB4DC\uC6A9. ASCII \uC81C\uC5B4\uBB38\uC790(DEL\u00B7C0)\uB3C4 PII \uB97C \uCABC\uAC1C\uB294 \uC6B0\uD68C\uB77C
+    ``text.isascii()`` \uB9CC\uC73C\uB860 \uBD80\uC871 \u2014 ``_INVISIBLE`` \uB85C \uC7A1\uB294\uB2E4. \uACB0\uD569\uD45C\uC2DC\uB294 \uBE44ASCII.
+    """
+    return (not text.isascii()) or bool(_INVISIBLE.search(text))
 
 
 def _is_conjoining_jamo(ch: str) -> bool:
@@ -47,8 +70,14 @@ def normalize_unicode(text: str) -> tuple[str, list[int]]:
     에 대응하는 원본 ``text`` 위치. 변화가 없으면 ``normalized == text`` (offset_map
     은 빈 리스트 — 호출측이 무시).
     """
-    # 빠른 경로: 이미 NFKC 이고 보이지 않는 문자도 없으면 그대로 (no-op).
-    if not _INVISIBLE.search(text) and unicodedata.is_normalized("NFKC", text):
+    # 빠른 경로: 이미 NFKC 이고 보이지 않는/결합 문자도 없으면 그대로 (no-op).
+    # 결합표시는 이미 NFKC 일 수 있어(1+◌́ 는 합성형 없음) 별도 검사 — 빠진 채
+    # 건너뛰면 숫자에 붙은 결합표시가 PII 를 쪼개 누출된다.
+    if (
+        not _INVISIBLE.search(text)
+        and not _COMBINING.search(text)
+        and unicodedata.is_normalized("NFKC", text)
+    ):
         return text, []
 
     out: list[str] = []
@@ -67,7 +96,12 @@ def normalize_unicode(text: str) -> tuple[str, list[int]]:
         j = i + 1
         while j < n and (unicodedata.combining(text[j]) or _is_conjoining_jamo(text[j])):
             j += 1
+        base_is_alpha = text[i].isalpha()
         for fc in unicodedata.normalize("NFKC", text[i:j]):
+            # 숫자/기호 베이스에 NFKC 로 합쳐지지 않고 남은 결합표시(U+0301 등)는
+            # PII 를 쪼개는 우회 → 제거. 문자(é=e+´ 등 정상 diacritic)는 보존.
+            if not base_is_alpha and unicodedata.combining(fc):
+                continue
             out.append(fc)
             omap.append(i)
         i = j

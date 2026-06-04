@@ -4,7 +4,11 @@ from __future__ import annotations
 from typing import Iterable, Iterator, Optional
 
 from ko_pii.core.types import DetectionResult
-from ko_pii.core.unicode_norm import normalize_unicode, remap_to_source
+from ko_pii.core.unicode_norm import (
+    needs_normalization,
+    normalize_unicode,
+    remap_to_source,
+)
 from ko_pii.domain import civil_petition as _dom_petition
 from ko_pii.domain import government as _dom_gov
 from ko_pii.domain import hr as _dom_hr
@@ -92,7 +96,7 @@ def detect_all(
     """
     source = text
     offset_map: Optional[list[int]] = None
-    if normalize and not text.isascii():
+    if normalize and needs_normalization(text):
         norm, omap = normalize_unicode(text)
         if norm != text:
             text, offset_map = norm, omap
@@ -101,6 +105,17 @@ def detect_all(
     for fn in DETECTORS:
         raw.extend(fn(text))
 
+    if offset_map is not None:
+        # 정규화가 텍스트를 바꿨다(전각 폴딩/보이지 않는 문자 제거 등).
+        # 정규화본 검출 offset 을 원본으로 역매핑한 뒤, **원본에도 검출을 한 번 더
+        # 수행해 합집합**한다. 보이지 않는 문자(ZWSP·소프트하이픈 등) 제거가 인접
+        # PII 두 개(예: RRN​전화)를 하나의 숫자열로 융합시켜 양쪽 검출기의 경계
+        # 가드가 둘 다 거부하던 누출을 막는다 — 원본에서는 그 문자가 경계 역할을
+        # 해 둘 다 검출된다. 정상 PII 중복은 아래 겹침 해소가 합쳐준다.
+        raw = remap_to_source(raw, offset_map, source)
+        for fn in DETECTORS:
+            raw.extend(fn(source))
+
     inc = set(include) if include else None
     exc = set(exclude) if exclude else set()
     if inc is not None:
@@ -108,10 +123,7 @@ def detect_all(
     if exc:
         raw = [d for d in raw if d.label not in exc]
 
-    resolved = _resolve_overlaps(raw)
-    if offset_map is not None:
-        resolved = remap_to_source(resolved, offset_map, source)
-    return resolved
+    return _resolve_overlaps(raw)
 
 
 def _resolve_overlaps(

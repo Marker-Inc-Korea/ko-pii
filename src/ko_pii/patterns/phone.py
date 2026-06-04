@@ -31,9 +31,9 @@ _INTL_PREFIX = r"(?:\+82|0082|82)[-.\s]?"
 _MOBILE = re.compile(
     r"(?<![0-9+])"
     r"(01[01679])"
-    r"[-.\s]?"
+    r"[-.\s]{0,2}"
     r"(\d{3,4})"
-    r"[-.\s]?"
+    r"[-.\s]{0,2}"
     r"(\d{4})"
     r"(?![0-9])"
 )
@@ -42,9 +42,32 @@ _MOBILE_INTL = re.compile(
     r"(?<![0-9])"
     + _INTL_PREFIX +
     r"(1[01679])"  # leading 0 dropped under intl prefix
-    r"[-.\s]?"
+    r"[-.\s]{0,2}"
     r"(\d{3,4})"
-    r"[-.\s]?"
+    r"[-.\s]{0,2}"
+    r"(\d{4})"
+    r"(?![0-9])"
+)
+
+# 국제표기 유선 — +82-2-... (서울) / +82-3x-... (지역). leading 0 생략.
+_SEOUL_INTL = re.compile(
+    r"(?<![0-9])"
+    + _INTL_PREFIX +
+    r"(2)"
+    r"[-.\s]{0,2}"
+    r"(\d{3,4})"
+    r"[-.\s]{0,2}"
+    r"(\d{4})"
+    r"(?![0-9])"
+)
+
+_REGIONAL_INTL = re.compile(
+    r"(?<![0-9])"
+    + _INTL_PREFIX +
+    r"(3[1-3]|4[1-4]|5[1-5]|6[1-4]|70)"
+    r"[-.\s]{0,2}"
+    r"(\d{3,4})"
+    r"[-.\s]{0,2}"
     r"(\d{4})"
     r"(?![0-9])"
 )
@@ -52,9 +75,9 @@ _MOBILE_INTL = re.compile(
 _SEOUL = re.compile(
     r"(?<![0-9+])"
     r"(02)"
-    r"[-.\s)\]]?"
+    r"[-.\s)\]]{0,2}"
     r"(\d{3,4})"
-    r"[-.\s]?"
+    r"[-.\s]{0,2}"
     r"(\d{4})"
     r"(?![0-9])"
 )
@@ -62,9 +85,9 @@ _SEOUL = re.compile(
 _REGIONAL = re.compile(
     r"(?<![0-9+])"
     r"(03[1-3]|04[1-4]|05[1-5]|06[1-4]|070)"
-    r"[-.\s)\]]?"
+    r"[-.\s)\]]{0,2}"
     r"(\d{3,4})"
-    r"[-.\s]?"
+    r"[-.\s]{0,2}"
     r"(\d{4})"
     r"(?![0-9])"
 )
@@ -74,7 +97,7 @@ _REGIONAL = re.compile(
 _REPRESENTATIVE = re.compile(
     r"(?<![0-9+])"
     r"(1[5-8]\d{2})"
-    r"[-.\s]?"
+    r"[-.\s]{0,2}"
     r"(\d{4})"
     r"(?![0-9])"
 )
@@ -125,6 +148,20 @@ def detect(text: str) -> Iterator[DetectionResult]:
             continue
         seen.add(span)
         yield _emit(m, "mobile", international=True)
+
+    for m in _SEOUL_INTL.finditer(text):
+        span = (m.start(), m.end())
+        if _overlaps(span, seen):
+            continue
+        seen.add(span)
+        yield _emit(m, "landline", international=True)
+
+    for m in _REGIONAL_INTL.finditer(text):
+        span = (m.start(), m.end())
+        if _overlaps(span, seen):
+            continue
+        seen.add(span)
+        yield _emit(m, "voip" if m.group(1) == "70" else "landline", international=True)
 
     for m in _MOBILE.finditer(text):
         span = (m.start(), m.end())

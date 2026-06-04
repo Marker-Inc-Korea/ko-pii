@@ -200,15 +200,30 @@ def anonymize_records(
         return [], (vault or ReversibleVault())
 
     if column_map is None:
-        column_map = map_columns(records[0].keys())
+        # 전체 레코드 키의 합집합에서 추론 — records[0] 만 보면 희소/이질 레코드의
+        # PII 컬럼이 미매핑돼 평문 통과한다 (#10).
+        all_keys: set[str] = set()
+        for r in records:
+            all_keys.update(k for k in r.keys() if isinstance(k, str))
+        column_map = map_columns(all_keys)
 
     if vault is None:
         vault = ReversibleVault()
 
+    auto = Anonymizer(mode=mode, strategy=strategy, vault=vault)
     out: list[dict[str, str]] = []
     for rec in records:
         new_rec: dict[str, str] = {}
         for header, value in rec.items():
+            if isinstance(value, list):
+                # csv.DictReader restkey: 헤더보다 셀이 많은 ragged row 의 초과 셀이
+                # list 로 수집됨. 정상 컬럼이 아니라 *초과 셀* 이므로 자동 검출로
+                # 스캔해 평문 PII 통과를 막는다 (#11).
+                new_rec[header] = [
+                    auto.process(v).text if isinstance(v, str) and v else v
+                    for v in value
+                ]
+                continue
             label = column_map.get(header)
             if not label or not value:
                 new_rec[header] = value

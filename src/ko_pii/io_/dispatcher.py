@@ -21,23 +21,31 @@ def read_text(path: str) -> str:
     HWP 5.x / PDF 는 optional extras (``pip install ko-pii[file]``) 가 필요할 수
     있으며, 미설치 시 명시적 ImportError 를 발생시킨다.
     """
+    from ko_pii.io_.text_normalizer import normalize_for_detection
+
     ext = os.path.splitext(path)[1].lower()
     if ext == ".hwpx":
-        return hwpx.read_text(path)
-    if ext == ".hwp":
+        raw = hwpx.read_text(path)
+    elif ext == ".hwp":
         from ko_pii.io_ import hwp
-        return hwp.read_text(path)
-    if ext == ".pdf":
+        raw = hwp.read_text(path)
+    elif ext == ".pdf":
         from ko_pii.io_ import pdf
-        return pdf.read_text(path)
-    if ext == ".docx":
-        return docx.read_text(path)
-    if ext == ".xlsx":
-        return xlsx.read_text(path)
-    if ext in (".csv", ".tsv"):
-        return csv_reader.read_text(path)
-    # 기본 plain
-    return plain.read_text(path)
+        raw = pdf.read_text(path)
+    elif ext == ".docx":
+        raw = docx.read_text(path)
+    elif ext == ".xlsx":
+        raw = xlsx.read_text(path)
+    elif ext in (".csv", ".tsv"):
+        raw = csv_reader.read_text(path)
+    else:
+        raw = plain.read_text(path)
+    # 셀 줄바꿈/래핑(하이픈+개행 `-\n`, 순수 개행 등)으로 쪼개진 PII 를 검출 전에
+    # 복원 — *모든 포맷* 공통. 이전엔 pdf.read_text 만 적용돼 xlsx/csv/hwpx/docx
+    # 에서 줄바꿈으로 분리된 RRN/전화/카드가 평문 누출됐다. (pdf 는 내부에서도
+    # 적용하나 _MID_PII_NEWLINE 은 idempotent.)
+    normalized, _ = normalize_for_detection(raw)
+    return normalized
 
 
 def read_records(path: str) -> list[dict[str, str]]:

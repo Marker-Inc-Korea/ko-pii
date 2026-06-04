@@ -35,7 +35,7 @@ _VALID_BIN_FIRST_DIGITS: frozenset[str] = frozenset({"2", "3", "4", "5", "6", "9
 _PATTERN = re.compile(
     r"(?<![0-9])"
     r"(?:"
-    r"[0-9]{4}[- ][0-9]{4}[- ][0-9]{4}[- ][0-9]{1,7}"
+    r"[0-9]{4}[-. /]\s?[0-9]{4}[-. /]\s?[0-9]{4}[-. /]\s?[0-9]{1,7}"
     r"|"
     r"[0-9]{13,19}"
     r")"
@@ -57,7 +57,7 @@ def _brand_for(first_digit: str) -> str:
 def detect(text: str) -> Iterator[DetectionResult]:
     for m in _PATTERN.finditer(text):
         raw = m.group(0)
-        digits = re.sub(r"[- ]", "", raw)
+        digits = re.sub(r"\D", "", raw)
         if not (13 <= len(digits) <= 19):
             continue
         if digits[0] not in _VALID_BIN_FIRST_DIGITS:

@@ -199,17 +199,28 @@ def process_paths(
     summary = BatchSummary(total_files=len(files))
     t0 = time.time()
 
-    args_list = [
-        (
+    # 출력 경로 유일성 보장 — 서로 다른 디렉토리의 동명 파일이 같은
+    # out/<stem>.txt 로 충돌해 마지막 결과가 이전 결과를 덮어쓰던 데이터 손실
+    # 방지 (#12). 첫 파일은 <stem>.txt 유지, 충돌 시에만 입력경로 해시 부여.
+    import hashlib
+
+    seen_out: set[str] = set()
+    args_list = []
+    for f in files:
+        out_path = _output_path_for(f, output_dir)
+        if out_path in seen_out:
+            stem, ext = os.path.splitext(out_path)
+            h = hashlib.sha1(os.path.abspath(f).encode("utf-8")).hexdigest()[:8]
+            out_path = f"{stem}_{h}{ext}"
+        seen_out.add(out_path)
+        args_list.append((
             f,
-            _output_path_for(f, output_dir),
+            out_path,
             mode.value,
             strategy,
             tuple(include) if include else None,
             tuple(exclude) if exclude else None,
-        )
-        for f in files
-    ]
+        ))
 
     if workers <= 1:
         results = []
