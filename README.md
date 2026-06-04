@@ -1,3 +1,5 @@
+[English](README.en.md) | **한국어**
+
 # ko-pii
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
@@ -211,14 +213,14 @@ logging.info("신청인 홍길동 (880101-1234568) 처리 완료")
 
 | 평가 도메인 | 문서 수 | ko-pii | openai/PF | Presidio |
 |---|---:|---:|---:|---:|
-| **행정문서 + PII 주입 (메인)** | 200 | **0.901** | 0.480 | 0.455 |
-| LLM 생성 벤치마크 | 187 | **0.770** | 0.434 | 0.446 |
-| KDPII (한국어 일상 대화) | 4,891 | **0.656** | 0.382 | 0.367 |
+| 행정문서 + PII 주입 (합성) | 200 | **0.901** | 0.480 | 0.542 |
+| KDPII (한국어 일상 대화) | 4,891 | **0.660** | 0.264 | 0.273 |
 | KLUE-NER (신문기사 풀네임) | 5,000 | **0.419** | 0.155 | 0.000 |
 
-모든 벤치마크에서 [openai/privacy-filter](https://huggingface.co/openai/privacy-filter) (660M 다국어 ML 모델) 와 [Microsoft Presidio](https://github.com/microsoft/presidio) (가장 인기 OSS PII 프레임워크) 대비 우위.
-결정적 PII (RRN·PHONE·EMAIL·카드·사업자) 는 체크섬 검증이라 F1 ≈ 1.000.
-상세 비교는 [`docs/EVALUATION_REPORT.md`](docs/EVALUATION_REPORT.md) 참조.
+- KDPII는 단일 매처(`match_forms_overlap`, `person_min_length=3`)로 전체 4,891문서 재측정 — [openai/privacy-filter](https://huggingface.co/openai/privacy-filter) (660M ML) · [Microsoft Presidio](https://github.com/microsoft/presidio) 등 룰·NER 도구 대비 우위.
+- **참고 (LLM 상한):** 자체호스팅 Gemma-4-31B 는 KDPII **0.796** — ko-pii 는 룰만으로(GPU·LLM 없이) 그 **83%** 도달. 단 LLM 은 ~200배 느리고, API 는 PII 외부전송 + 체크섬 검증 불가.
+- 결정적 PII (RRN·PHONE·EMAIL·카드·사업자) 는 체크섬 검증 → F1 ≈ 1.000.
+- 상세·재현: [`docs/BENCHMARK.md`](docs/BENCHMARK.md) · [`docs/EVALUATION_REPORT.md`](docs/EVALUATION_REPORT.md). (행정문서·KLUE 는 이전 방법론 수치)
 
 > **운영 전 권장:** 사용하시는 도메인의 실제 문서 30~100건을 직접 테스트해보세요. 도메인마다 성능 차이가 있습니다.
 
@@ -543,7 +545,7 @@ python -m ko_pii.classifier.train ...   # 모델은 직접 학습
 ## FAQ
 
 **Q1. ML 없이 룰만으로 정말 잘 되나요?**
-한국 핵심 PII (주민번호·여권·카드·사업자 등) 는 체크섬 검증으로 F1 ≈ 1.000 — ML 로 대체 불가능한 영역. PERSON 같은 맥락 의존적 PII 는 ML 이 더 나을 수 있지만, 공공 문서에서는 F1 0.795 로 실용적.
+한국 핵심 PII (주민번호·여권·카드·사업자 등) 는 체크섬 검증으로 F1 ≈ 1.000 — ML 로 대체 불가능한 영역. PERSON 같은 맥락 의존적 PII 는 ML 이 더 나을 수 있지만, 공공/행정 문서에서는 F1 0.901 로 실용적 (행정문서 합성 셋 — 보충·별도 방법론, [docs/BENCHMARK.md](docs/BENCHMARK.md) 참조).
 
 **Q2. 오탐이 많으면?**
 `common_words.py` 에 도메인 사전 주입, `exclude={"PERSON"}` 으로 특정 카테고리 끄기, 모드 변경 (`STRICT` → `BALANCED`).
