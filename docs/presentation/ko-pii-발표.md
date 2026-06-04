@@ -161,8 +161,9 @@ HybridAnonymizer(rule, clf, mode=HybridMode.REVIEW_FLAG, classifier_threshold=0.
 | KLUE (신문 인명) | **외부** | **0.419** | 0.155 | 0.000 |
 
 - **결정적 PII**(주민·카드·여권·계좌)는 체크섬 검증 → **F1 ≈ 1.000**
-- 외부 공개 데이터(KDPII·KLUE)에서도 해외 도구보다 높음
-<small>자체 = 합성 PII로 구축 / 외부 = 인간 라벨 공개 데이터 · KDPII는 단일 매처로 전체 4,891문서 재측정</small>
+- 외부 공개 데이터(KDPII·KLUE)에서도 룰·NER 도구보다 높음
+- **참고선 (LLM 상한)** — 자체호스팅 **Gemma-4-31B** KDPII **0.796**: ko-pii는 **룰만으로(GPU·LLM 없이) 그 83%** 도달. 대화체(LLM 유리한 셋)에서도 근접 — 구조적 문서에선 대등 이상 예상
+<small>자체 = 합성 PII로 구축 / 외부 = 인간 라벨 공개 데이터 · KDPII·Gemma 모두 단일 매처로 전체 4,891문서 측정</small>
 
 ---
 
