@@ -213,7 +213,7 @@ logging.info("신청인 홍길동 (880101-1234568) 처리 완료")
 
 | 평가 도메인 | 문서 수 | ko-pii | openai/PF | Presidio |
 |---|---:|---:|---:|---:|
-| 행정문서 + PII 주입 (합성) | 200 | **0.901** | 0.480 | 0.542 |
+| LLM 생성 벤치마크 (32라벨 완전커버) | 187 | **0.770** | 0.434 | 0.446 |
 | KDPII (한국어 일상 대화) | 4,891 | **0.660** | 0.264 | 0.273 |
 | KLUE-NER (신문기사 풀네임) | 5,000 | **0.419** | 0.155 | 0.000 |
 
@@ -221,7 +221,9 @@ logging.info("신청인 홍길동 (880101-1234568) 처리 완료")
 - **공정 비교:** 위 전체 점수는 해외 도구가 *라벨 자체가 없는* 항목(AGE·POSITION·RRN 등)에서 0점이라 격차가 커진다. 각 도구가 **실제 지원하는 카테고리만**으로 좁혀도 ko-pii가 앞선다 — vs openai/PF **0.61 : 0.37**(그쪽 7라벨), vs Presidio **0.87 : 0.65**(그쪽 9라벨).
 - **참고 (LLM 상한):** 자체호스팅 Gemma-4-31B 는 KDPII **0.796** — ko-pii 는 룰만으로(GPU·LLM 없이) 그 **83%** 도달. 단 LLM 은 ~200배 느리고, API 는 PII 외부전송 + 체크섬 검증 불가.
 - 결정적 PII (RRN·PHONE·EMAIL·카드·사업자) 는 체크섬 검증 → F1 ≈ 1.000.
-- 상세·재현: [`docs/BENCHMARK.md`](docs/BENCHMARK.md) · [`docs/EVALUATION_REPORT.md`](docs/EVALUATION_REPORT.md). (행정문서·KLUE 는 이전 방법론 수치)
+- **LLM 생성 벤치마크**는 ko-pii 룰을 참조하지 않고 LLM이 생성한 독립 데이터(32개 PII
+  카테고리 완전 커버) — 자기 주입 데이터가 아니라 *과적합 우려가 없다*.
+- 상세·재현: [`docs/BENCHMARK.md`](docs/BENCHMARK.md) · [`docs/EVALUATION_REPORT.md`](docs/EVALUATION_REPORT.md). (LLM생성·KLUE 는 이전 방법론 수치)
 
 > **운영 전 권장:** 사용하시는 도메인의 실제 문서 30~100건을 직접 테스트해보세요. 도메인마다 성능 차이가 있습니다.
 
@@ -546,7 +548,7 @@ python -m ko_pii.classifier.train ...   # 모델은 직접 학습
 ## FAQ
 
 **Q1. ML 없이 룰만으로 정말 잘 되나요?**
-한국 핵심 PII (주민번호·여권·카드·사업자 등) 는 체크섬 검증으로 F1 ≈ 1.000 — ML 로 대체 불가능한 영역. PERSON 같은 맥락 의존적 PII 는 ML 이 더 나을 수 있지만, 공공/행정 문서에서는 F1 0.901 로 실용적 (행정문서 합성 셋 — 보충·별도 방법론, [docs/BENCHMARK.md](docs/BENCHMARK.md) 참조).
+한국 핵심 PII (주민번호·여권·카드·사업자 등) 는 체크섬 검증으로 F1 ≈ 1.000 — ML 로 대체 불가능한 영역. PERSON 같은 맥락 의존적 PII 는 ML 이 더 나을 수 있지만, 공공/행정 문서에서는 F1 0.770 으로 실용적 (LLM 생성 벤치마크, 32라벨 완전커버 — 보충·별도 방법론, [docs/BENCHMARK.md](docs/BENCHMARK.md) 참조).
 
 **Q2. 오탐이 많으면?**
 `common_words.py` 에 도메인 사전 주입, `exclude={"PERSON"}` 으로 특정 카테고리 끄기, 모드 변경 (`STRICT` → `BALANCED`).

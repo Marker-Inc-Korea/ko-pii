@@ -5,6 +5,17 @@
 
 ## [Unreleased]
 
+## [1.12.1] - 2026-06-05
+
+### Docs (문서만, 코드 변경 없음)
+- **KDPII 비교 공정성 각주** — 전체 점수는 해외 도구가 *라벨 자체가 없는* 카테고리
+  (AGE·POSITION·RRN 등)에서 0점이라 격차가 부풀려진다. 각 도구가 **실제 지원하는
+  카테고리만**으로 좁혀도 ko-pii 우위(vs openai/privacy-filter 0.61:0.37, vs
+  Presidio 0.87:0.65)임을 README·README.en·BENCHMARK 에 명시.
+- **보충 벤치마크 교체** — 행정문서 PII 주입(ko-pii 자기 주입 데이터, 과적합 우려)
+  대신 **LLM 생성 벤치마크**(187문서, 1,199 spans, 32개 PII 카테고리 *완전 커버*,
+  ko-pii 룰 미참조 독립 데이터, F1 0.770)를 보충 수치로 사용 — 더 정직한 측정.
+
 ## [1.12.0] - 2026-06-04
 
 심층 적대적 누출 스윕(27 에이전트, 발견별 실행 재현 검증)에서 확인된 **PII 평문
@@ -223,7 +234,8 @@ Phase 9 — 실데이터 평가 + 룰 정제.
 
 전체 Phase 1~11 개발 히스토리는 git log 및 `docs/` 참조.
 
-[Unreleased]: https://github.com/modak000/ko-pii/compare/v1.12.0...HEAD
+[Unreleased]: https://github.com/modak000/ko-pii/compare/v1.12.1...HEAD
+[1.12.1]: https://github.com/modak000/ko-pii/compare/v1.12.0...v1.12.1
 [1.12.0]: https://github.com/modak000/ko-pii/compare/v1.11.3...v1.12.0
 [1.11.3]: https://github.com/modak000/ko-pii/compare/v1.11.2...v1.11.3
 [1.11.2]: https://github.com/modak000/ko-pii/compare/v1.11.1...v1.11.2

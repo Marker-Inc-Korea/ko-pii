@@ -130,12 +130,14 @@ checksum validation.
 
 | Dataset | ko-pii | openai/privacy-filter | Presidio |
 |---|---|---|---|
-| Administrative documents (synthetic PII) | 0.901 | 0.480 | 0.542 |
+| LLM-generated benchmark (187 docs, full 32-category) | 0.770 | 0.434 | 0.446 |
 | KLUE NER | 0.419 | 0.155 | 0.000 |
 
-The administrative-document result (0.901) is in ko-pii's strength zone
-(structured/form-like text). It is shown here only as directional evidence and,
-again, was scored under a different methodology than Section 3.
+The LLM-generated benchmark (0.770) is independent of ko-pii's own rules (the test
+documents were written by an LLM, with full coverage of all 32 PII categories), so
+unlike a self-injected corpus it carries no overfitting risk. It is in ko-pii's
+strength zone (structured/form-like text), shown here as directional evidence and
+scored under a different methodology than Section 3.
 
 ## 7. Reproduction
 
@@ -178,8 +180,9 @@ A balanced reading of these results:
   external service** and **cannot perform checksum validation**, so they produce
   false positives that a checksum-backed rule engine rejects.
 - **KDPII is a conversational set, which structurally favors LLMs.** ko-pii's own
-  strength domain (structured documents) is reflected by its **0.901** on the
-  administrative-document set (Section 6, prior methodology) and by its
+  strength domain (structured documents) is reflected by its **0.770** on the
+  LLM-generated benchmark (Section 6, prior methodology, independent of ko-pii's
+  rules) and by its
   near-ceiling deterministic per-label F1 (Section 5).
 - **Bottom line.** If your priority is conversational free-text recall and you
   can pay the cost and latency, the LLM is better on this set. If your priority

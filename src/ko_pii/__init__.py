@@ -31,7 +31,7 @@ from ko_pii.modes.redact import redact
 from ko_pii.modes.tokenize import tokenize
 from ko_pii.vault.reversible import ReversibleVault, VaultEntry
 
-__version__ = "1.12.0"
+__version__ = "1.12.1"
 
 __all__ = [
     "Anonymizer",
