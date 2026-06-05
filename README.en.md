@@ -226,6 +226,8 @@ KDPII v1.1 test split: **4,891 human-labeled documents** of Korean everyday conv
 
 A generic Korean NER model (KoELECTRA NER) was **not measured** for this run (rough estimate ~0.10–0.15) and is therefore omitted from the headline table.
 
+> **Fair comparison.** The aggregate F1 partly reflects that Presidio and openai/privacy-filter **lack many Korean PII categories entirely** (they emit 0 on AGE, POSITION, RRN, …). Even restricting to the categories each tool *does* support, ko-pii still leads — **vs openai/privacy-filter 0.61 : 0.37** (its 7 labels), **vs Presidio 0.87 : 0.65** (its 9 labels). The gap is not merely missing categories; ko-pii is also more accurate on common ground.
+
 > **Honest framing.** KDPII is everyday conversational text, a setting that favors LLMs. ko-pii is rule-based: it is strong on structural/deterministic PII and Korean administrative/form text, and weaker on free-form conversation (KDPII PERSON 0.135, ADDRESS 0.241). The self-hosted LLM (Gemma) achieves higher conversational F1 but is ~200× slower, and hosted APIs both transmit PII externally and cannot checksum-verify (yielding false positives). ko-pii's own structural-document set (below) at 0.901 shows where ko-pii is strong.
 
 ### Deterministic / structural PII — ko-pii per-label F1 on KDPII

@@ -166,6 +166,13 @@ A balanced reading of these results:
   Korean administrative / form-like text, and weak on free conversational text.
   On KDPII its conversational labels are low — **PERSON 0.135**, **ADDRESS
   0.241** — which is what drags its overall F1 to 0.660.
+- **Fair comparison — shared categories.** The aggregate F1 partly reflects that
+  Presidio and openai/privacy-filter **lack many Korean PII categories entirely**
+  (they emit 0 on AGE, POSITION, RRN, etc.). Even restricting to the categories
+  each tool *does* support, ko-pii still leads: **vs openai/privacy-filter
+  0.61 : 0.37** (its 7 supported labels), **vs Presidio 0.87 : 0.65** (its 9
+  supported labels). So the gap is not merely "missing categories" — ko-pii is
+  also more accurate on common ground.
 - **The LLM (Gemma) wins on conversational F1** (0.796 vs 0.660), but it is
   **~200× slower** per document. API-hosted LLMs additionally **send PII to an
   external service** and **cannot perform checksum validation**, so they produce

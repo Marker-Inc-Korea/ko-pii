@@ -218,6 +218,7 @@ logging.info("신청인 홍길동 (880101-1234568) 처리 완료")
 | KLUE-NER (신문기사 풀네임) | 5,000 | **0.419** | 0.155 | 0.000 |
 
 - KDPII는 단일 매처(`match_forms_overlap`, `person_min_length=3`)로 전체 4,891문서 재측정 — [openai/privacy-filter](https://huggingface.co/openai/privacy-filter) (660M ML) · [Microsoft Presidio](https://github.com/microsoft/presidio) 등 룰·NER 도구 대비 우위.
+- **공정 비교:** 위 전체 점수는 해외 도구가 *라벨 자체가 없는* 항목(AGE·POSITION·RRN 등)에서 0점이라 격차가 커진다. 각 도구가 **실제 지원하는 카테고리만**으로 좁혀도 ko-pii가 앞선다 — vs openai/PF **0.61 : 0.37**(그쪽 7라벨), vs Presidio **0.87 : 0.65**(그쪽 9라벨).
 - **참고 (LLM 상한):** 자체호스팅 Gemma-4-31B 는 KDPII **0.796** — ko-pii 는 룰만으로(GPU·LLM 없이) 그 **83%** 도달. 단 LLM 은 ~200배 느리고, API 는 PII 외부전송 + 체크섬 검증 불가.
 - 결정적 PII (RRN·PHONE·EMAIL·카드·사업자) 는 체크섬 검증 → F1 ≈ 1.000.
 - 상세·재현: [`docs/BENCHMARK.md`](docs/BENCHMARK.md) · [`docs/EVALUATION_REPORT.md`](docs/EVALUATION_REPORT.md). (행정문서·KLUE 는 이전 방법론 수치)
