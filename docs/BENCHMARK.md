@@ -54,6 +54,7 @@ matcher on all 4,891 documents.
 |---|---|---|---|---|---|---|
 | Gemma-4-31B-it (self-hosted LLM) | **0.796** | 0.850 | 0.748 | 958 | 169 | 323 |
 | ko-pii (rules + dict + checksum) | **0.660** | 0.699 | 0.624 | 813 | 350 | 489 |
+| Gemma-4-E4B-it (smallest Gemma 4, ~4B) | **0.613** | 0.659 | 0.572 | 739 | 383 | 552 |
 | Presidio (`kr_adapt`, spaCy ko + regex) | **0.273** | — | — | 220 | 85 | 1085 |
 | openai/privacy-filter (660M, ONNX) | **0.264** | — | — | 294 | 634 | 1008 |
 
@@ -62,9 +63,12 @@ evaluation. An internal **estimate** places it around ~0.10–0.15 F1, but becau
 it was not measured it is **excluded from the headline ranking** and must only
 ever be referred to as "not measured — estimated".
 
-KDPII is conversational text, which favors LLMs. Gemma leads on this set; ko-pii
-is second and clearly ahead of the two non-LLM baselines. See Section 8 for an
-honest interpretation of what this does and does not mean.
+KDPII is conversational text, which favors LLMs. The large Gemma-4-31B leads;
+ko-pii is second. Note the **size effect**: the **smallest Gemma-4 (E4B) scores
+0.613 — *below* ko-pii's 0.660** — so on conversational Korean only the large 31B
+model beats the rules, while the small LLM does not. (On the administrative
+generated set in Section 3b the order flips: E4B 0.882 > ko-pii 0.784.) See
+Section 8 for an honest interpretation.
 
 ## 3b. Second dataset — generated administrative / form-like set (measured)
 

@@ -219,6 +219,7 @@ KDPII v1.1 test split: **4,891 human-labeled documents** of Korean everyday conv
 |---|---|---:|---:|---:|
 | Gemma-4-31B-it | Self-hosted LLM (vLLM, prompt extraction) | **0.796** | 0.850 | 0.748 |
 | **ko-pii** | Rules + dictionaries + checksums | 0.660 | 0.699 | 0.624 |
+| Gemma-4-E4B-it | Self-hosted LLM (smallest Gemma 4, ~4B) | 0.613 | 0.659 | 0.572 |
 | Presidio (kr_adapt) | spaCy ko + regex | 0.273 | — | — |
 | openai/privacy-filter | 660M transformer (ONNX) | 0.264 | — | — |
 
