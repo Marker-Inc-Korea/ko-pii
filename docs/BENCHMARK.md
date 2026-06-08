@@ -89,11 +89,13 @@ All systems are scored with the same canonical `match_forms_overlap` matcher and
 | Gemma-4-E4B-it (smallest Gemma 4, ~4B) | **0.882** | 0.925 | 0.843 |
 | ko-pii (rules + dict + checksum) | **0.784** | 0.792 | 0.776 |
 | Presidio (`kr_adapt`) | **0.483** | 0.794 | 0.347 |
-| openai/privacy-filter (660M, ONNX) | *not completed* | — | — |
+| openai/privacy-filter (660M) | **0.451** | 0.445 | 0.457 |
 
-*openai/privacy-filter:* on this host the ONNX path was pathologically slow
-(>30 min for <100 docs, across two attempts) and was not completed; its KDPII
-value (0.264, Section 3) stands as reference. It is the weakest system either way.
+*openai/privacy-filter* was scored with its **torch (GPU)** backend: on this host
+the q4 ONNX path was pathologically slow on CPU (~32 s/doc), so the same model was
+run on GPU instead. The matcher, documents and `person_min_length` are identical,
+so the F1 stays comparable (device affects speed only, not F1). It is the weakest
+system here, consistent with its KDPII result (0.264, Section 3).
 
 **Reading this honestly.** Two factors inflate the LLM lead on this set:
 (1) the gold is LLM-authored and LLM-labeled, so its label conventions — especially
