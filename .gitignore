@@ -50,3 +50,6 @@ vaults/
 # Local-only working files (not for public repo)
 DESIGN_NOTES.md
 models/
+
+# 평가셋 검증 전 원본 백업 (로컬 전용)
+data/generated_eval.raw.jsonl
