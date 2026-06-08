@@ -234,21 +234,21 @@ Phase 9 — 실데이터 평가 + 룰 정제.
 
 전체 Phase 1~11 개발 히스토리는 git log 및 `docs/` 참조.
 
-[Unreleased]: https://github.com/modak000/ko-pii/compare/v1.12.1...HEAD
-[1.12.1]: https://github.com/modak000/ko-pii/compare/v1.12.0...v1.12.1
-[1.12.0]: https://github.com/modak000/ko-pii/compare/v1.11.3...v1.12.0
-[1.11.3]: https://github.com/modak000/ko-pii/compare/v1.11.2...v1.11.3
-[1.11.2]: https://github.com/modak000/ko-pii/compare/v1.11.1...v1.11.2
-[1.11.1]: https://github.com/modak000/ko-pii/compare/v1.11.0...v1.11.1
-[1.11.0]: https://github.com/modak000/ko-pii/compare/v1.10.0...v1.11.0
-[1.10.0]: https://github.com/modak000/ko-pii/compare/v1.9.0...v1.10.0
-[1.9.0]: https://github.com/modak000/ko-pii/compare/v1.8.0...v1.9.0
-[1.8.0]: https://github.com/modak000/ko-pii/compare/v1.7.0...v1.8.0
-[1.7.0]: https://github.com/modak000/ko-pii/compare/v1.6.0...v1.7.0
-[1.6.0]: https://github.com/modak000/ko-pii/compare/v1.5.0...v1.6.0
-[1.5.0]: https://github.com/modak000/ko-pii/compare/v1.4.0...v1.5.0
-[1.4.0]: https://github.com/modak000/ko-pii/compare/v1.3.0...v1.4.0
-[1.3.0]: https://github.com/modak000/ko-pii/compare/v1.2.0...v1.3.0
-[1.2.0]: https://github.com/modak000/ko-pii/compare/v1.1.0...v1.2.0
-[1.1.0]: https://github.com/modak000/ko-pii/compare/v1.0.0...v1.1.0
-[1.0.0]: https://github.com/modak000/ko-pii/releases/tag/v1.0.0
+[Unreleased]: https://github.com/Marker-Inc-Korea/ko-pii/compare/v1.12.1...HEAD
+[1.12.1]: https://github.com/Marker-Inc-Korea/ko-pii/compare/v1.12.0...v1.12.1
+[1.12.0]: https://github.com/Marker-Inc-Korea/ko-pii/compare/v1.11.3...v1.12.0
+[1.11.3]: https://github.com/Marker-Inc-Korea/ko-pii/compare/v1.11.2...v1.11.3
+[1.11.2]: https://github.com/Marker-Inc-Korea/ko-pii/compare/v1.11.1...v1.11.2
+[1.11.1]: https://github.com/Marker-Inc-Korea/ko-pii/compare/v1.11.0...v1.11.1
+[1.11.0]: https://github.com/Marker-Inc-Korea/ko-pii/compare/v1.10.0...v1.11.0
+[1.10.0]: https://github.com/Marker-Inc-Korea/ko-pii/compare/v1.9.0...v1.10.0
+[1.9.0]: https://github.com/Marker-Inc-Korea/ko-pii/compare/v1.8.0...v1.9.0
+[1.8.0]: https://github.com/Marker-Inc-Korea/ko-pii/compare/v1.7.0...v1.8.0
+[1.7.0]: https://github.com/Marker-Inc-Korea/ko-pii/compare/v1.6.0...v1.7.0
+[1.6.0]: https://github.com/Marker-Inc-Korea/ko-pii/compare/v1.5.0...v1.6.0
+[1.5.0]: https://github.com/Marker-Inc-Korea/ko-pii/compare/v1.4.0...v1.5.0
+[1.4.0]: https://github.com/Marker-Inc-Korea/ko-pii/compare/v1.3.0...v1.4.0
+[1.3.0]: https://github.com/Marker-Inc-Korea/ko-pii/compare/v1.2.0...v1.3.0
+[1.2.0]: https://github.com/Marker-Inc-Korea/ko-pii/compare/v1.1.0...v1.2.0
+[1.1.0]: https://github.com/Marker-Inc-Korea/ko-pii/compare/v1.0.0...v1.1.0
+[1.0.0]: https://github.com/Marker-Inc-Korea/ko-pii/releases/tag/v1.0.0

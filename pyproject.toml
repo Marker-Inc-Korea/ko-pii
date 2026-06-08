@@ -8,7 +8,7 @@ version = "1.12.1"
 description = "한국어 PII 검출 + 가역 가명화 라이브러리 (ML 없이 룰 기반)"
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "Apache-2.0" }
+license = { text = "MIT" }
 authors = [
     { name = "modak000", email = "rlaehrud63@gmail.com" },
 ]
@@ -25,7 +25,7 @@ classifiers = [
     "Intended Audience :: Developers",
     "Intended Audience :: Legal Industry",
     "Intended Audience :: System Administrators",
-    "License :: OSI Approved :: Apache Software License",
+    "License :: OSI Approved :: MIT License",
     "Natural Language :: Korean",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
@@ -72,11 +72,11 @@ all = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/modak000/ko-pii"
-Repository = "https://github.com/modak000/ko-pii"
-Issues = "https://github.com/modak000/ko-pii/issues"
-Documentation = "https://github.com/modak000/ko-pii/tree/main/docs"
-Changelog = "https://github.com/modak000/ko-pii/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/Marker-Inc-Korea/ko-pii"
+Repository = "https://github.com/Marker-Inc-Korea/ko-pii"
+Issues = "https://github.com/Marker-Inc-Korea/ko-pii/issues"
+Documentation = "https://github.com/Marker-Inc-Korea/ko-pii/tree/main/docs"
+Changelog = "https://github.com/Marker-Inc-Korea/ko-pii/blob/main/CHANGELOG.md"
 
 [project.scripts]
 ko-pii = "ko_pii.cli:main"

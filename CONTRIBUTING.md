@@ -8,7 +8,7 @@ ko-pii 에 기여해주셔서 감사합니다. 본 가이드는 효율적인 협
 ### 개발 환경
 
 ```bash
-git clone https://github.com/modak000/ko-pii
+git clone https://github.com/Marker-Inc-Korea/ko-pii
 cd ko-pii
 python -m venv .venv
 source .venv/bin/activate    # Windows: .venv/Scripts/activate
@@ -136,7 +136,7 @@ PR 전 모든 테스트 통과 + 합성 코퍼스 F1=1.000 유지 확인.
 
 ## 라이센스
 
-기여 시 Apache-2.0 라이센스에 동의로 간주 (CLA 별도 없음).
+기여 시 MIT 라이센스에 동의로 간주 (CLA 별도 없음).
 
 ## 도움 요청
 
