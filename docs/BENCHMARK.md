@@ -66,6 +66,47 @@ KDPII is conversational text, which favors LLMs. Gemma leads on this set; ko-pii
 is second and clearly ahead of the two non-LLM baselines. See Section 8 for an
 honest interpretation of what this does and does not mean.
 
+## 3b. Second dataset — generated administrative / form-like set (measured)
+
+KDPII is conversational; to measure the **administrative / form-like** register
+ko-pii is designed for, we built a second benchmark: **540 synthetic Korean
+documents** (3,635 gold spans, 26 labels) spanning official-document, civil-complaint,
+contract, medical and HR registers. All names and numbers are LLM-generated
+synthetic values — no real PII. The dataset and its provenance ship in the repo
+(`data/generated_eval.jsonl`, `data/generated_eval.README.md`).
+
+**Gold validation.** Gold was validated in two passes — (1) automated format
+checks (per-type regex + "gold appears verbatim in the text") and (2) an
+adversarial LLM audit (20 agents). Net error rate **~1.2% (98.8% correct)**; 37
+labels were corrected (16 removed, 4 span-trimmed, 17 added).
+
+All systems are scored with the same canonical `match_forms_overlap` matcher and
+`person_min_length=3`.
+
+| System | F1 | Precision | Recall |
+|---|---|---|---|
+| Gemma-4-31B-it (self-hosted LLM) | **0.964** | 0.963 | 0.966 |
+| Gemma-4-E4B-it (smallest Gemma 4, ~4B) | **0.882** | 0.925 | 0.843 |
+| ko-pii (rules + dict + checksum) | **0.784** | 0.792 | 0.776 |
+| Presidio (`kr_adapt`) | **0.483** | 0.794 | 0.347 |
+| openai/privacy-filter (660M, ONNX) | *not completed* | — | — |
+
+*openai/privacy-filter:* on this host the ONNX path was pathologically slow
+(>30 min for <100 docs, across two attempts) and was not completed; its KDPII
+value (0.264, Section 3) stands as reference. It is the weakest system either way.
+
+**Reading this honestly.** Two factors inflate the LLM lead on this set:
+(1) the gold is LLM-authored and LLM-labeled, so its label conventions — especially
+for soft attributes (POSITION, EDUCATION, …) — align with what an LLM extracts;
+(2) the set is rich in those soft attributes and in open-class IDs
+(insurance / prescription numbers) that ko-pii does not target. The independent
+human-labeled KDPII gap (0.796 vs 0.660) is the more realistic LLM-vs-rules
+comparison. Two findings still hold regardless: ko-pii's deterministic IDs are
+near ceiling here too (EMAIL 0.998, PHONE 0.989, CARD 0.988, RRN 0.955), and the
+**smallest Gemma 4 (E4B, ~4B) reaches 91 % of the 31B model's F1** at ~8× smaller
+size — though any LLM still carries the GPU / cost / non-determinism that a rule
+engine does not.
+
 ## 4. Speed
 
 Per-document latency, **measured**. One unit = 1 CPU core (unless noted) or
