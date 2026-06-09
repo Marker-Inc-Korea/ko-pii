@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Iterable, Iterator, Optional
 
 from ko_pii.core.types import DetectionResult
+from ko_pii.core.overlap import resolve_overlaps as _resolve_overlaps
 from ko_pii.core.unicode_norm import (
     needs_normalization,
     normalize_unicode,
@@ -126,32 +127,6 @@ def detect_all(
     return _resolve_overlaps(raw)
 
 
-def _resolve_overlaps(
-    detections: Iterable[DetectionResult],
-) -> list[DetectionResult]:
-    """Priority-based overlap resolution.
-
-    Accept highest-priority detections first — higher risk level, then higher
-    confidence, then longer span — and drop any later detection that overlaps an
-    already-accepted one. Sorting by *priority* rather than start position
-    prevents a lower-priority span (an over-matched address, a URL) from
-    shadowing a higher-confidence PII span (phone / RRN / email) merely because
-    it begins earlier — which previously caused such PII to leak unmasked.
-    Returns detections in document order.
-    """
-    items = sorted(
-        detections,
-        key=lambda d: (
-            -int(d.risk_level),
-            -d.confidence,
-            -(d.end - d.start),
-            d.start,
-        ),
-    )
-    accepted: list[DetectionResult] = []
-    for d in items:
-        if any(d.start < a.end and a.start < d.end for a in accepted):
-            continue
-        accepted.append(d)
-    accepted.sort(key=lambda d: (d.start, d.end))
-    return accepted
+# 겹침 해소는 core.overlap.resolve_overlaps 단일 구현 사용 (위 import 의 _resolve_overlaps).
+# detect_all / merge_detections(integrations.hybrid) / 치환(modes._apply) 이 모두 같은
+# 우선순위(위험도→확신도→길이)로 해소해 누출 회귀를 차단한다.

@@ -89,3 +89,22 @@ class TestMergeFallback:
         # FALLBACK 모드는 primary 만 반환 (secondary 는 호출자가 별도 처리)
         assert len(out) == 1
         assert out[0].label == "PERSON"
+
+
+class TestOverlapLeakRegression:
+    """늦게 시작하는 고위험 PII 가 먼저 시작한 저위험 span 에 가려 누출되던 회귀 차단.
+
+    과거 hybrid._resolve_overlaps 가 start-우선 단일커서라, ADDRESS(LOW)[0,20) 가
+    RRN(CRITICAL)[10,23) 보다 먼저 시작한다는 이유로 RRN 을 드롭 → 주민번호 평문 누출.
+    정본(core.overlap, 위험도 우선)으로 통일해 RRN 이 살아남아야 한다.
+    """
+
+    def test_later_starting_critical_survives_merge(self):
+        addr = _det("ADDRESS", 0, 20, "서울시 강남구 어딘가",
+                    risk=RiskLevel.LOW, conf=0.6)
+        rrn = _det("RRN", 10, 23, "880101-1234567",
+                   risk=RiskLevel.CRITICAL, conf=1.0)
+        out = merge_detections([addr], [rrn], mode=MergeMode.UNION)
+        labels = {r.label for r in out}
+        assert "RRN" in labels, "고위험 RRN 이 병합에서 드롭되면 평문 누출"
+        assert "ADDRESS" not in labels  # 저위험 span 은 고위험에 밀려 제거

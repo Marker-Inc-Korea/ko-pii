@@ -7,10 +7,8 @@
 - ``ENRICH_PRIMARY``: primary 우선, secondary 가 *놓친 영역* 만 보강 (Method C)
 - ``FALLBACK_SECONDARY``: primary 의 REVIEW 만 secondary 에 위임 (Method D)
 
-Overlap 해소 우선순위 (기본):
-1. risk_level 높은 쪽
-2. length 긴 쪽
-3. primary (ko-pii) 우선 — 한국 공공 도메인 fit + 법적 근거
+Overlap 해소: ``core.overlap.resolve_overlaps`` 단일 구현 사용
+(위험도 → 확신도 → 길이 순, ``detect_all`` 과 동일 — 늦게 시작하는 고위험 PII 누출 차단).
 """
 from __future__ import annotations
 
@@ -18,6 +16,9 @@ from enum import Enum
 from typing import Iterable, Optional
 
 from ko_pii.core.types import DetectionResult
+# 겹침 해소는 core.overlap 단일 구현 사용 — detect_all 과 동일 우선순위로 통일해
+# 병합 경로에서 늦게 시작하는 고위험 PII(주민·전화)가 누출되던 회귀를 차단.
+from ko_pii.core.overlap import resolve_overlaps as _resolve_overlaps
 
 
 class MergeMode(str, Enum):
@@ -148,22 +149,6 @@ def merge_detections(
     return _resolve_overlaps(primary_list + secondary_list)
 
 
-def _resolve_overlaps(detections: list[DetectionResult]) -> list[DetectionResult]:
-    """Sort + overlap 해소 — 같은 span 에 여러 검출이면 우선순위 따라 단일."""
-    items = sorted(
-        detections,
-        key=lambda d: (
-            d.start,
-            -int(d.risk_level),
-            -(d.end - d.start),
-            -d.confidence,
-        ),
-    )
-    out: list[DetectionResult] = []
-    occupied_end = -1
-    for d in items:
-        if d.start < occupied_end:
-            continue
-        out.append(d)
-        occupied_end = max(occupied_end, d.end)
-    return out
+# _resolve_overlaps 는 상단 import 의 core.overlap.resolve_overlaps (정본).
+# (이전엔 여기서 start-우선 단일커서로 따로 구현돼, 늦게 시작하는 고위험 PII 가
+#  먼저 시작한 저위험 span 에 가려 평문 누출되는 회귀가 있었음 — 정본으로 통일해 해결.)
