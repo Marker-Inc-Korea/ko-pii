@@ -5,6 +5,8 @@
 
 ## [Unreleased]
 
+## [1.13.0] - 2026-06-09
+
 ### Fixed
 - **건강보험증번호 형식 확장** — 증번호 표기형 `N-NNNNNNNNNN`(종별코드 + 하이픈 + 10자리)
   검출 추가. 기존엔 순수 11자리만 인식. 키워드 anchor 유지로 FP 안전.
@@ -16,6 +18,9 @@
 ### Added
 - **회귀 게이트 테스트** — `tests/unit/eval/test_generated_eval_regression.py`. 커밋된
   합성 평가셋으로 ko-pii 전체/라벨별 F1 하한을 CI(`pytest`)에서 자동 검증.
+- **확장 평가셋** — `data/generated_eval_large.jsonl` (1,938문서 = 540 검증분 + LLM 생성
+  1,398). 독립 시스템 견고성 대조에서 ko-pii **0.825** (3.6× 큰 셋에서도 우위 유지).
+- **KDPII 에 Gemma-4-E4B 측정 추가** — 대화체 크기효과 문서화(작은 LLM은 ko-pii 미만).
 
 ## [1.12.1] - 2026-06-05
 
@@ -246,7 +251,8 @@ Phase 9 — 실데이터 평가 + 룰 정제.
 
 전체 Phase 1~11 개발 히스토리는 git log 및 `docs/` 참조.
 
-[Unreleased]: https://github.com/Marker-Inc-Korea/ko-pii/compare/v1.12.1...HEAD
+[Unreleased]: https://github.com/Marker-Inc-Korea/ko-pii/compare/v1.13.0...HEAD
+[1.13.0]: https://github.com/Marker-Inc-Korea/ko-pii/compare/v1.12.1...v1.13.0
 [1.12.1]: https://github.com/Marker-Inc-Korea/ko-pii/compare/v1.12.0...v1.12.1
 [1.12.0]: https://github.com/Marker-Inc-Korea/ko-pii/compare/v1.11.3...v1.12.0
 [1.11.3]: https://github.com/Marker-Inc-Korea/ko-pii/compare/v1.11.2...v1.11.3
