@@ -113,6 +113,31 @@ near ceiling here too (EMAIL 0.998, PHONE 0.989, CARD 0.988, RRN 0.955), and the
 size — though any LLM still carries the GPU / cost / non-determinism that a rule
 engine does not.
 
+## 3c. Robustness cross-check — expanded set (1,938 docs)
+
+To check that the Section 3b numbers are stable on a larger, more varied set, we
+expanded to **1,938 documents** (the 540 validated set + **1,398 additional
+LLM-generated docs**, format-validated only — gold appears verbatim in text — but
+*not* hand-audited). Dataset: `data/generated_eval_large.jsonl`.
+
+**LLM systems are excluded here on purpose.** The 1,398 added docs were generated
+*and self-labeled by Gemma-4-31B*, so scoring any Gemma model on its own gold is
+**circular** and would be inflated. Only systems independent of the gold's
+generator are reported:
+
+| System | F1 | Precision | Recall |
+|---|---|---|---|
+| ko-pii (rules + dict + checksum) | **0.825** | 0.845 | 0.807 |
+| openai/privacy-filter (660M, torch GPU) | **0.538** | 0.549 | 0.528 |
+| Presidio (`kr_adapt`) | **0.478** | 0.771 | 0.346 |
+
+ko-pii's lead over the independent baselines **holds and slightly widens** on the
+3.6× larger set (vs Section 3b: 0.790 / 0.451 / 0.483). All three rise a little
+because the LLM-generated docs are cleaner / less adversarial than the
+hand-curated 540 (which deliberately includes dense and edge-case documents). The
+540 set remains the canonical, audited benchmark; this larger set is a stability
+check only.
+
 ## 4. Speed
 
 Per-document latency, **measured**. One unit = 1 CPU core (unless noted) or
