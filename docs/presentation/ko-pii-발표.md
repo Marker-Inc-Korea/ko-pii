@@ -156,14 +156,15 @@ HybridAnonymizer(rule, clf, mode=HybridMode.REVIEW_FLAG, classifier_threshold=0.
 
 | 평가셋 | 구분 | **ko-pii** | openai/PF | Presidio |
 |---|:---:|:---:|:---:|:---:|
-| 행정문서 (합성 PII) | 자체 | **0.901** | 0.480 | 0.542 |
+| 생성 평가셋 540 (검증 gold) | 자체 | **0.790** | 0.451 | 0.483 |
+| 확장셋 1,938 (견고성 대조) | 자체 | **0.825** | 0.538 | 0.478 |
 | KDPII (일상 대화) | **외부** | **0.660** | 0.264 | 0.273 |
 | KLUE (신문 인명) | **외부** | **0.419** | 0.155 | 0.000 |
 
 - **결정적 PII**(주민·카드·여권·계좌)는 체크섬 검증 → **F1 ≈ 1.000**
-- 외부 공개 데이터(KDPII·KLUE)에서도 룰·NER 도구보다 높음
-- **참고선 (LLM 상한)** — 자체호스팅 **Gemma-4-31B** KDPII **0.796**: ko-pii는 **룰만으로(GPU·LLM 없이) 그 83%** 도달. 대화체(LLM 유리한 셋)에서도 근접 — 구조적 문서에선 대등 이상 예상
-<small>자체 = 합성 PII로 구축 / 외부 = 인간 라벨 공개 데이터 · KDPII·Gemma 모두 단일 매처로 전체 4,891문서 측정</small>
+- **견고성**: 3.6배 큰 확장셋(1,938)에서도 ko-pii 우위 **유지·확대** (LLM은 자기 gold 순환이라 제외)
+- **참고선 (LLM 상한·크기효과)** — **Gemma-4-31B** KDPII **0.796** (ko-pii 룰만으로 그 **83%**). 단 **최소 Gemma-4-E4B 는 0.613** — 대화체에선 ko-pii(0.660) **미만**, 큰 모델만 룰을 능가
+<small>자체 = LLM 생성 + 검증(540은 2단계 감사) / 외부 = 인간 라벨 공개 데이터 · 동일 매처(match_forms_overlap)</small>
 
 ---
 
@@ -185,14 +186,14 @@ HybridAnonymizer(rule, clf, mode=HybridMode.REVIEW_FLAG, classifier_threshold=0.
 - **33종 한국 PII** 검출 + 가명화 — 룰+사전+체크섬, **ML 없이·외부 의존성 0**
 - **정확도**: 결정적 PII ≈ 100%, 외부 벤치도 해외 도구 우위
 - **속도**: 0.56 ms/문서 (~1,800/초), GPU 불필요
-- **품질**: 738 테스트 · CI(3.10~3.13) · PyPI 배포 · 웹 데모
+- **품질**: 772 테스트 · CI(3.10~3.13) · PyPI 배포 · 웹 데모
 
 ```bash
 pip install ko-pii          # 코어 (외부 의존성 0)
 pip install ko-pii[file]    # + HWP/PDF 파서
 ```
 
-### github.com/modak000/ko-pii
+### github.com/Marker-Inc-Korea/ko-pii
 
 ---
 
