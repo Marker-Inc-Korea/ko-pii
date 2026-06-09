@@ -57,3 +57,18 @@ class TestMedicalInsuranceStructure:
         assert len(results) == 1
         r = results[0]
         assert text[r.start:r.end] == "12345678901"
+
+
+class TestMedicalInsuranceDashed:
+    """증번호 표기형 N-NNNNNNNNNN (종별코드 + 하이픈 + 10자리)."""
+
+    def test_dashed_card_number(self):
+        results = _detect_list("건강보험증번호: 1-2840193756")
+        assert len(results) == 1
+        assert results[0].text == "1-2840193756"
+
+    def test_dashed_other_code(self):
+        assert _detect_list("의료보험 5-1098372214")[0].text == "5-1098372214"
+
+    def test_dashed_requires_keyword(self):
+        assert _detect_list("계좌번호 1-2840193756") == []

@@ -25,7 +25,9 @@ CATEGORY = "일반개인정보"
 
 _CONTEXT_WINDOW = 25
 _KEYWORD_RE = re.compile(r"건강\s*보험|의료\s*보험|보험증")
-_NUMBER_RE = re.compile(r"(?<![0-9])([0-9]{11})(?![0-9])")
+# 건강보험증번호 형식 2종: 순수 11자리, 또는 '증번호' 표기형 N-NNNNNNNNNN
+# (1자리 종별 코드 + 하이픈 + 10자리). 키워드 anchor 가 있어 FP 위험은 낮다.
+_NUMBER_RE = re.compile(r"(?<![0-9-])((?:[0-9]-[0-9]{10})|(?:[0-9]{11}))(?![0-9-])")
 
 
 def detect(text: str) -> Iterator[DetectionResult]:

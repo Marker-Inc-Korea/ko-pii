@@ -67,7 +67,7 @@ KDPII is conversational text, which favors LLMs. The large Gemma-4-31B leads;
 ko-pii is second. Note the **size effect**: the **smallest Gemma-4 (E4B) scores
 0.613 — *below* ko-pii's 0.660** — so on conversational Korean only the large 31B
 model beats the rules, while the small LLM does not. (On the administrative
-generated set in Section 3b the order flips: E4B 0.882 > ko-pii 0.784.) See
+generated set in Section 3b the order flips: E4B 0.882 > ko-pii 0.790.) See
 Section 8 for an honest interpretation.
 
 ## 3b. Second dataset — generated administrative / form-like set (measured)
@@ -91,7 +91,7 @@ All systems are scored with the same canonical `match_forms_overlap` matcher and
 |---|---|---|---|
 | Gemma-4-31B-it (self-hosted LLM) | **0.964** | 0.963 | 0.966 |
 | Gemma-4-E4B-it (smallest Gemma 4, ~4B) | **0.882** | 0.925 | 0.843 |
-| ko-pii (rules + dict + checksum) | **0.784** | 0.792 | 0.776 |
+| ko-pii (rules + dict + checksum) | **0.790** | 0.794 | 0.787 |
 | Presidio (`kr_adapt`) | **0.483** | 0.794 | 0.347 |
 | openai/privacy-filter (660M) | **0.451** | 0.445 | 0.457 |
 
@@ -226,7 +226,7 @@ A balanced reading of these results:
   false positives that a checksum-backed rule engine rejects.
 - **KDPII is a conversational set, which structurally favors LLMs.** ko-pii's own
   strength domain (administrative / form-like documents) is reflected by its
-  **0.784** on the generated eval set (Section 3b, same matcher, independent of
+  **0.790** on the generated eval set (Section 3b, same matcher, independent of
   ko-pii's rules) and by its near-ceiling deterministic per-label F1 (Section 5).
 - **Bottom line.** If your priority is conversational free-text recall and you
   can pay the cost and latency, the LLM is better on this set. If your priority

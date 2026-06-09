@@ -5,6 +5,18 @@
 
 ## [Unreleased]
 
+### Fixed
+- **건강보험증번호 형식 확장** — 증번호 표기형 `N-NNNNNNNNNN`(종별코드 + 하이픈 + 10자리)
+  검출 추가. 기존엔 순수 11자리만 인식. 키워드 anchor 유지로 FP 안전.
+- **처방번호 형식 확장** — EMR 영문 접두 형식(`RX-2026-008471`, `PRSC-2026-...` 등)
+  검출 추가. 기존엔 `YYYYMMDDNNNN` 12자리만 인식. 키워드 anchor 필수.
+- 합성 평가셋(540) 기준 MEDICAL_INSURANCE 0.0 → **0.893**, PRESCRIPTION_ID 0.0 → **0.718**,
+  전체 ko-pii F1 0.784 → **0.790**.
+
+### Added
+- **회귀 게이트 테스트** — `tests/unit/eval/test_generated_eval_regression.py`. 커밋된
+  합성 평가셋으로 ko-pii 전체/라벨별 F1 하한을 CI(`pytest`)에서 자동 검증.
+
 ## [1.12.1] - 2026-06-05
 
 ### Docs (문서만, 코드 변경 없음)

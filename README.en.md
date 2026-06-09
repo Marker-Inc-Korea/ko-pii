@@ -229,7 +229,7 @@ A generic Korean NER model (KoELECTRA NER) was **not measured** for this run (ro
 
 > **Fair comparison.** The aggregate F1 partly reflects that Presidio and openai/privacy-filter **lack many Korean PII categories entirely** (they emit 0 on AGE, POSITION, RRN, …). Even restricting to the categories each tool *does* support, ko-pii still leads — **vs openai/privacy-filter 0.61 : 0.37** (its 7 labels), **vs Presidio 0.87 : 0.65** (its 9 labels). The gap is not merely missing categories; ko-pii is also more accurate on common ground.
 
-> **Honest framing.** KDPII is everyday conversational text, a setting that favors LLMs. ko-pii is rule-based: it is strong on structural/deterministic PII and Korean administrative/form text, and weaker on free-form conversation (KDPII PERSON 0.135, ADDRESS 0.241). The self-hosted LLM (Gemma) achieves higher conversational F1 but is ~200× slower, and hosted APIs both transmit PII externally and cannot checksum-verify (yielding false positives). ko-pii's own generated eval set (below — 540 docs, admin/form-like, validated gold, independent of ko-pii's rules) at 0.784 shows where ko-pii is strong (the same set's LLMs: Gemma-4-31B 0.964, smallest Gemma-4-E4B 0.882).
+> **Honest framing.** KDPII is everyday conversational text, a setting that favors LLMs. ko-pii is rule-based: it is strong on structural/deterministic PII and Korean administrative/form text, and weaker on free-form conversation (KDPII PERSON 0.135, ADDRESS 0.241). The self-hosted LLM (Gemma) achieves higher conversational F1 but is ~200× slower, and hosted APIs both transmit PII externally and cannot checksum-verify (yielding false positives). ko-pii's own generated eval set (below — 540 docs, admin/form-like, validated gold, independent of ko-pii's rules) at 0.790 shows where ko-pii is strong (the same set's LLMs: Gemma-4-31B 0.964, smallest Gemma-4-E4B 0.882).
 
 ### Deterministic / structural PII — ko-pii per-label F1 on KDPII
 
@@ -285,7 +285,7 @@ python -m ko_pii.eval.model_comparison data/kdpii/test.json \
 
 | Domain | ko-pii | openai/PF | Presidio |
 |---|---:|---:|---:|
-| Generated eval set (540 docs, admin/form-like, validated gold) | **0.784** | 0.451 | 0.483 |
+| Generated eval set (540 docs, admin/form-like, validated gold) | **0.790** | 0.451 | 0.483 |
 | KLUE NER | **0.419** | 0.155 | 0.000 |
 
 Full details: [`docs/BENCHMARK.md`](docs/BENCHMARK.md) and [`docs/EVALUATION_REPORT.md`](docs/EVALUATION_REPORT.md).
@@ -615,7 +615,7 @@ python -m ko_pii.classifier.train ...   # train the model yourself
 ## FAQ
 
 **Q1. Does rules-only, without ML, really work well?**
-Korea's core PII (RRN, passport, card, business registration number, etc.) is checksum-verified at F1 ≈ 1.000 — an area that ML cannot replace. Context-dependent PII like PERSON may be better handled by ML, but on public/administrative documents ko-pii is practical at F1 0.784 (generated eval set, 540 docs, validated gold; see [docs/BENCHMARK.md](docs/BENCHMARK.md) §3b).
+Korea's core PII (RRN, passport, card, business registration number, etc.) is checksum-verified at F1 ≈ 1.000 — an area that ML cannot replace. Context-dependent PII like PERSON may be better handled by ML, but on public/administrative documents ko-pii is practical at F1 0.790 (generated eval set, 540 docs, validated gold; see [docs/BENCHMARK.md](docs/BENCHMARK.md) §3b).
 
 **Q2. What if there are too many false positives?**
 Inject a domain dictionary into `common_words.py`, turn off a specific category with `exclude={"PERSON"}`, or change the mode (`STRICT` → `BALANCED`).

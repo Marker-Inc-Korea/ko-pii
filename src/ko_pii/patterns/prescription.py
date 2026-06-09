@@ -55,6 +55,12 @@ _INSTITUTION_KEYWORDS = (
     "의료기관기호", "기관기호", "요양기관기호", "요양기관번호", "병원코드",
 )
 
+# 영문 접두 처방번호 (EMR 시스템별 다양): RX-2026-008471, PRSC-2026-0053-77192,
+# RX-260503-44120 등. 키워드 anchor 가 필수라 영문+하이픈 ID 를 넓게 캡처해도 FP 안전.
+_LABELED_ID_PATTERN = re.compile(
+    r"(?<![A-Za-z0-9])([A-Za-z]{2,6}-[0-9][0-9A-Za-z-]{3,22})(?![A-Za-z0-9])"
+)
+
 
 def _has_keyword_before(
     text: str, start: int, window: int, keywords: tuple[str, ...],
@@ -111,6 +117,27 @@ def detect(text: str) -> Iterator[DetectionResult]:
                 "issue_date": f"{m.group(1)}-{m.group(2)}-{m.group(3)}",
                 "serial": m.group(4),
             },
+        )
+
+    # 영문 접두 처방번호 (RX-/PRSC- 등) — 키워드 anchor 필수
+    for m in _LABELED_ID_PATTERN.finditer(text):
+        span = (m.start(1), m.end(1))
+        if any(span[0] < e and s < span[1] for s, e in seen):
+            continue
+        kw = _has_keyword_before(text, m.start(1), 18, _KEYWORDS)
+        if kw is None:
+            continue
+        seen.add(span)
+        yield DetectionResult(
+            label=LABEL,
+            text=m.group(1),
+            start=m.start(1),
+            end=m.end(1),
+            risk_level=RiskLevel.HIGH,
+            confidence=0.88,
+            evidence=["pattern:prescription_labeled_id", f"keyword:{kw}"],
+            legal_basis=LEGAL_BASIS,
+            extra={"category": CATEGORY, "subtype": "labeled_id", "value": m.group(1)},
         )
 
     # 의료기관기호 (8자리, 별도 키워드)

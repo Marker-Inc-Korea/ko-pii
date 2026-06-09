@@ -21,7 +21,7 @@
 |---|---|---|---|---|
 | **Gemma-4-31B** (자체호스팅 LLM) | **0.964** | 0.963 | 0.966 | LLM 생성 gold라 LLM에 유리(주의) |
 | **Gemma-4-E4B** (최소 Gemma4, ~4B) | **0.882** | 0.925 | 0.843 | 31B의 **91% F1**을 ~8배 작은 크기로 |
-| **ko-pii** (룰+사전+체크섬) | **0.784** | 0.792 | 0.776 | 비-LLM 중 1위 |
+| **ko-pii** (룰+사전+체크섬) | **0.790** | 0.794 | 0.787 | 비-LLM 중 1위 |
 | Presidio (`kr_adapt`) | 0.483 | 0.794 | 0.347 | 고정밀·저재현 |
 | openai/privacy-filter (660M) | 0.451¹ | 0.445 | 0.457 | 최하위 |
 
@@ -43,14 +43,16 @@
 | 구간 | 라벨 (F1) |
 |---|---|
 | **천장급 (≥0.93)** | EMAIL 0.998 · VEHICLE 0.994 · PHONE 0.989 · CARD 0.988 · ADDRESS 0.966 · ACCOUNT 0.959 · RRN 0.955 · URL 0.949 · HEIGHT 0.947 · WEIGHT 0.933 |
-| 강 (0.81–0.92) | AGE 0.915 · IP 0.899 · MAJOR 0.873 · NATIONALITY 0.830 · PASSPORT 0.813 |
-| 중 (0.60–0.77) | FRN 0.765 · EDUCATION 0.763 · DT_BIRTH 0.646 · DRIVER_LICENSE 0.644 · POSTAL_CODE 0.610 · PERSON 0.599 |
-| **약/제로** | POSITION 0.243 · BUSINESS_REG 0.220 · CORP_REG 0.195 · MEDICAL_INSURANCE 0.000 · PRESCRIPTION_ID 0.000 |
+| 강 (0.81–0.92) | AGE 0.915 · IP 0.899 · **MEDICAL_INSURANCE 0.893** · MAJOR 0.873 · NATIONALITY 0.830 · PASSPORT 0.813 |
+| 중 (0.55–0.77) | **PRESCRIPTION_ID 0.718** · FRN 0.765 · EDUCATION 0.763 · DT_BIRTH 0.646 · DRIVER_LICENSE 0.644 · POSTAL_CODE 0.610 · PERSON 0.599 |
+| **약** | POSITION 0.243 · BUSINESS_REG 0.220 · CORP_REG 0.195 |
 
-**전체 0.784를 끌어내린 3가지 원인**:
+**전체 0.790의 주요 약점 (2가지)**:
 1. **소프트 속성** — POSITION(직책) R 0.15. ko-pii는 직책을 의도적으로 추적하지 않음. LLM이 잘 잡는 영역.
 2. **체크섬 vs 허구 번호** — BUSINESS_REG/CORP_REG는 **P 0.73~1.0인데 R만 폭락**. LLM이 생성한 gold의 사업자/법인번호가 **체크섬 비유효**라 ko-pii가 정당하게 기각(설계대로). gold 현실성 한계가 동시에 드러남.
-3. **개방형 ID 미구현** — MEDICAL_INSURANCE·PRESCRIPTION_ID는 해당 형태 탐지기 부재 → 0.0.
+
+> ✅ **해결된 갭**: MEDICAL_INSURANCE(증번호 `N-NNNNNNNNNN`)·PRESCRIPTION_ID(`RX-`/`PRSC-` 영문접두)는
+> 탐지기 형식 확장으로 **0.0 → 0.893 / 0.718** (전체 0.784→0.790).
 
 ## 3. 속도 — *측정값*
 

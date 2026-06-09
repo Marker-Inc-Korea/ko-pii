@@ -82,3 +82,21 @@ class TestPrescriptionStructure:
     def test_evidence_includes_date(self):
         r = _d("처방번호 202412010001")[0]
         assert any(e.startswith("date_valid:") for e in r.evidence)
+
+
+class TestPrescriptionLabeledId:
+    """EMR 영문 접두 처방번호 (RX-/PRSC- 등) — 키워드 anchor 필수."""
+
+    def test_rx_prefix(self):
+        r = _d("처방번호 RX-2026-008471")
+        assert len(r) == 1
+        assert r[0].text == "RX-2026-008471"
+
+    def test_prsc_multi_segment(self):
+        assert _d("처방번호: PRSC-2026-0053-77192")[0].text == "PRSC-2026-0053-77192"
+
+    def test_kyobu_keyword(self):
+        assert _d("교부번호 RX-260503-44120")[0].text == "RX-260503-44120"
+
+    def test_labeled_requires_keyword(self):
+        assert _d("주문 RX-2026-008471") == []
