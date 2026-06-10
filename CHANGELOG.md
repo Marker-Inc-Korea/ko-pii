@@ -5,6 +5,24 @@
 
 ## [Unreleased]
 
+## [1.13.1] - 2026-06-10
+
+### Fixed
+- **[보안 HIGH] 병합경로 PII 평문 누출 차단** — `integrations/hybrid._resolve_overlaps` 가
+  start-우선 단일커서 방식이라, 늦게 시작하는 고위험 PII(주민번호·전화)가 먼저 시작한
+  저위험 span 에 가려 평문으로 남던 회귀 수정. 겹침 해소를 `core/overlap.resolve_overlaps`
+  정본 1곳으로 통일 (detect / `modes._apply` / hybrid 공유) + end-to-end 누출 회귀 테스트.
+
+### Added
+- **train↔test 문장 누수 가드** — `ko_pii.eval.dataset_integrity.assert_no_text_leakage`
+  (빌드타임 누수 검증) + 단위 테스트.
+
+### Docs
+- 하이브리드 NER ablation 실측 반영 (`docs/HYBRID_NER.md`) — klue 3ep 포화,
+  openai/privacy-filter "구조적 부적합" 판정을 under-training 으로 정정, 재현 레시피 절 추가.
+- README 한/영 동기화 (튜닝 NER 공개 예정 멘트 + HYBRID_NER 포인터).
+- OpenMed/PF-multilingual 후속 평가 문구 정리 (평가 계획 없음으로 확정).
+
 ## [1.13.0] - 2026-06-09
 
 ### Fixed
