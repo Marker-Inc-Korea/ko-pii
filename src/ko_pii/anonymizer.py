@@ -73,6 +73,7 @@ class Anonymizer:
         exclude: Optional[Iterable[str]] = None,
         secondary_detector=None,
         merge_mode: str = "union",
+        role_split_labels: Optional[Iterable[str]] = None,
     ):
         if strategy not in {"tokenize", "redact", "asterisk", "hashed",
                             "partial", "fpe"}:
@@ -85,6 +86,9 @@ class Anonymizer:
         self.exclude = list(exclude) if exclude else None
         self.secondary_detector = secondary_detector
         self.merge_mode = merge_mode
+        # role_split 모드에서 secondary 가 담당할 라벨 (None=기본 퍼지 10종)
+        self.role_split_labels = (frozenset(role_split_labels)
+                                  if role_split_labels is not None else None)
 
     # ------------------------------------------------------------ public
 
@@ -101,7 +105,8 @@ class Anonymizer:
             if self.exclude:
                 secondary = [s for s in secondary if s.label not in self.exclude]
             detections = merge_detections(
-                primary, secondary, mode=MergeMode(self.merge_mode)
+                primary, secondary, mode=MergeMode(self.merge_mode),
+                role_split_labels=self.role_split_labels,
             )
         else:
             detections = primary

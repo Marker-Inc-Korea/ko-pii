@@ -6,6 +6,10 @@
 - ``CROSS_VALIDATION``: 일치=BLOCK / 불일치=REVIEW (Method B 완전)
 - ``ENRICH_PRIMARY``: primary 우선, secondary 가 *놓친 영역* 만 보강 (Method C)
 - ``FALLBACK_SECONDARY``: primary 의 REVIEW 만 secondary 에 위임 (Method D)
+- ``ROLE_SPLIT``: **역할 분담** — 퍼지 카테고리(이름·주소·직책 등)는 secondary(ML)가
+  *교체* 담당, 나머지(결정적 ID 등)는 primary(룰)만 담당 (Method E).
+  ``docs/HYBRID_NER.md`` 의 하이브리드 구성(외부 검증 F1 0.97)이 이 모드 —
+  union 은 양쪽 FP 가 합산돼 항상 role_split 이하임이 실측됨.
 
 Overlap 해소: ``core.overlap.resolve_overlaps`` 단일 구현 사용
 (위험도 → 확신도 → 길이 순, ``detect_all`` 과 동일 — 늦게 시작하는 고위험 PII 누출 차단).
@@ -27,6 +31,16 @@ class MergeMode(str, Enum):
     CROSS_VALIDATION = "cross_validation"
     ENRICH_PRIMARY = "enrich_primary"
     FALLBACK_SECONDARY = "fallback_secondary"
+    ROLE_SPLIT = "role_split"
+
+
+#: ROLE_SPLIT 기본 위임 라벨 — secondary(ML)가 교체 담당하는 퍼지 카테고리.
+#: 룰이 체크섬·패턴으로 강한 결정적 ID(RRN/CARD/PHONE/EMAIL 등)는 primary 유지.
+#: (HYBRID_NER.md 의 하이브리드 정의와 동일한 10종.)
+DEFAULT_ROLE_SPLIT_LABELS: frozenset[str] = frozenset({
+    "PERSON", "ADDRESS", "POSITION", "EDUCATION", "MAJOR",
+    "NATIONALITY", "AGE", "DT_BIRTH", "HEIGHT", "WEIGHT",
+})
 
 
 def _spans_overlap(a: DetectionResult, b: DetectionResult) -> bool:
@@ -78,8 +92,15 @@ def merge_detections(
     primary: Iterable[DetectionResult],
     secondary: Iterable[DetectionResult],
     mode: MergeMode = MergeMode.UNION,
+    role_split_labels: Optional[Iterable[str]] = None,
 ) -> list[DetectionResult]:
     """primary + secondary 검출 결과를 ``mode`` 에 따라 병합.
+
+    Parameters
+    ----------
+    role_split_labels :
+        ``ROLE_SPLIT`` 모드에서 secondary 가 담당할 라벨 집합.
+        미지정 시 :data:`DEFAULT_ROLE_SPLIT_LABELS` (퍼지 10종).
 
     Returns
     -------
@@ -87,6 +108,16 @@ def merge_detections(
     """
     primary_list = list(primary)
     secondary_list = list(secondary)
+
+    if mode == MergeMode.ROLE_SPLIT:
+        # 역할 분담 — 위임 라벨은 secondary 로 *교체*(primary 의 해당 라벨 폐기),
+        # 나머지 라벨은 primary 만. 합산(union)이 아니라 교체라는 점이 핵심:
+        # 약한 쪽의 FP 가 강한 쪽의 검출을 오염시키지 않는다.
+        delegated = (frozenset(role_split_labels) if role_split_labels is not None
+                     else DEFAULT_ROLE_SPLIT_LABELS)
+        out = [p for p in primary_list if p.label not in delegated]
+        out += [s for s in secondary_list if s.label in delegated]
+        return _resolve_overlaps(out)
 
     if mode == MergeMode.INTERSECTION:
         # 양쪽 모두 찾은 것만 인정
