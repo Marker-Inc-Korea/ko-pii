@@ -28,8 +28,16 @@ class PIIClassifier:
 
     @classmethod
     def from_pretrained(cls, path: str | Path, **kwargs) -> "PIIClassifier":
-        tokenizer = AutoTokenizer.from_pretrained(str(path))
-        model = AutoModelForSequenceClassification.from_pretrained(str(path))
+        try:
+            tokenizer = AutoTokenizer.from_pretrained(str(path))
+            model = AutoModelForSequenceClassification.from_pretrained(str(path))
+        except (OSError, ValueError) as e:
+            raise FileNotFoundError(
+                f"분류기 모델을 '{path}' 에서 찾을 수 없습니다. 사전학습 가중치는 "
+                "배포되지 않습니다(학습 데이터 라이선스) — "
+                "`python -m ko_pii.classifier.train ...` 으로 직접 학습한 모델 "
+                "디렉토리 경로를 지정하세요 (README '룰+ML 하이브리드' 절 참조)."
+            ) from e
         return cls(model, tokenizer, **kwargs)
 
     @torch.inference_mode()
