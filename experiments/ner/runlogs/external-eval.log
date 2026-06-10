@@ -1,0 +1,17 @@
+[1/4] node=marker-multi-gpu-server-01 · venv staging → /tmp/pii_ext_3764/ner_env
+[2/4] python 3.12 (uv) 재배선
+[3/4] CUDA LD 경로
+[4/4] 평가 스위트 — MODEL=
+Set A: 400 docs, 라벨 ['ACCOUNT', 'ADDRESS', 'BUSINESS_REG', 'CARD', 'CORP_REG', 'EMAIL', 'PERSON', 'PHONE', 'POSITION', 'RRN']
+==== Set A (OOD 주입 v2 · 체크섬 유효 · 전체 카테고리) ====
+  rule          F1=0.892 P=0.926 R=0.861   [RRN:R=1.00 CARD:R=1.00 BUSINESS_REG:R=1.00 CORP_REG:R=1.00]
+  ml_fuzzy      F1=0.611 P=0.978 R=0.444   [RRN:R=0.00 CARD:R=0.00 BUSINESS_REG:R=0.00 CORP_REG:R=0.00]
+  ml_all        F1=0.929 P=0.958 R=0.902   [RRN:R=0.94 CARD:R=0.93 BUSINESS_REG:R=0.86 CORP_REG:R=0.85]
+  hybrid_fuzzy  F1=0.968 P=0.990 R=0.947   [RRN:R=1.00 CARD:R=1.00 BUSINESS_REG:R=1.00 CORP_REG:R=1.00]
+  hybrid_all    F1=0.966 P=0.990 R=0.943   [RRN:R=1.00 CARD:R=1.00 BUSINESS_REG:R=1.00 CORP_REG:R=1.00]
+  verified_all  F1=0.927 P=0.963 R=0.893   [RRN:R=0.94 CARD:R=0.93 BUSINESS_REG:R=0.85 CORP_REG:R=0.68]
+==== Set B (KLUE-NER dev 5000문장 · 인간 라벨 PS · 풀네임 관행) ====
+  rule          F1=0.382 P=0.356 R=0.412
+  ml_all        F1=0.840 P=0.949 R=0.754
+  ml_fuzzy      F1=0.834 P=0.974 R=0.729
+저장: /data1/mk04/pii_ner/out/external_eval.json

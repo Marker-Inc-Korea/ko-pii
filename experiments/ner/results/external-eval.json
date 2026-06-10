@@ -1,0 +1,121 @@
+{
+ "setA_rule": {
+  "f1": 0.892461370376151,
+  "precision": 0.9261418853255587,
+  "recall": 0.861144578313253,
+  "per_label_recall": {
+   "PERSON": 0.746,
+   "RRN": 1.0,
+   "BUSINESS_REG": 1.0,
+   "PHONE": 1.0,
+   "CORP_REG": 1.0,
+   "POSITION": 0.0,
+   "EMAIL": 1.0,
+   "CARD": 1.0,
+   "ADDRESS": 0.913,
+   "ACCOUNT": 1.0,
+   "MAJOR": 0,
+   "DT_BIRTH": 0
+  }
+ },
+ "setA_ml_fuzzy": {
+  "f1": 0.6112033195020746,
+  "precision": 0.9780876494023905,
+  "recall": 0.4444779722389861,
+  "per_label_recall": {
+   "PERSON": 0.933,
+   "RRN": 0.0,
+   "BUSINESS_REG": 0.0,
+   "PHONE": 0.0,
+   "CORP_REG": 0.0,
+   "EMAIL": 0.0,
+   "POSITION": 0.49,
+   "CARD": 0.0,
+   "ADDRESS": 0.937,
+   "ACCOUNT": 0.0
+  }
+ },
+ "setA_ml_all": {
+  "f1": 0.9290262463115391,
+  "precision": 0.9577329490874159,
+  "recall": 0.9019903498190591,
+  "per_label_recall": {
+   "PERSON": 0.931,
+   "RRN": 0.937,
+   "BUSINESS_REG": 0.86,
+   "PHONE": 0.932,
+   "CORP_REG": 0.849,
+   "POSITION": 0.426,
+   "EMAIL": 0.942,
+   "CARD": 0.929,
+   "ADDRESS": 0.937,
+   "ACCOUNT": 0.936
+  }
+ },
+ "setA_hybrid_fuzzy": {
+  "f1": 0.9676125848241827,
+  "precision": 0.989589905362776,
+  "recall": 0.9465902232951117,
+  "per_label_recall": {
+   "PERSON": 0.933,
+   "RRN": 1.0,
+   "BUSINESS_REG": 1.0,
+   "PHONE": 1.0,
+   "CORP_REG": 1.0,
+   "POSITION": 0.49,
+   "EMAIL": 1.0,
+   "CARD": 1.0,
+   "ADDRESS": 0.937,
+   "ACCOUNT": 1.0
+  }
+ },
+ "setA_hybrid_all": {
+  "f1": 0.9655385566373049,
+  "precision": 0.9895470383275261,
+  "recall": 0.9426674713337356,
+  "per_label_recall": {
+   "PERSON": 0.931,
+   "RRN": 1.0,
+   "BUSINESS_REG": 1.0,
+   "PHONE": 1.0,
+   "CORP_REG": 1.0,
+   "POSITION": 0.426,
+   "EMAIL": 1.0,
+   "CARD": 1.0,
+   "ADDRESS": 0.937,
+   "ACCOUNT": 1.0
+  }
+ },
+ "setA_verified_all": {
+  "f1": 0.9267376330619913,
+  "precision": 0.962914769030579,
+  "recall": 0.8931804465902233,
+  "per_label_recall": {
+   "PERSON": 0.931,
+   "RRN": 0.937,
+   "BUSINESS_REG": 0.854,
+   "PHONE": 0.932,
+   "CORP_REG": 0.677,
+   "POSITION": 0.426,
+   "EMAIL": 0.942,
+   "CARD": 0.929,
+   "ADDRESS": 0.937,
+   "ACCOUNT": 0.936
+  }
+ },
+ "setB_rule": {
+  "f1": 0.38236412010642346,
+  "precision": 0.3563584838823946,
+  "recall": 0.41246412464124643
+ },
+ "setB_ml_all": {
+  "f1": 0.8403015764222069,
+  "precision": 0.9489164086687306,
+  "recall": 0.7539975399753998
+ },
+ "setB_ml_fuzzy": {
+  "f1": 0.8339587242026266,
+  "precision": 0.9742465753424657,
+  "recall": 0.7289872898728987
+ }
+}

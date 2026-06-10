@@ -276,6 +276,13 @@
    "elapsed": null,
    "what": "체크섬 프로브 + 마스킹 시연",
    "log": "runlogs/checksum-probe.log, runlogs/mask-demo.log"
+  },
+  {
+   "slurm_job": 3764,
+   "node": "gpu01",
+   "elapsed": "00:03:54",
+   "what": "외부 검증 — Set A(OOD 주입 v2·체크섬 유효) 6구성 + Set B(KLUE-NER PS) 3구성",
+   "log": "runlogs/external-eval.log"
   }
  ]
 }
