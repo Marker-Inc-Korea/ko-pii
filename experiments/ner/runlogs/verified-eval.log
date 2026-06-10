@@ -1,0 +1,20 @@
+[1/4] node=marker-multi-gpu-server-01 · venv staging → /tmp/pii_verif_3722/ner_env
+[2/4] python 3.12 (uv) 재배선
+[3/4] CUDA LD 경로
+[4/4] 평가 스위트 — MODEL=/data1/mk04/pii_ner/out/klue_all_slurm/final
+==== gold ID 체크섬 유효율 ====
+  [KDPII_test] CARD           7/78 (9%)
+  [generated_540] BUSINESS_REG   11/85 (13%)
+  [generated_540] CARD           40/42 (95%)
+  [generated_540] CORP_REG       7/37 (19%)
+==== [KDPII_test] ====
+  ml단독       F1=0.949 P=0.967 R=0.931
+  ml+룰검증(3안) F1=0.919 P=0.965 R=0.877   (Δ -0.030)
+    검증 드롭 CARD           gold(TP손실)=71  비gold(FP제거)=0
+==== [generated_540] ====
+  ml단독       F1=0.943 P=0.933 R=0.953
+  ml+룰검증(3안) F1=0.929 P=0.935 R=0.924   (Δ -0.014)
+    검증 드롭 BUSINESS_REG   gold(TP손실)=74  비gold(FP제거)=6
+    검증 드롭 CARD           gold(TP손실)=2  비gold(FP제거)=7
+    검증 드롭 CORP_REG       gold(TP손실)=29  비gold(FP제거)=1
+저장: /data1/mk04/pii_ner/out/verified_klue_all.json
