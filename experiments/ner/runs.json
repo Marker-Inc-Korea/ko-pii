@@ -1,0 +1,281 @@
+{
+ "environment": {
+  "gpu": "NVIDIA RTX PRO 6000 Blackwell 96GB x1 per job (SLURM gres rtx6000)",
+  "stack": {
+   "python": "3.12",
+   "torch": "2.12.0+cu130",
+   "transformers": "5.10.2",
+   "datasets": "5.0.0",
+   "seqeval": "1.2.2"
+  },
+  "data": {
+   "train": 41507,
+   "train_kdpii": 40109,
+   "train_generated": 1398,
+   "valid": 5011,
+   "test_kdpii": 4891,
+   "test_generated": 540
+  },
+  "common_hparams": {
+   "max_len": 256,
+   "warmup_ratio": 0.1,
+   "weight_decay": 0.01,
+   "best_model": "valid_f1"
+  }
+ },
+ "training_runs": [
+  {
+   "id": "klue-3ep-a",
+   "slurm_job": null,
+   "node": "head(직접)",
+   "base": "klue/roberta-large",
+   "labels": "fuzzy20",
+   "hparams": {
+    "lr": 2e-05,
+    "epochs": 3,
+    "bs": 32
+   },
+   "train_runtime_s": 796.4,
+   "samples_per_s": 156.4,
+   "results": {
+    "kdpii_f1": 0.9337,
+    "gen540_f1": 0.8461
+   },
+   "artifacts": {
+    "log": "runlogs/train-klue-3ep-a.log",
+    "result": "results/klue-3ep-a.json"
+   }
+  },
+  {
+   "id": "klue-3ep-b",
+   "slurm_job": 3650,
+   "node": "gpu01",
+   "base": "klue/roberta-large",
+   "labels": "fuzzy20",
+   "hparams": {
+    "lr": 2e-05,
+    "epochs": 3,
+    "bs": 32
+   },
+   "train_runtime_s": 867.4,
+   "samples_per_s": 143.6,
+   "results": {
+    "kdpii_f1": 0.9366,
+    "gen540_f1": 0.8623
+   },
+   "production": true,
+   "artifacts": {
+    "log": "runlogs/train-klue-3ep-b.log",
+    "result": "results/klue-3ep-b.json"
+   }
+  },
+  {
+   "id": "openai-pf-lr2e5",
+   "slurm_job": null,
+   "node": "head(직접)",
+   "base": "openai/privacy-filter",
+   "labels": "fuzzy20",
+   "hparams": {
+    "lr": 2e-05,
+    "epochs": 3,
+    "bs": 32
+   },
+   "train_runtime_s": 4958,
+   "samples_per_s": 25.11,
+   "results": {
+    "kdpii_f1": 0.1379,
+    "gen540_f1": 0.2091
+   },
+   "note": "과소학습 (lr 부족)",
+   "artifacts": {
+    "log": "runlogs/train-openai-pf-lr2e5.log",
+    "result": "results/openai-pf-lr2e5.json"
+   }
+  },
+  {
+   "id": "klue-6ep",
+   "slurm_job": 3653,
+   "node": "gpu02",
+   "base": "klue/roberta-large",
+   "labels": "fuzzy20",
+   "hparams": {
+    "lr": 2e-05,
+    "epochs": 6,
+    "bs": 32
+   },
+   "train_runtime_s": 1031,
+   "samples_per_s": 241.6,
+   "results": {
+    "kdpii_f1": 0.935,
+    "gen540_f1": 0.8436
+   },
+   "artifacts": {
+    "log": "runlogs/train-klue-6ep.log",
+    "result": "results/klue-6ep.json"
+   }
+  },
+  {
+   "id": "klue-6ep-lr3e5",
+   "slurm_job": 3654,
+   "node": "gpu01",
+   "base": "klue/roberta-large",
+   "labels": "fuzzy20",
+   "hparams": {
+    "lr": 3e-05,
+    "epochs": 6,
+    "bs": 32
+   },
+   "train_runtime_s": 1693,
+   "samples_per_s": 147.1,
+   "results": {
+    "kdpii_f1": 0.9283,
+    "gen540_f1": 0.8587
+   },
+   "artifacts": {
+    "log": "runlogs/train-klue-6ep-lr3e5.log",
+    "result": "results/klue-6ep-lr3e5.json"
+   }
+  },
+  {
+   "id": "openai-pf-lr1e4",
+   "slurm_job": 3655,
+   "node": "gpu01",
+   "base": "openai/privacy-filter",
+   "labels": "fuzzy20",
+   "hparams": {
+    "lr": 0.0001,
+    "epochs": 5,
+    "bs": 32
+   },
+   "train_runtime_s": 6619,
+   "samples_per_s": 31.36,
+   "results": {
+    "kdpii_f1": 0.6326,
+    "gen540_f1": 0.4368
+   },
+   "artifacts": {
+    "log": "runlogs/train-openai-pf-lr1e4.log",
+    "result": "results/openai-pf-lr1e4.json"
+   }
+  },
+  {
+   "id": "klue-all",
+   "slurm_job": 3718,
+   "node": "gpu01",
+   "base": "klue/roberta-large",
+   "labels": "all36",
+   "hparams": {
+    "lr": 2e-05,
+    "epochs": 3,
+    "bs": 32
+   },
+   "train_runtime_s": 1407,
+   "samples_per_s": 88.51,
+   "results": {
+    "kdpii_f1": 0.9498,
+    "gen540_f1": 0.8823
+   },
+   "artifacts": {
+    "log": "runlogs/train-klue-all.log",
+    "result": "results/klue-all.json"
+   }
+  },
+  {
+   "id": "gemma4-e2b-all",
+   "slurm_job": 3723,
+   "node": "gpu01",
+   "base": "google/gemma-4-E2B-it (텍스트타워 4.6B + 커스텀 헤드)",
+   "labels": "all36",
+   "hparams": {
+    "lr": 5e-05,
+    "epochs": 3,
+    "bs": "8x4(grad accum)"
+   },
+   "train_runtime_s": 6731,
+   "samples_per_s": 18.5,
+   "results": {
+    "kdpii_f1": 0.3531,
+    "gen540_f1": 0.7012
+   },
+   "note": "디코더 LLM 파인튜닝 — valid F1 0.27→0.33→0.33 조기 정체",
+   "artifacts": {
+    "log": "runlogs/train-gemma4-e2b-all.log",
+    "result": "results/gemma4-e2b-all.json"
+   }
+  },
+  {
+   "id": "gemma4-e2b-all-hilr",
+   "slurm_job": 3744,
+   "node": "gpu02",
+   "base": "google/gemma-4-E2B-it (텍스트타워 4.6B + 커스텀 헤드)",
+   "labels": "all36",
+   "hparams": {
+    "lr": 0.0001,
+    "epochs": 3,
+    "bs": "8x4(grad accum)"
+   },
+   "train_runtime_s": 4336,
+   "samples_per_s": 28.72,
+   "results": {
+    "kdpii_f1": 0.3513,
+    "gen540_f1": 0.6733
+   },
+   "note": "lr 5배에도 동일 천장 — 과소학습 아님 확정",
+   "artifacts": {
+    "log": "runlogs/train-gemma4-e2b-all-hilr.log",
+    "result": "results/gemma4-e2b-all-hilr.json"
+   }
+  }
+ ],
+ "eval_runs": [
+  {
+   "slurm_job": 3664,
+   "node": "gpu01",
+   "elapsed": "00:06:52",
+   "what": "하이브리드 전후비교 v1 — openai/PF tuned",
+   "log": "runlogs/eval-hybrid-openai-tuned.log"
+  },
+  {
+   "slurm_job": 3665,
+   "node": "gpu02",
+   "elapsed": "00:01:43",
+   "what": "하이브리드 전후비교 v1 — klue 퍼지",
+   "log": "runlogs/eval-hybrid-klue-fuzzy.log"
+  },
+  {
+   "slurm_job": 3715,
+   "node": "gpu02",
+   "elapsed": "00:01:24",
+   "what": "평가스위트 v2 — klue base(무학습)",
+   "log": "runlogs/evalsuite-klue-base.log"
+  },
+  {
+   "slurm_job": 3716,
+   "node": "gpu01",
+   "elapsed": "00:13:24",
+   "what": "평가스위트 v2 — klue 퍼지학습",
+   "log": "runlogs/evalsuite-klue-fuzzy.log"
+  },
+  {
+   "slurm_job": 3719,
+   "node": "gpu01",
+   "elapsed": "00:10:33",
+   "what": "평가스위트 v2 — klue 전체학습",
+   "log": "runlogs/evalsuite-klue-all.log"
+  },
+  {
+   "slurm_job": 3722,
+   "node": "gpu01",
+   "elapsed": "00:04:22",
+   "what": "3안 (ML+룰 체크섬 검증)",
+   "log": "runlogs/verified-eval.log"
+  },
+  {
+   "slurm_job": null,
+   "node": "head(CPU)",
+   "elapsed": null,
+   "what": "체크섬 프로브 + 마스킹 시연",
+   "log": "runlogs/checksum-probe.log, runlogs/mask-demo.log"
+  }
+ ]
+}

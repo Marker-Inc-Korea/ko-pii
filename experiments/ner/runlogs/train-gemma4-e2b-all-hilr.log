@@ -1,0 +1,130 @@
+[1/4] node=H5RDDZ3 · venv staging → /tmp/pii_ner_3744/ner_env
+[2/4] python 3.12 (uv) 재배선
+[3/4] CUDA LD 경로 + import 점검
+  torch 2.12.0+cu130 cuda True
+학습: KDPII 40109 + 생성행정 1398 = 41507
+train 41507 / valid 5011 / KDPII test 4891 / 생성 test 540
+  로드 클래스: Gemma4Model
+  텍스트 타워: Gemma4TextModel
+[transformers] warmup_ratio is deprecated and will be removed in v5.2. Use `warmup_steps` instead.
+{'loss': '12.7', 'grad_norm': '162.8', 'learning_rate': '2.538e-05', 'epoch': '0.07709'}
+{'loss': '1.715', 'grad_norm': '81.39', 'learning_rate': '5.103e-05', 'epoch': '0.1542'}
+{'loss': '1.287', 'grad_norm': '30.21', 'learning_rate': '7.667e-05', 'epoch': '0.2313'}
+{'loss': '1.199', 'grad_norm': '38.03', 'learning_rate': '9.974e-05', 'epoch': '0.3083'}
+{'loss': '1.135', 'grad_norm': '17.23', 'learning_rate': '9.689e-05', 'epoch': '0.3854'}
+{'loss': '0.9457', 'grad_norm': '12.37', 'learning_rate': '9.404e-05', 'epoch': '0.4625'}
+{'loss': '0.8125', 'grad_norm': '11.98', 'learning_rate': '9.118e-05', 'epoch': '0.5396'}
+{'loss': '0.7813', 'grad_norm': '13.35', 'learning_rate': '8.833e-05', 'epoch': '0.6167'}
+{'loss': '0.6906', 'grad_norm': '6.471', 'learning_rate': '8.547e-05', 'epoch': '0.6938'}
+{'loss': '0.6631', 'grad_norm': '11', 'learning_rate': '8.262e-05', 'epoch': '0.7709'}
+{'loss': '0.7473', 'grad_norm': '7.211', 'learning_rate': '7.977e-05', 'epoch': '0.8479'}
+{'loss': '0.6691', 'grad_norm': '4.983', 'learning_rate': '7.691e-05', 'epoch': '0.925'}
+[A{'eval_loss': '0.1911', 'eval_f1': '0.2537', 'eval_precision': '0.2109', 'eval_recall': '0.3183', 'eval_runtime': '9.672', 'eval_samples_per_second': '518.1', 'eval_steps_per_second': '32.46', 'epoch': '1'}
+                                                 [A
+{'loss': '0.6478', 'grad_norm': '3.465', 'learning_rate': '7.406e-05', 'epoch': '1.002'}
+{'loss': '0.4803', 'grad_norm': '6.321', 'learning_rate': '7.12e-05', 'epoch': '1.079'}
+{'loss': '0.4787', 'grad_norm': '7.461', 'learning_rate': '6.835e-05', 'epoch': '1.156'}
+{'loss': '0.4496', 'grad_norm': '4.132', 'learning_rate': '6.55e-05', 'epoch': '1.233'}
+{'loss': '0.4293', 'grad_norm': '4.599', 'learning_rate': '6.264e-05', 'epoch': '1.31'}
+{'loss': '0.4528', 'grad_norm': '8.881', 'learning_rate': '5.979e-05', 'epoch': '1.387'}
+{'loss': '0.4644', 'grad_norm': '6.744', 'learning_rate': '5.693e-05', 'epoch': '1.464'}
+{'loss': '0.3951', 'grad_norm': '7.298', 'learning_rate': '5.408e-05', 'epoch': '1.541'}
+{'loss': '0.4018', 'grad_norm': '6.852', 'learning_rate': '5.123e-05', 'epoch': '1.618'}
+{'loss': '0.4185', 'grad_norm': '6.311', 'learning_rate': '4.837e-05', 'epoch': '1.695'}
+{'loss': '0.3924', 'grad_norm': '6.358', 'learning_rate': '4.552e-05', 'epoch': '1.772'}
+{'loss': '0.4079', 'grad_norm': '4.473', 'learning_rate': '4.267e-05', 'epoch': '1.849'}
+{'loss': '0.4056', 'grad_norm': '6.942', 'learning_rate': '3.981e-05', 'epoch': '1.927'}
+[A{'eval_loss': '0.1635', 'eval_f1': '0.3289', 'eval_precision': '0.2856', 'eval_recall': '0.3876', 'eval_runtime': '9.492', 'eval_samples_per_second': '527.9', 'eval_steps_per_second': '33.08', 'epoch': '2'}
+                                                 [A
+{'loss': '0.3639', 'grad_norm': '4.522', 'learning_rate': '3.696e-05', 'epoch': '2.003'}
+{'loss': '0.2409', 'grad_norm': '5.088', 'learning_rate': '3.41e-05', 'epoch': '2.08'}
+{'loss': '0.2288', 'grad_norm': '2.224', 'learning_rate': '3.125e-05', 'epoch': '2.157'}
+{'loss': '0.2516', 'grad_norm': '0.9317', 'learning_rate': '2.84e-05', 'epoch': '2.234'}
+{'loss': '0.235', 'grad_norm': '6.575', 'learning_rate': '2.554e-05', 'epoch': '2.311'}
+{'loss': '0.2281', 'grad_norm': '12.15', 'learning_rate': '2.269e-05', 'epoch': '2.389'}
+{'loss': '0.2457', 'grad_norm': '5.979', 'learning_rate': '1.983e-05', 'epoch': '2.466'}
+{'loss': '0.2344', 'grad_norm': '2.591', 'learning_rate': '1.698e-05', 'epoch': '2.543'}
+{'loss': '0.2263', 'grad_norm': '6.054', 'learning_rate': '1.413e-05', 'epoch': '2.62'}
+{'loss': '0.236', 'grad_norm': '6.242', 'learning_rate': '1.127e-05', 'epoch': '2.697'}
+{'loss': '0.2452', 'grad_norm': '6.089', 'learning_rate': '8.419e-06', 'epoch': '2.774'}
+{'loss': '0.2346', 'grad_norm': '3.573', 'learning_rate': '5.565e-06', 'epoch': '2.851'}
+{'loss': '0.217', 'grad_norm': '2.76', 'learning_rate': '2.711e-06', 'epoch': '2.928'}
+[A{'eval_loss': '0.1829', 'eval_f1': '0.3398', 'eval_precision': '0.2906', 'eval_recall': '0.4091', 'eval_runtime': '9.245', 'eval_samples_per_second': '542', 'eval_steps_per_second': '33.96', 'epoch': '3'}
+                                                 [A
+{'train_runtime': '4336', 'train_samples_per_second': '28.72', 'train_steps_per_second': '0.898', 'train_loss': '0.8364', 'epoch': '3'}
+overall F1=0.351 P=0.302 R=0.420
+                precision    recall  f1-score   support
+       ACCOUNT      0.122     0.208     0.154        77
+       ADDRESS      0.215     0.307     0.253       101
+           AGE      0.276     0.375     0.318        56
+    BLOOD_TYPE      0.935     0.977     0.956        44
+          CARD      0.286     0.513     0.367        78
+          CLUB      0.092     0.112     0.101       134
+    DEPARTMENT      0.168     0.242     0.198        99
+DRIVER_LICENSE      0.129     0.235     0.167        17
+      DT_BIRTH      0.269     0.400     0.322        70
+     EDUCATION      0.112     0.191     0.141        89
+         EMAIL      0.548     0.704     0.616        81
+           FRN      0.051     0.222     0.083         9
+         GRADE      0.180     0.250     0.209        36
+        HEIGHT      0.450     0.754     0.563        65
+            IP      0.250     0.455     0.323        11
+         MAJOR      0.286     0.400     0.333        65
+      MILITARY      0.122     0.188     0.148        32
+   NATIONALITY      0.611     0.620     0.615        71
+      NICKNAME      0.206     0.276     0.236       105
+      PASSPORT      0.900     1.000     0.947        18
+        PERSON      0.318     0.362     0.339       177
+         PHONE      0.665     0.895     0.763       124
+         PLACE      0.067     0.121     0.087       107
+      POSITION      0.367     0.411     0.388       124
+      RELIGION      0.441     0.542     0.486        48
+           RRN      0.050     0.111     0.069        18
+           SEX      0.745     0.854     0.796        48
+           URL      1.000     1.000     1.000        39
+       VEHICLE      0.247     0.346     0.288        52
+        WEIGHT      0.574     0.796     0.667        49
+     WORKPLACE      0.129     0.168     0.146       113
+     micro avg      0.302     0.420     0.351      2157
+     macro avg      0.349     0.453     0.390      2157
+  weighted avg      0.325     0.420     0.364      2157
+overall F1=0.673 P=0.618 R=0.739
+                   precision    recall  f1-score   support
+          ACCOUNT      0.522     0.641     0.575       128
+          ADDRESS      0.410     0.683     0.512       378
+              AGE      0.234     0.250     0.242        72
+       BLOOD_TYPE      0.000     0.000     0.000         0
+     BUSINESS_REG      0.966     0.988     0.977        85
+             CARD      0.478     0.805     0.600        41
+             CLUB      0.000     0.000     0.000         0
+         CORP_REG      0.825     0.892     0.857        37
+       DEPARTMENT      0.000     0.000     0.000         0
+   DRIVER_LICENSE      0.694     0.872     0.773        39
+         DT_BIRTH      0.744     0.821     0.780       106
+        EDUCATION      0.255     0.377     0.304        69
+            EMAIL      0.923     0.995     0.958       194
+              FRN      0.725     0.906     0.806        32
+            GRADE      0.000     0.000     0.000         0
+           HEIGHT      0.786     0.892     0.835        37
+               IP      0.554     0.861     0.674        36
+            MAJOR      0.448     0.703     0.547        74
+MEDICAL_INSURANCE      0.893     0.893     0.893        28
+         MILITARY      0.000     0.000     0.000         0
+      NATIONALITY      0.761     0.729     0.745        48
+         NICKNAME      0.000     0.000     0.000         0
+         PASSPORT      0.674     0.816     0.738        38
+           PERSON      0.627     0.623     0.625       914
+            PHONE      0.880     0.963     0.919       539
+            PLACE      0.000     0.000     0.000         0
+         POSITION      0.465     0.362     0.407       254
+      POSTAL_CODE      0.708     0.919     0.800        37
+  PRESCRIPTION_ID      0.652     0.714     0.682        21
+              RRN      0.773     0.939     0.848       196
+              URL      0.942     1.000     0.970        49
+          VEHICLE      0.607     0.730     0.663        74
+           WEIGHT      0.705     0.886     0.785        35
+        WORKPLACE      0.000     0.000     0.000         0
+        micro avg      0.618     0.739     0.673      3561
+        macro avg      0.507     0.596     0.545      3561
+     weighted avg      0.657     0.739     0.690      3561
+저장: /data1/mk04/pii_ner/out/gemma4_e2b_all_hilr (backbone + head.pt + result.json)

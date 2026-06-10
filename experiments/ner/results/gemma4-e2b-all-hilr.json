@@ -1,0 +1,16 @@
+{
+ "base": "/data1/hub/models--google--gemma-4-E2B-it/snapshots/905e84b50c4d2a365ebde34e685027578e6728db/",
+ "all_labels": true,
+ "lr": 0.0001,
+ "epochs": 3,
+ "KDPII_test": {
+  "f1": 0.3513461165988766,
+  "precision": 0.301729873586161,
+  "recall": 0.42049142327306444
+ },
+ "generated_540": {
+  "f1": 0.6733205374280231,
+  "precision": 0.6184767277856136,
+  "recall": 0.7388374052232519
+ }
+}
