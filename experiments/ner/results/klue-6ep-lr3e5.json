@@ -1,0 +1,14 @@
+{
+ "base": "klue/roberta-large",
+ "with_generated": true,
+ "KDPII_test": {
+  "f1": 0.9283318084781946,
+  "precision": 0.9201934703748489,
+  "recall": 0.9366153846153846
+ },
+ "generated_540": {
+  "f1": 0.8587308939323762,
+  "precision": 0.8520220588235294,
+  "recall": 0.865546218487395
+ }
+}

@@ -1,0 +1,75 @@
+{
+ "model": "/data1/mk04/pii_ner/out/klue_large_slurm/final",
+ "labels": [
+  "ADDRESS",
+  "AGE",
+  "BLOOD_TYPE",
+  "CLUB",
+  "DEPARTMENT",
+  "DT_BIRTH",
+  "EDUCATION",
+  "GRADE",
+  "HEIGHT",
+  "MAJOR",
+  "MILITARY",
+  "NATIONALITY",
+  "NICKNAME",
+  "PERSON",
+  "PLACE",
+  "POSITION",
+  "RELIGION",
+  "SEX",
+  "WEIGHT",
+  "WORKPLACE"
+ ],
+ "seqeval_KDPII_test": {
+  "f1": 0.9365705614567527,
+  "precision": 0.9239520958083832,
+  "recall": 0.9495384615384616
+ },
+ "seqeval_generated_540": {
+  "f1": 0.8622837370242215,
+  "precision": 0.8522571819425444,
+  "recall": 0.8725490196078431
+ },
+ "score_KDPII_test_rule": {
+  "f1": 0.6593673965936739,
+  "precision": 0.6984536082474226,
+  "recall": 0.6244239631336406
+ },
+ "score_KDPII_test_ml": {
+  "f1": 0.685066535239034,
+  "precision": 0.9612724757952974,
+  "recall": 0.5321592649310873
+ },
+ "score_KDPII_test_hybrid": {
+  "f1": 0.9036193574623831,
+  "precision": 0.9635732870771899,
+  "recall": 0.8506891271056661
+ },
+ "score_KDPII_test_union": {
+  "f1": 0.7987310539302079,
+  "precision": 0.7503311258278146,
+  "recall": 0.8538055764883196
+ },
+ "score_generated_540_rule": {
+  "f1": 0.7904124860646601,
+  "precision": 0.7937307584662748,
+  "recall": 0.7871218429086873
+ },
+ "score_generated_540_ml": {
+  "f1": 0.6610473457675754,
+  "precision": 0.9460985626283368,
+  "recall": 0.5079933847850056
+ },
+ "score_generated_540_hybrid": {
+  "f1": 0.9268911114241442,
+  "precision": 0.9478536444828579,
+  "recall": 0.9068357221609702
+ },
+ "score_generated_540_union": {
+  "f1": 0.8634423897581792,
+  "precision": 0.815129811996419,
+  "recall": 0.9178427419354839
+ }
+}

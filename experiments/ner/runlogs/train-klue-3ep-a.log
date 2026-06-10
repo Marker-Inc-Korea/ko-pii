@@ -1,0 +1,92 @@
+학습: KDPII 40109 + 생성행정 1398 = 41507
+[klue/roberta-large] 라벨 20종 · 토큰화...
+train 41507 / valid 5011 / KDPII test 4891 / 생성 test 540
+[transformers] RobertaForTokenClassification LOAD REPORT from: klue/roberta-large
+Key                       | Status     | 
+--------------------------+------------+-
+lm_head.dense.weight      | UNEXPECTED | 
+lm_head.layer_norm.weight | UNEXPECTED | 
+lm_head.layer_norm.bias   | UNEXPECTED | 
+lm_head.bias              | UNEXPECTED | 
+lm_head.dense.bias        | UNEXPECTED | 
+classifier.bias           | MISSING    | 
+classifier.weight         | MISSING    | 
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+- MISSING:	those params were newly initialized because missing from the checkpoint. Consider training on your downstream task.
+[transformers] warmup_ratio is deprecated and will be removed in v5.2. Use `warmup_steps` instead.
+{'loss': '0.9789', 'grad_norm': '2.038', 'learning_rate': '1.021e-05', 'epoch': '0.1541'}
+{'loss': '0.06418', 'grad_norm': '1.4', 'learning_rate': '1.995e-05', 'epoch': '0.3082'}
+{'loss': '0.03719', 'grad_norm': '1.321', 'learning_rate': '1.881e-05', 'epoch': '0.4622'}
+{'loss': '0.02912', 'grad_norm': '2.876', 'learning_rate': '1.767e-05', 'epoch': '0.6163'}
+{'loss': '0.02464', 'grad_norm': '1.469', 'learning_rate': '1.652e-05', 'epoch': '0.7704'}
+{'loss': '0.02432', 'grad_norm': '0.2114', 'learning_rate': '1.538e-05', 'epoch': '0.9245'}
+[A{'eval_loss': '0.02677', 'eval_f1': '0.8848', 'eval_precision': '0.8661', 'eval_recall': '0.9044', 'eval_runtime': '18.2', 'eval_samples_per_second': '275.3', 'eval_steps_per_second': '4.341', 'epoch': '1'}
+                                               [A
+{'loss': '0.01716', 'grad_norm': '0.9643', 'learning_rate': '1.424e-05', 'epoch': '1.079'}
+{'loss': '0.01348', 'grad_norm': '0.0771', 'learning_rate': '1.31e-05', 'epoch': '1.233'}
+{'loss': '0.01083', 'grad_norm': '0.9032', 'learning_rate': '1.196e-05', 'epoch': '1.387'}
+{'loss': '0.01211', 'grad_norm': '0.06024', 'learning_rate': '1.082e-05', 'epoch': '1.541'}
+{'loss': '0.01191', 'grad_norm': '1.244', 'learning_rate': '9.675e-06', 'epoch': '1.695'}
+{'loss': '0.01134', 'grad_norm': '0.07015', 'learning_rate': '8.533e-06', 'epoch': '1.849'}
+[A{'eval_loss': '0.02471', 'eval_f1': '0.9062', 'eval_precision': '0.8897', 'eval_recall': '0.9233', 'eval_runtime': '20.8', 'eval_samples_per_second': '240.9', 'eval_steps_per_second': '3.798', 'epoch': '2'}
+                                               [A
+{'loss': '0.01137', 'grad_norm': '0.5225', 'learning_rate': '7.392e-06', 'epoch': '2.003'}
+{'loss': '0.005269', 'grad_norm': '3.23', 'learning_rate': '6.25e-06', 'epoch': '2.157'}
+{'loss': '0.005459', 'grad_norm': '0.009831', 'learning_rate': '5.108e-06', 'epoch': '2.311'}
+{'loss': '0.00518', 'grad_norm': '0.258', 'learning_rate': '3.967e-06', 'epoch': '2.465'}
+{'loss': '0.005528', 'grad_norm': '0.1088', 'learning_rate': '2.825e-06', 'epoch': '2.619'}
+{'loss': '0.004922', 'grad_norm': '0.2632', 'learning_rate': '1.684e-06', 'epoch': '2.773'}
+{'loss': '0.003722', 'grad_norm': '0.2233', 'learning_rate': '5.422e-07', 'epoch': '2.928'}
+[A{'eval_loss': '0.02618', 'eval_f1': '0.9069', 'eval_precision': '0.8917', 'eval_recall': '0.9227', 'eval_runtime': '21.69', 'eval_samples_per_second': '231', 'eval_steps_per_second': '3.641', 'epoch': '3'}
+                                               [A
+{'train_runtime': '796.4', 'train_samples_per_second': '156.4', 'train_steps_per_second': '4.889', 'train_loss': '0.06567', 'epoch': '3'}
+==== [klue/roberta-large] KDPII_test ====
+overall F1=0.934 P=0.923 R=0.945
+              precision    recall  f1-score   support
+     ADDRESS      0.931     0.931     0.931       101
+         AGE      0.966     1.000     0.982        56
+  BLOOD_TYPE      0.978     1.000     0.989        44
+        CLUB      0.850     0.843     0.846       134
+  DEPARTMENT      0.980     0.980     0.980        99
+    DT_BIRTH      0.945     0.986     0.965        70
+   EDUCATION      0.933     0.944     0.939        89
+       GRADE      0.972     0.972     0.972        36
+      HEIGHT      1.000     1.000     1.000        65
+       MAJOR      0.985     0.985     0.985        65
+    MILITARY      0.889     1.000     0.941        32
+ NATIONALITY      0.973     1.000     0.986        71
+    NICKNAME      0.856     0.856     0.856        97
+      PERSON      0.926     0.989     0.956       177
+       PLACE      0.791     0.850     0.820       107
+    POSITION      0.903     0.976     0.938       124
+    RELIGION      1.000     0.958     0.979        48
+         SEX      1.000     1.000     1.000        48
+      WEIGHT      0.959     0.959     0.959        49
+   WORKPLACE      0.894     0.894     0.894       113
+   micro avg      0.923     0.945     0.934      1625
+   macro avg      0.936     0.956     0.946      1625
+weighted avg      0.923     0.945     0.934      1625
+==== [klue/roberta-large] generated_540 ====
+overall F1=0.846 P=0.837 R=0.856
+              precision    recall  f1-score   support
+     ADDRESS      0.773     0.893     0.829       401
+         AGE      0.488     0.583     0.532        72
+        CLUB      0.000     0.000     0.000         0
+  DEPARTMENT      0.000     0.000     0.000         0
+    DT_BIRTH      0.836     0.860     0.848       107
+   EDUCATION      0.528     0.551     0.539        69
+       GRADE      0.000     0.000     0.000         0
+      HEIGHT      0.900     0.947     0.923        38
+       MAJOR      0.800     0.973     0.878        74
+ NATIONALITY      0.824     0.875     0.848        48
+    NICKNAME      0.000     0.000     0.000         0
+      PERSON      0.982     0.951     0.966      1023
+       PLACE      0.000     0.000     0.000         0
+    POSITION      0.745     0.533     0.621       274
+      WEIGHT      0.850     0.944     0.895        36
+   WORKPLACE      0.000     0.000     0.000         0
+   micro avg      0.837     0.856     0.846      2142
+   macro avg      0.483     0.507     0.492      2142
+weighted avg      0.860     0.856     0.854      2142
+저장: /data1/mk04/pii_ner/out/klue_large/final + result.json

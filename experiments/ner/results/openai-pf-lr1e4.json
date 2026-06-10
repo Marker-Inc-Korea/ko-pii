@@ -1,0 +1,14 @@
+{
+ "base": "openai/privacy-filter",
+ "with_generated": true,
+ "KDPII_test": {
+  "f1": 0.6326359832635984,
+  "precision": 0.6116504854368932,
+  "recall": 0.6551126516464472
+ },
+ "generated_540": {
+  "f1": 0.43682795698924737,
+  "precision": 0.45582047685834504,
+  "recall": 0.41935483870967744
+ }
+}

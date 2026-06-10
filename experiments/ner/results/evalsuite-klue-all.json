@@ -1,0 +1,101 @@
+{
+ "model": "/data1/mk04/pii_ner/out/klue_all_slurm/final",
+ "labels": [
+  "ACCOUNT",
+  "ADDRESS",
+  "AGE",
+  "BLOOD_TYPE",
+  "BUSINESS_REG",
+  "CARD",
+  "CLUB",
+  "CORP_REG",
+  "DEPARTMENT",
+  "DRIVER_LICENSE",
+  "DT_BIRTH",
+  "EDUCATION",
+  "EMAIL",
+  "FRN",
+  "GRADE",
+  "HEIGHT",
+  "IP",
+  "MAJOR",
+  "MEDICAL_INSURANCE",
+  "MILITARY",
+  "NATIONALITY",
+  "NICKNAME",
+  "PASSPORT",
+  "PERSON",
+  "PHONE",
+  "PLACE",
+  "POSITION",
+  "POSTAL_CODE",
+  "PRESCRIPTION_ID",
+  "RELIGION",
+  "RRN",
+  "SEX",
+  "URL",
+  "VEHICLE",
+  "WEIGHT",
+  "WORKPLACE"
+ ],
+ "seqeval_KDPII_test": {
+  "f1": 0.949550794747754,
+  "precision": 0.9402372262773723,
+  "recall": 0.959050721265705
+ },
+ "seqeval_KDPII_test_fuzzy_subset": {
+  "f1": 0.9355623100303951,
+  "precision": 0.9243243243243243,
+  "recall": 0.947076923076923
+ },
+ "seqeval_generated_540": {
+  "f1": 0.8820486290739783,
+  "precision": 0.8672431332655137,
+  "recall": 0.8973684210526316
+ },
+ "seqeval_generated_540_fuzzy_subset": {
+  "f1": 0.8648018648018648,
+  "precision": 0.8635940409683427,
+  "recall": 0.8660130718954249
+ },
+ "score_KDPII_test_rule": {
+  "f1": 0.6593673965936739,
+  "precision": 0.6984536082474226,
+  "recall": 0.6244239631336406
+ },
+ "score_KDPII_test_ml": {
+  "f1": 0.9485580670303975,
+  "precision": 0.9666401906274821,
+  "recall": 0.9311400153022188
+ },
+ "score_KDPII_test_hybrid": {
+  "f1": 0.8978930307941654,
+  "precision": 0.9535283993115319,
+  "recall": 0.8483920367534457
+ },
+ "score_KDPII_test_union": {
+  "f1": 0.8466730954676952,
+  "precision": 0.7719812426729191,
+  "recall": 0.9373665480427046
+ },
+ "score_generated_540_rule": {
+  "f1": 0.7904124860646601,
+  "precision": 0.7937307584662748,
+  "recall": 0.7871218429086873
+ },
+ "score_generated_540_ml": {
+  "f1": 0.9427830124266011,
+  "precision": 0.932972972972973,
+  "recall": 0.9528015456803753
+ },
+ "score_generated_540_hybrid": {
+  "f1": 0.9243197278911564,
+  "precision": 0.9487925516438754,
+  "recall": 0.9010776457584968
+ },
+ "score_generated_540_union": {
+  "f1": 0.8753544289440853,
+  "precision": 0.8011210296865269,
+  "recall": 0.96475
+ }
+}

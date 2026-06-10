@@ -1,0 +1,87 @@
+학습: KDPII 40109 + 생성행정 1398 = 41507
+[openai/privacy-filter] 라벨 20종 · 토큰화...
+train 41507 / valid 5011 / KDPII test 4891 / 생성 test 540
+[transformers] OpenAIPrivacyFilterForTokenClassification LOAD REPORT from: openai/privacy-filter
+Key          | Status   |                                                                                         
+-------------+----------+-----------------------------------------------------------------------------------------
+score.weight | MISMATCH | Reinit due to size mismatch - ckpt: torch.Size([33, 640]) vs model:torch.Size([41, 640])
+score.bias   | MISMATCH | Reinit due to size mismatch - ckpt: torch.Size([33]) vs model:torch.Size([41])          
+Notes:
+- MISMATCH:	ckpt weights were loaded, but they did not match the original empty weight shapes.
+[transformers] warmup_ratio is deprecated and will be removed in v5.2. Use `warmup_steps` instead.
+{'loss': '2.476', 'grad_norm': '13.41', 'learning_rate': '1.021e-05', 'epoch': '0.1541'}
+{'loss': '0.4648', 'grad_norm': '8.463', 'learning_rate': '1.995e-05', 'epoch': '0.3082'}
+{'loss': '0.3238', 'grad_norm': '9.642', 'learning_rate': '1.881e-05', 'epoch': '0.4622'}
+{'loss': '0.2872', 'grad_norm': '9.124', 'learning_rate': '1.767e-05', 'epoch': '0.6163'}
+{'loss': '0.251', 'grad_norm': '6.583', 'learning_rate': '1.652e-05', 'epoch': '0.7704'}
+{'loss': '0.251', 'grad_norm': '7.363', 'learning_rate': '1.538e-05', 'epoch': '0.9245'}
+[A{'eval_loss': '0.3016', 'eval_f1': '0.08791', 'eval_precision': '0.1659', 'eval_recall': '0.0598', 'eval_runtime': '37.65', 'eval_samples_per_second': '133.1', 'eval_steps_per_second': '2.098', 'epoch': '1'}
+                                               [A
+{'loss': '0.2424', 'grad_norm': '13.03', 'learning_rate': '1.424e-05', 'epoch': '1.079'}
+{'loss': '0.2256', 'grad_norm': '12.18', 'learning_rate': '1.31e-05', 'epoch': '1.233'}
+{'loss': '0.2103', 'grad_norm': '12.01', 'learning_rate': '1.196e-05', 'epoch': '1.387'}
+{'loss': '0.2099', 'grad_norm': '7.079', 'learning_rate': '1.082e-05', 'epoch': '1.541'}
+{'loss': '0.2089', 'grad_norm': '11.73', 'learning_rate': '9.675e-06', 'epoch': '1.695'}
+{'loss': '0.2069', 'grad_norm': '7.663', 'learning_rate': '8.533e-06', 'epoch': '1.849'}
+[A{'eval_loss': '0.2758', 'eval_f1': '0.1238', 'eval_precision': '0.1807', 'eval_recall': '0.09413', 'eval_runtime': '33.96', 'eval_samples_per_second': '147.6', 'eval_steps_per_second': '2.326', 'epoch': '2'}
+                                               [A
+{'loss': '0.2132', 'grad_norm': '7.829', 'learning_rate': '7.392e-06', 'epoch': '2.003'}
+{'loss': '0.1971', 'grad_norm': '7.194', 'learning_rate': '6.25e-06', 'epoch': '2.157'}
+{'loss': '0.1945', 'grad_norm': '5.586', 'learning_rate': '5.108e-06', 'epoch': '2.311'}
+{'loss': '0.2032', 'grad_norm': '11.24', 'learning_rate': '3.967e-06', 'epoch': '2.465'}
+{'loss': '0.2013', 'grad_norm': '6.019', 'learning_rate': '2.825e-06', 'epoch': '2.619'}
+{'loss': '0.2082', 'grad_norm': '11.4', 'learning_rate': '1.684e-06', 'epoch': '2.773'}
+{'loss': '0.1921', 'grad_norm': '6.338', 'learning_rate': '5.422e-07', 'epoch': '2.928'}
+[A{'eval_loss': '0.2746', 'eval_f1': '0.1301', 'eval_precision': '0.1817', 'eval_recall': '0.1013', 'eval_runtime': '31.37', 'eval_samples_per_second': '159.8', 'eval_steps_per_second': '2.519', 'epoch': '3'}
+                                               [A
+{'train_runtime': '4958', 'train_samples_per_second': '25.11', 'train_steps_per_second': '0.785', 'train_loss': '0.3525', 'epoch': '3'}
+==== [openai/privacy-filter] KDPII_test ====
+overall F1=0.138 P=0.189 R=0.109
+              precision    recall  f1-score   support
+     ADDRESS      0.127     0.067     0.088       104
+         AGE      0.114     0.069     0.086        58
+  BLOOD_TYPE      0.000     0.000     0.000        44
+        CLUB      0.000     0.000     0.000       159
+  DEPARTMENT      0.019     0.010     0.013        99
+    DT_BIRTH      0.541     0.757     0.631        70
+   EDUCATION      0.000     0.000     0.000        90
+       GRADE      0.158     0.250     0.194        36
+      HEIGHT      0.538     0.538     0.538        65
+       MAJOR      0.205     0.246     0.224        65
+    MILITARY      0.000     0.000     0.000        32
+ NATIONALITY      0.000     0.000     0.000        71
+    NICKNAME      0.048     0.007     0.012       152
+      PERSON      0.198     0.105     0.137       181
+       PLACE      0.000     0.000     0.000       115
+    POSITION      0.162     0.096     0.121       125
+    RELIGION      0.000     0.000     0.000        49
+         SEX      0.000     0.000     0.000        48
+      WEIGHT      0.431     0.633     0.512        49
+   WORKPLACE      0.000     0.000     0.000       119
+   micro avg      0.189     0.109     0.138      1731
+   macro avg      0.127     0.139     0.128      1731
+weighted avg      0.114     0.109     0.106      1731
+==== [openai/privacy-filter] generated_540 ====
+overall F1=0.209 P=0.213 R=0.205
+              precision    recall  f1-score   support
+     ADDRESS      0.182     0.390     0.249       392
+         AGE      0.000     0.000     0.000        72
+  BLOOD_TYPE      0.000     0.000     0.000         0
+        CLUB      0.000     0.000     0.000         0
+    DT_BIRTH      0.114     0.189     0.142       106
+   EDUCATION      0.000     0.000     0.000        70
+       GRADE      0.000     0.000     0.000         0
+      HEIGHT      0.188     0.081     0.113        37
+       MAJOR      0.103     0.297     0.153        74
+    MILITARY      0.000     0.000     0.000         0
+ NATIONALITY      0.000     0.000     0.000        48
+    NICKNAME      0.000     0.000     0.000         0
+      PERSON      0.428     0.218     0.289      1003
+       PLACE      0.000     0.000     0.000         0
+    POSITION      0.023     0.008     0.011       263
+      WEIGHT      0.214     0.343     0.264        35
+   WORKPLACE      0.000     0.000     0.000         0
+   micro avg      0.213     0.205     0.209      2100
+   macro avg      0.074     0.090     0.072      2100
+weighted avg      0.257     0.205     0.205      2100
+저장: /data1/mk04/pii_ner/out/openai_pf/final + result.json

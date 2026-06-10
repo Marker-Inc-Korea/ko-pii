@@ -1,0 +1,11 @@
+[1/4] node=H5RDDZ3 · venv staging → /tmp/pii_eval_3665/ner_env
+[2/4] python 3.12 (uv) 재배선
+[3/4] CUDA LD 경로
+[4/4] 하이브리드 평가 — MODEL=/data1/mk04/pii_ner/out/klue_large_slurm/final
+==== 전후 비교 (ko-pii 룰단독 → +ML 하이브리드) ====
+[KDPII test (대화체)]  (전체 카테고리)
+  룰단독   F1=0.659 P=0.698 R=0.624
+  하이브리드 F1=0.848 P=0.845 R=0.851   (Δ +0.189)
+[생성 540 (행정체)]  (전체 카테고리)
+  룰단독   F1=0.790 P=0.794 R=0.787
+  하이브리드 F1=0.926 P=0.945 R=0.907   (Δ +0.136)

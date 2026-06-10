@@ -1,0 +1,75 @@
+{
+ "model": "base-fuzzy",
+ "labels": [
+  "ADDRESS",
+  "AGE",
+  "BLOOD_TYPE",
+  "CLUB",
+  "DEPARTMENT",
+  "DT_BIRTH",
+  "EDUCATION",
+  "GRADE",
+  "HEIGHT",
+  "MAJOR",
+  "MILITARY",
+  "NATIONALITY",
+  "NICKNAME",
+  "PERSON",
+  "PLACE",
+  "POSITION",
+  "RELIGION",
+  "SEX",
+  "WEIGHT",
+  "WORKPLACE"
+ ],
+ "seqeval_KDPII_test": {
+  "f1": 0.000744158356898348,
+  "precision": 0.00038367832409308037,
+  "recall": 0.012307692307692308
+ },
+ "seqeval_generated_540": {
+  "f1": 0.00021926046577187515,
+  "precision": 0.00011343564147855256,
+  "recall": 0.0032679738562091504
+ },
+ "score_KDPII_test_rule": {
+  "f1": 0.6593673965936739,
+  "precision": 0.6984536082474226,
+  "recall": 0.6244239631336406
+ },
+ "score_KDPII_test_ml": {
+  "f1": 0.0021122298106033936,
+  "precision": 0.0011629710032563189,
+  "recall": 0.011494252873563218
+ },
+ "score_KDPII_test_hybrid": {
+  "f1": 0.058907947789243485,
+  "precision": 0.032337935174069625,
+  "recall": 0.3302681992337165
+ },
+ "score_KDPII_test_union": {
+  "f1": 0.10774936560609018,
+  "precision": 0.05888209358554971,
+  "recall": 0.6335118592195869
+ },
+ "score_generated_540_rule": {
+  "f1": 0.7904124860646601,
+  "precision": 0.7937307584662748,
+  "recall": 0.7871218429086873
+ },
+ "score_generated_540_ml": {
+  "f1": 0.004925160644888222,
+  "precision": 0.002858801983293876,
+  "recall": 0.01776790671848973
+ },
+ "score_generated_540_hybrid": {
+  "f1": 0.10984297760977028,
+  "precision": 0.06319531576746132,
+  "recall": 0.41948917268184344
+ },
+ "score_generated_540_union": {
+  "f1": 0.1953790028374544,
+  "precision": 0.11145367658393711,
+  "recall": 0.7910284463894968
+ }
+}

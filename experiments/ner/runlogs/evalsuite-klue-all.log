@@ -1,0 +1,94 @@
+[1/4] node=marker-multi-gpu-server-01 · venv staging → /tmp/pii_suite_3719/ner_env
+[2/4] python 3.12 (uv) 재배선
+[3/4] CUDA LD 경로
+[4/4] 평가 스위트 — MODEL=/data1/mk04/pii_ner/out/klue_all_slurm/final
+[klue_all_slurm] 라벨 36종: ['ACCOUNT', 'ADDRESS', 'AGE', 'BLOOD_TYPE', 'BUSINESS_REG', 'CARD', 'CLUB', 'CORP_REG', 'DEPARTMENT', 'DRIVER_LICENSE', 'DT_BIRTH', 'EDUCATION', 'EMAIL', 'FRN', 'GRADE', 'HEIGHT', 'IP', 'MAJOR', 'MEDICAL_INSURANCE', 'MILITARY', 'NATIONALITY', 'NICKNAME', 'PASSPORT', 'PERSON', 'PHONE', 'PLACE', 'POSITION', 'POSTAL_CODE', 'PRESCRIPTION_ID', 'RELIGION', 'RRN', 'SEX', 'URL', 'VEHICLE', 'WEIGHT', 'WORKPLACE']
+KDPII test 4891 / 생성 540 540
+==== [단독 seqeval/klue_all_slurm] KDPII_test ====
+overall F1=0.950 P=0.940 R=0.959
+                precision    recall  f1-score   support
+       ACCOUNT      1.000     1.000     1.000        77
+       ADDRESS      0.931     0.941     0.936       101
+           AGE      0.966     1.000     0.982        56
+    BLOOD_TYPE      0.978     1.000     0.989        44
+          CARD      1.000     1.000     1.000        78
+          CLUB      0.898     0.851     0.874       134
+    DEPARTMENT      0.950     0.970     0.960        99
+DRIVER_LICENSE      1.000     1.000     1.000        17
+      DT_BIRTH      0.946     1.000     0.972        70
+     EDUCATION      0.935     0.978     0.956        89
+         EMAIL      0.988     1.000     0.994        81
+           FRN      0.900     1.000     0.947         9
+         GRADE      0.972     0.972     0.972        36
+        HEIGHT      0.985     0.985     0.985        65
+            IP      1.000     1.000     1.000        11
+         MAJOR      0.969     0.954     0.961        65
+      MILITARY      0.970     1.000     0.985        32
+   NATIONALITY      0.986     1.000     0.993        71
+      NICKNAME      0.783     0.856     0.818        97
+      PASSPORT      1.000     1.000     1.000        18
+        PERSON      0.935     0.977     0.956       177
+         PHONE      1.000     1.000     1.000       124
+         PLACE      0.827     0.850     0.839       107
+      POSITION      0.896     0.968     0.930       124
+      RELIGION      0.940     0.979     0.959        48
+           RRN      0.895     0.944     0.919        18
+           SEX      1.000     1.000     1.000        48
+           URL      1.000     1.000     1.000        39
+       VEHICLE      0.981     0.981     0.981        52
+        WEIGHT      0.979     0.959     0.969        49
+     WORKPLACE      0.912     0.920     0.916       113
+     micro avg      0.940     0.959     0.950      2149
+     macro avg      0.952     0.970     0.961      2149
+  weighted avg      0.941     0.959     0.950      2149
+  └ 퍼지 20종 서브셋: F1=0.936 P=0.924 R=0.947
+==== [단독 seqeval/klue_all_slurm] generated_540 ====
+overall F1=0.882 P=0.867 R=0.897
+                   precision    recall  f1-score   support
+          ACCOUNT      0.589     0.651     0.619       152
+          ADDRESS      0.853     0.938     0.893       401
+              AGE      0.512     0.597     0.551        72
+     BUSINESS_REG      0.934     1.000     0.966        85
+             CARD      0.820     0.976     0.891        42
+             CLUB      0.000     0.000     0.000         0
+         CORP_REG      0.972     0.946     0.959        37
+       DEPARTMENT      0.000     0.000     0.000         0
+   DRIVER_LICENSE      0.889     1.000     0.941        40
+         DT_BIRTH      0.843     0.850     0.847       107
+        EDUCATION      0.513     0.565     0.538        69
+            EMAIL      0.940     1.000     0.969       204
+              FRN      0.519     0.438     0.475        32
+            GRADE      0.000     0.000     0.000         0
+           HEIGHT      0.923     0.947     0.935        38
+               IP      0.851     1.000     0.920        40
+            MAJOR      0.820     0.986     0.896        74
+MEDICAL_INSURANCE      0.731     0.633     0.679        30
+      NATIONALITY      0.913     0.875     0.894        48
+         NICKNAME      0.000     0.000     0.000         0
+         PASSPORT      0.974     0.974     0.974        38
+           PERSON      0.966     0.949     0.958      1023
+            PHONE      0.970     0.982     0.976       556
+            PLACE      0.000     0.000     0.000         0
+         POSITION      0.798     0.547     0.649       274
+      POSTAL_CODE      0.947     0.982     0.964        55
+  PRESCRIPTION_ID      0.750     1.000     0.857        21
+              RRN      0.764     0.990     0.862       196
+              URL      0.942     0.942     0.942        52
+          VEHICLE      0.906     0.987     0.945        78
+           WEIGHT      0.895     0.944     0.919        36
+        WORKPLACE      0.000     0.000     0.000         0
+        micro avg      0.867     0.897     0.882      3800
+        macro avg      0.673     0.709     0.688      3800
+     weighted avg      0.878     0.897     0.884      3800
+  └ 퍼지 20종 서브셋: F1=0.865 P=0.864 R=0.866
+==== [전체 카테고리 채점/klue_all_slurm] KDPII_test ====
+  rule    F1=0.659 P=0.698 R=0.624
+  ml      F1=0.949 P=0.967 R=0.931
+  hybrid  F1=0.898 P=0.954 R=0.848
+  union   F1=0.847 P=0.772 R=0.937
+==== [전체 카테고리 채점/klue_all_slurm] generated_540 ====
+  rule    F1=0.790 P=0.794 R=0.787
+  ml      F1=0.943 P=0.933 R=0.953
+  hybrid  F1=0.924 P=0.949 R=0.901
+  union   F1=0.875 P=0.801 R=0.965
+저장: /data1/mk04/pii_ner/out/evalsuite_klue_all_slurm.json

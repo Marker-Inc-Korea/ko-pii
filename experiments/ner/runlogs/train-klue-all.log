@@ -1,0 +1,124 @@
+[1/4] node=marker-multi-gpu-server-01 · venv staging → /tmp/pii_ner_3718/ner_env
+[2/4] python 3.12 (uv) 재배선
+[3/4] CUDA LD 경로 + import 점검
+  torch 2.12.0+cu130 cuda True
+[4/4] 학습 시작 — base=klue/roberta-large out=/data1/mk04/pii_ner/out/klue_all_slurm --all-labels
+학습: KDPII 40109 + 생성행정 1398 = 41507
+[klue/roberta-large] 라벨 36종 · 토큰화...
+train 41507 / valid 5011 / KDPII test 4891 / 생성 test 540
+[transformers] RobertaForTokenClassification LOAD REPORT from: klue/roberta-large
+Key                       | Status     | 
+--------------------------+------------+-
+lm_head.layer_norm.bias   | UNEXPECTED | 
+lm_head.layer_norm.weight | UNEXPECTED | 
+lm_head.bias              | UNEXPECTED | 
+lm_head.dense.bias        | UNEXPECTED | 
+lm_head.dense.weight      | UNEXPECTED | 
+classifier.weight         | MISSING    | 
+classifier.bias           | MISSING    | 
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+- MISSING:	those params were newly initialized because missing from the checkpoint. Consider training on your downstream task.
+[transformers] warmup_ratio is deprecated and will be removed in v5.2. Use `warmup_steps` instead.
+{'loss': '1.415', 'grad_norm': '5.598', 'learning_rate': '1.021e-05', 'epoch': '0.1541'}
+{'loss': '0.1535', 'grad_norm': '4.361', 'learning_rate': '1.995e-05', 'epoch': '0.3082'}
+{'loss': '0.06178', 'grad_norm': '7.095', 'learning_rate': '1.881e-05', 'epoch': '0.4622'}
+{'loss': '0.04589', 'grad_norm': '2.793', 'learning_rate': '1.767e-05', 'epoch': '0.6163'}
+{'loss': '0.03708', 'grad_norm': '1.451', 'learning_rate': '1.652e-05', 'epoch': '0.7704'}
+{'loss': '0.03588', 'grad_norm': '0.9765', 'learning_rate': '1.538e-05', 'epoch': '0.9245'}
+[A{'eval_loss': '0.02778', 'eval_f1': '0.9204', 'eval_precision': '0.9041', 'eval_recall': '0.9373', 'eval_runtime': '10.89', 'eval_samples_per_second': '460', 'eval_steps_per_second': '7.252', 'epoch': '1'}
+                                               [A
+{'loss': '0.0259', 'grad_norm': '0.5182', 'learning_rate': '1.424e-05', 'epoch': '1.079'}
+{'loss': '0.02114', 'grad_norm': '0.5553', 'learning_rate': '1.31e-05', 'epoch': '1.233'}
+{'loss': '0.01826', 'grad_norm': '0.6218', 'learning_rate': '1.196e-05', 'epoch': '1.387'}
+{'loss': '0.01608', 'grad_norm': '0.9322', 'learning_rate': '1.082e-05', 'epoch': '1.541'}
+{'loss': '0.01687', 'grad_norm': '1.101', 'learning_rate': '9.675e-06', 'epoch': '1.695'}
+{'loss': '0.0143', 'grad_norm': '0.172', 'learning_rate': '8.533e-06', 'epoch': '1.849'}
+[A{'eval_loss': '0.0304', 'eval_f1': '0.9233', 'eval_precision': '0.9056', 'eval_recall': '0.9418', 'eval_runtime': '9.447', 'eval_samples_per_second': '530.4', 'eval_steps_per_second': '8.362', 'epoch': '2'}
+                                               [A
+{'loss': '0.01472', 'grad_norm': '0.4487', 'learning_rate': '7.392e-06', 'epoch': '2.003'}
+{'loss': '0.008966', 'grad_norm': '1.556', 'learning_rate': '6.25e-06', 'epoch': '2.157'}
+{'loss': '0.007929', 'grad_norm': '0.3497', 'learning_rate': '5.108e-06', 'epoch': '2.311'}
+{'loss': '0.008019', 'grad_norm': '0.381', 'learning_rate': '3.967e-06', 'epoch': '2.465'}
+{'loss': '0.005932', 'grad_norm': '0.05917', 'learning_rate': '2.825e-06', 'epoch': '2.619'}
+{'loss': '0.007066', 'grad_norm': '0.7067', 'learning_rate': '1.684e-06', 'epoch': '2.773'}
+{'loss': '0.005673', 'grad_norm': '0.07595', 'learning_rate': '5.422e-07', 'epoch': '2.928'}
+[A{'eval_loss': '0.02756', 'eval_f1': '0.9344', 'eval_precision': '0.9242', 'eval_recall': '0.9449', 'eval_runtime': '12.29', 'eval_samples_per_second': '407.9', 'eval_steps_per_second': '6.43', 'epoch': '3'}
+                                               [A
+{'train_runtime': '1407', 'train_samples_per_second': '88.51', 'train_steps_per_second': '2.768', 'train_loss': '0.09874', 'epoch': '3'}
+==== [klue/roberta-large] KDPII_test ====
+overall F1=0.950 P=0.941 R=0.959
+                precision    recall  f1-score   support
+       ACCOUNT      1.000     1.000     1.000        77
+       ADDRESS      0.931     0.941     0.936       101
+           AGE      0.966     1.000     0.982        56
+    BLOOD_TYPE      0.978     1.000     0.989        44
+          CARD      1.000     1.000     1.000        78
+          CLUB      0.898     0.851     0.874       134
+    DEPARTMENT      0.950     0.970     0.960        99
+DRIVER_LICENSE      1.000     1.000     1.000        17
+      DT_BIRTH      0.946     1.000     0.972        70
+     EDUCATION      0.935     0.978     0.956        89
+         EMAIL      0.988     1.000     0.994        81
+           FRN      0.900     1.000     0.947         9
+         GRADE      0.972     0.972     0.972        36
+        HEIGHT      0.985     0.985     0.985        65
+            IP      1.000     1.000     1.000        11
+         MAJOR      0.969     0.954     0.961        65
+      MILITARY      0.970     1.000     0.985        32
+   NATIONALITY      0.986     1.000     0.993        71
+      NICKNAME      0.790     0.856     0.822        97
+      PASSPORT      1.000     1.000     1.000        18
+        PERSON      0.935     0.977     0.956       177
+         PHONE      1.000     1.000     1.000       124
+         PLACE      0.827     0.850     0.839       107
+      POSITION      0.896     0.968     0.930       124
+      RELIGION      0.940     0.979     0.959        48
+           RRN      0.895     0.944     0.919        18
+           SEX      1.000     1.000     1.000        48
+           URL      1.000     1.000     1.000        39
+       VEHICLE      0.981     0.981     0.981        52
+        WEIGHT      0.979     0.959     0.969        49
+     WORKPLACE      0.912     0.920     0.916       113
+     micro avg      0.941     0.959     0.950      2149
+     macro avg      0.953     0.970     0.961      2149
+  weighted avg      0.941     0.959     0.950      2149
+==== [klue/roberta-large] generated_540 ====
+overall F1=0.882 P=0.867 R=0.898
+                   precision    recall  f1-score   support
+          ACCOUNT      0.592     0.658     0.623       152
+          ADDRESS      0.853     0.938     0.893       401
+              AGE      0.512     0.597     0.551        72
+     BUSINESS_REG      0.934     1.000     0.966        85
+             CARD      0.837     0.976     0.901        42
+             CLUB      0.000     0.000     0.000         0
+         CORP_REG      0.972     0.946     0.959        37
+       DEPARTMENT      0.000     0.000     0.000         0
+   DRIVER_LICENSE      0.889     1.000     0.941        40
+         DT_BIRTH      0.843     0.850     0.847       107
+        EDUCATION      0.513     0.565     0.538        69
+            EMAIL      0.940     1.000     0.969       204
+              FRN      0.519     0.438     0.475        32
+            GRADE      0.000     0.000     0.000         0
+           HEIGHT      0.923     0.947     0.935        38
+               IP      0.851     1.000     0.920        40
+            MAJOR      0.820     0.986     0.896        74
+MEDICAL_INSURANCE      0.731     0.633     0.679        30
+      NATIONALITY      0.913     0.875     0.894        48
+         NICKNAME      0.000     0.000     0.000         0
+         PASSPORT      0.974     0.974     0.974        38
+           PERSON      0.966     0.949     0.958      1023
+            PHONE      0.970     0.982     0.976       556
+            PLACE      0.000     0.000     0.000         0
+         POSITION      0.798     0.547     0.649       274
+      POSTAL_CODE      0.947     0.982     0.964        55
+  PRESCRIPTION_ID      0.750     1.000     0.857        21
+              RRN      0.764     0.990     0.862       196
+              URL      0.942     0.942     0.942        52
+          VEHICLE      0.906     0.987     0.945        78
+           WEIGHT      0.895     0.944     0.919        36
+        WORKPLACE      0.000     0.000     0.000         0
+        micro avg      0.867     0.898     0.882      3800
+        macro avg      0.674     0.710     0.688      3800
+     weighted avg      0.878     0.898     0.884      3800
+저장: /data1/mk04/pii_ner/out/klue_all_slurm/final + result.json

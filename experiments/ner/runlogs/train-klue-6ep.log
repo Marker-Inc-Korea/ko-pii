@@ -1,0 +1,122 @@
+[1/4] node=H5RDDZ3 · venv staging → /tmp/pii_ner_3653/ner_env
+[2/4] python 3.12 (uv) 재배선
+[3/4] CUDA LD 경로 + import 점검
+  torch 2.12.0+cu130 cuda True
+[4/4] 학습 시작 — base=klue/roberta-large out=/data1/mk04/pii_ner/out/klue_e6_slurm --lr 2e-5 --epochs 6 --bs 32
+학습: KDPII 40109 + 생성행정 1398 = 41507
+[klue/roberta-large] 라벨 20종 · 토큰화...
+train 41507 / valid 5011 / KDPII test 4891 / 생성 test 540
+[transformers] RobertaForTokenClassification LOAD REPORT from: klue/roberta-large
+Key                       | Status     | 
+--------------------------+------------+-
+lm_head.layer_norm.bias   | UNEXPECTED | 
+lm_head.layer_norm.weight | UNEXPECTED | 
+lm_head.dense.weight      | UNEXPECTED | 
+lm_head.bias              | UNEXPECTED | 
+lm_head.dense.bias        | UNEXPECTED | 
+classifier.weight         | MISSING    | 
+classifier.bias           | MISSING    | 
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+- MISSING:	those params were newly initialized because missing from the checkpoint. Consider training on your downstream task.
+[transformers] warmup_ratio is deprecated and will be removed in v5.2. Use `warmup_steps` instead.
+{'loss': '1.18', 'grad_norm': '3.997', 'learning_rate': '5.109e-06', 'epoch': '0.1541'}
+{'loss': '0.1063', 'grad_norm': '1.406', 'learning_rate': '1.024e-05', 'epoch': '0.3082'}
+{'loss': '0.05466', 'grad_norm': '0.9426', 'learning_rate': '1.538e-05', 'epoch': '0.4622'}
+{'loss': '0.03755', 'grad_norm': '0.4519', 'learning_rate': '1.994e-05', 'epoch': '0.6163'}
+{'loss': '0.02863', 'grad_norm': '2.155', 'learning_rate': '1.937e-05', 'epoch': '0.7704'}
+{'loss': '0.02753', 'grad_norm': '0.3408', 'learning_rate': '1.88e-05', 'epoch': '0.9245'}
+[A{'eval_loss': '0.03227', 'eval_f1': '0.8762', 'eval_precision': '0.8518', 'eval_recall': '0.9021', 'eval_runtime': '1.26', 'eval_samples_per_second': '3978', 'eval_steps_per_second': '62.71', 'epoch': '1'}
+                                               [A
+{'loss': '0.02127', 'grad_norm': '0.5074', 'learning_rate': '1.823e-05', 'epoch': '1.079'}
+{'loss': '0.01896', 'grad_norm': '0.1291', 'learning_rate': '1.766e-05', 'epoch': '1.233'}
+{'loss': '0.0141', 'grad_norm': '1.723', 'learning_rate': '1.709e-05', 'epoch': '1.387'}
+{'loss': '0.01464', 'grad_norm': '3.724', 'learning_rate': '1.652e-05', 'epoch': '1.541'}
+{'loss': '0.01523', 'grad_norm': '2.055', 'learning_rate': '1.595e-05', 'epoch': '1.695'}
+{'loss': '0.0139', 'grad_norm': '0.06164', 'learning_rate': '1.538e-05', 'epoch': '1.849'}
+[A{'eval_loss': '0.03375', 'eval_f1': '0.89', 'eval_precision': '0.8756', 'eval_recall': '0.905', 'eval_runtime': '1.265', 'eval_samples_per_second': '3961', 'eval_steps_per_second': '62.44', 'epoch': '2'}
+                                               [A
+{'loss': '0.01424', 'grad_norm': '1.234', 'learning_rate': '1.481e-05', 'epoch': '2.003'}
+{'loss': '0.008297', 'grad_norm': '1.015', 'learning_rate': '1.424e-05', 'epoch': '2.157'}
+{'loss': '0.008305', 'grad_norm': '1.203', 'learning_rate': '1.367e-05', 'epoch': '2.311'}
+{'loss': '0.009051', 'grad_norm': '0.1376', 'learning_rate': '1.309e-05', 'epoch': '2.465'}
+{'loss': '0.008455', 'grad_norm': '0.3049', 'learning_rate': '1.252e-05', 'epoch': '2.619'}
+{'loss': '0.007563', 'grad_norm': '2.639', 'learning_rate': '1.195e-05', 'epoch': '2.773'}
+{'loss': '0.007834', 'grad_norm': '5.22', 'learning_rate': '1.138e-05', 'epoch': '2.928'}
+[A{'eval_loss': '0.03216', 'eval_f1': '0.8914', 'eval_precision': '0.8821', 'eval_recall': '0.9009', 'eval_runtime': '1.257', 'eval_samples_per_second': '3986', 'eval_steps_per_second': '62.85', 'epoch': '3'}
+                                               [A
+{'loss': '0.006848', 'grad_norm': '0.2391', 'learning_rate': '1.081e-05', 'epoch': '3.082'}
+{'loss': '0.003859', 'grad_norm': '1.613', 'learning_rate': '1.024e-05', 'epoch': '3.236'}
+{'loss': '0.003933', 'grad_norm': '0.3435', 'learning_rate': '9.67e-06', 'epoch': '3.39'}
+{'loss': '0.005327', 'grad_norm': '0.161', 'learning_rate': '9.1e-06', 'epoch': '3.544'}
+{'loss': '0.004157', 'grad_norm': '0.9833', 'learning_rate': '8.529e-06', 'epoch': '3.698'}
+{'loss': '0.004199', 'grad_norm': '0.3889', 'learning_rate': '7.958e-06', 'epoch': '3.852'}
+[A{'eval_loss': '0.0327', 'eval_f1': '0.9113', 'eval_precision': '0.9047', 'eval_recall': '0.918', 'eval_runtime': '1.266', 'eval_samples_per_second': '3958', 'eval_steps_per_second': '62.4', 'epoch': '4'}
+                                               [A
+{'loss': '0.004571', 'grad_norm': '0.08317', 'learning_rate': '7.388e-06', 'epoch': '4.006'}
+{'loss': '0.001707', 'grad_norm': '0.3205', 'learning_rate': '6.817e-06', 'epoch': '4.16'}
+{'loss': '0.00302', 'grad_norm': '0.6679', 'learning_rate': '6.246e-06', 'epoch': '4.314'}
+{'loss': '0.002353', 'grad_norm': '0.001693', 'learning_rate': '5.676e-06', 'epoch': '4.468'}
+{'loss': '0.002759', 'grad_norm': '0.7403', 'learning_rate': '5.105e-06', 'epoch': '4.622'}
+{'loss': '0.001672', 'grad_norm': '0.01149', 'learning_rate': '4.534e-06', 'epoch': '4.777'}
+{'loss': '0.001374', 'grad_norm': '0.0373', 'learning_rate': '3.963e-06', 'epoch': '4.931'}
+[A{'eval_loss': '0.03114', 'eval_f1': '0.9237', 'eval_precision': '0.9082', 'eval_recall': '0.9398', 'eval_runtime': '1.264', 'eval_samples_per_second': '3966', 'eval_steps_per_second': '62.52', 'epoch': '5'}
+                                               [A
+{'loss': '0.001802', 'grad_norm': '0.03677', 'learning_rate': '3.393e-06', 'epoch': '5.085'}
+{'loss': '0.001285', 'grad_norm': '0.00528', 'learning_rate': '2.822e-06', 'epoch': '5.239'}
+{'loss': '0.001021', 'grad_norm': '0.03901', 'learning_rate': '2.251e-06', 'epoch': '5.393'}
+{'loss': '0.0008058', 'grad_norm': '0.1415', 'learning_rate': '1.681e-06', 'epoch': '5.547'}
+{'loss': '0.001286', 'grad_norm': '0.004193', 'learning_rate': '1.11e-06', 'epoch': '5.701'}
+{'loss': '0.001249', 'grad_norm': '0.02884', 'learning_rate': '5.393e-07', 'epoch': '5.855'}
+[A{'eval_loss': '0.03179', 'eval_f1': '0.9181', 'eval_precision': '0.9044', 'eval_recall': '0.9322', 'eval_runtime': '1.264', 'eval_samples_per_second': '3965', 'eval_steps_per_second': '62.51', 'epoch': '6'}
+                                               [A
+{'train_runtime': '1031', 'train_samples_per_second': '241.6', 'train_steps_per_second': '7.555', 'train_loss': '0.04239', 'epoch': '6'}
+==== [klue/roberta-large] KDPII_test ====
+overall F1=0.935 P=0.923 R=0.948
+              precision    recall  f1-score   support
+     ADDRESS      0.950     0.950     0.950       101
+         AGE      0.933     1.000     0.966        56
+  BLOOD_TYPE      0.978     1.000     0.989        44
+        CLUB      0.883     0.843     0.863       134
+  DEPARTMENT      0.980     1.000     0.990        99
+    DT_BIRTH      0.959     1.000     0.979        70
+   EDUCATION      0.945     0.966     0.956        89
+       GRADE      0.972     0.972     0.972        36
+      HEIGHT      1.000     1.000     1.000        65
+       MAJOR      0.985     0.985     0.985        65
+    MILITARY      0.970     1.000     0.985        32
+ NATIONALITY      0.973     1.000     0.986        71
+    NICKNAME      0.717     0.887     0.793        97
+      PERSON      0.919     0.960     0.939       177
+       PLACE      0.840     0.832     0.836       107
+    POSITION      0.910     0.976     0.942       124
+    RELIGION      0.920     0.958     0.939        48
+         SEX      1.000     1.000     1.000        48
+      WEIGHT      1.000     0.980     0.990        49
+   WORKPLACE      0.935     0.894     0.914       113
+   micro avg      0.923     0.948     0.935      1625
+   macro avg      0.938     0.960     0.949      1625
+weighted avg      0.925     0.948     0.936      1625
+==== [klue/roberta-large] generated_540 ====
+overall F1=0.844 P=0.845 R=0.842
+              precision    recall  f1-score   support
+     ADDRESS      0.802     0.898     0.847       401
+         AGE      0.351     0.375     0.362        72
+        CLUB      0.000     0.000     0.000         0
+  DEPARTMENT      0.000     0.000     0.000         0
+    DT_BIRTH      0.879     0.879     0.879       107
+   EDUCATION      0.543     0.551     0.547        69
+       GRADE      0.000     0.000     0.000         0
+      HEIGHT      0.900     0.947     0.923        38
+       MAJOR      0.807     0.959     0.877        74
+ NATIONALITY      0.857     0.875     0.866        48
+    NICKNAME      0.000     0.000     0.000         0
+      PERSON      0.968     0.940     0.954      1023
+       PLACE      0.000     0.000     0.000         0
+    POSITION      0.769     0.511     0.614       274
+      WEIGHT      0.895     0.944     0.919        36
+   WORKPLACE      0.000     0.000     0.000         0
+   micro avg      0.845     0.842     0.844      2142
+   macro avg      0.486     0.492     0.487      2142
+weighted avg      0.862     0.842     0.848      2142
+저장: /data1/mk04/pii_ner/out/klue_e6_slurm/final + result.json

@@ -1,0 +1,65 @@
+[1/4] node=marker-multi-gpu-server-01 · venv staging → /tmp/pii_suite_3716/ner_env
+[2/4] python 3.12 (uv) 재배선
+[3/4] CUDA LD 경로
+[4/4] 평가 스위트 — MODEL=/data1/mk04/pii_ner/out/klue_large_slurm/final
+[klue_large_slurm] 라벨 20종: ['ADDRESS', 'AGE', 'BLOOD_TYPE', 'CLUB', 'DEPARTMENT', 'DT_BIRTH', 'EDUCATION', 'GRADE', 'HEIGHT', 'MAJOR', 'MILITARY', 'NATIONALITY', 'NICKNAME', 'PERSON', 'PLACE', 'POSITION', 'RELIGION', 'SEX', 'WEIGHT', 'WORKPLACE']
+KDPII test 4891 / 생성 540 540
+==== [단독 seqeval/klue_large_slurm] KDPII_test ====
+overall F1=0.937 P=0.924 R=0.950
+              precision    recall  f1-score   support
+     ADDRESS      0.950     0.941     0.945       101
+         AGE      0.966     1.000     0.982        56
+  BLOOD_TYPE      0.978     1.000     0.989        44
+        CLUB      0.865     0.858     0.861       134
+  DEPARTMENT      0.970     0.970     0.970        99
+    DT_BIRTH      0.986     1.000     0.993        70
+   EDUCATION      0.956     0.978     0.967        89
+       GRADE      0.972     0.972     0.972        36
+      HEIGHT      0.985     0.985     0.985        65
+       MAJOR      0.984     0.954     0.969        65
+    MILITARY      0.914     1.000     0.955        32
+ NATIONALITY      0.973     1.000     0.986        71
+    NICKNAME      0.798     0.897     0.845        97
+      PERSON      0.935     0.983     0.959       177
+       PLACE      0.796     0.841     0.818       107
+    POSITION      0.917     0.976     0.945       124
+    RELIGION      0.939     0.958     0.948        48
+         SEX      1.000     1.000     1.000        48
+      WEIGHT      1.000     1.000     1.000        49
+   WORKPLACE      0.878     0.894     0.886       113
+   micro avg      0.924     0.950     0.937      1625
+   macro avg      0.938     0.960     0.949      1625
+weighted avg      0.925     0.950     0.937      1625
+==== [단독 seqeval/klue_large_slurm] generated_540 ====
+overall F1=0.862 P=0.852 R=0.873
+              precision    recall  f1-score   support
+     ADDRESS      0.811     0.910     0.858       401
+         AGE      0.729     0.708     0.718        72
+        CLUB      0.000     0.000     0.000         0
+  DEPARTMENT      0.000     0.000     0.000         0
+    DT_BIRTH      0.856     0.888     0.872       107
+   EDUCATION      0.513     0.580     0.544        69
+       GRADE      0.000     0.000     0.000         0
+      HEIGHT      0.900     0.947     0.923        38
+       MAJOR      0.768     0.986     0.864        74
+ NATIONALITY      0.784     0.833     0.808        48
+    NICKNAME      0.000     0.000     0.000         0
+      PERSON      0.974     0.962     0.968      1023
+       PLACE      0.000     0.000     0.000         0
+    POSITION      0.770     0.551     0.643       274
+      WEIGHT      0.872     0.944     0.907        36
+   WORKPLACE      0.000     0.000     0.000         0
+   micro avg      0.852     0.873     0.862      2142
+   macro avg      0.499     0.519     0.507      2142
+weighted avg      0.874     0.873     0.870      2142
+==== [전체 카테고리 채점/klue_large_slurm] KDPII_test ====
+  rule    F1=0.659 P=0.698 R=0.624
+  ml      F1=0.685 P=0.961 R=0.532
+  hybrid  F1=0.904 P=0.964 R=0.851
+  union   F1=0.799 P=0.750 R=0.854
+==== [전체 카테고리 채점/klue_large_slurm] generated_540 ====
+  rule    F1=0.790 P=0.794 R=0.787
+  ml      F1=0.661 P=0.946 R=0.508
+  hybrid  F1=0.927 P=0.948 R=0.907
+  union   F1=0.863 P=0.815 R=0.918
+저장: /data1/mk04/pii_ner/out/evalsuite_klue_large_slurm.json

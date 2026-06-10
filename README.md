@@ -547,6 +547,7 @@ python -m ko_pii.classifier.train ...   # 모델은 직접 학습
 > 사전학습 가중치는 배포하지 않습니다(학습 데이터 라이선스) — 코드·학습 레시피 제공. **튜닝 NER 모델은 추후 공개 예정**(라이선스·일반화 평가 후).
 >
 > 하이브리드 평가(룰단독 vs 하이브리드, base vs tuned 매트릭스): [`docs/HYBRID_NER.md`](docs/HYBRID_NER.md) — 룰 대비 **+0.14~0.19**(klue), 단 *제대로 튜닝된 한국어 NER*이라야 *일관* 효과(base zero-shot 은 역효과).
+> 실험 전 과정(학습·평가 코드, 실행 로그, 원시 결과)은 [`experiments/ner/`](experiments/ner/) 아카이브 참조.
 
 ---
 

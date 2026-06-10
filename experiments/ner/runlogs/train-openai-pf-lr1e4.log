@@ -1,0 +1,105 @@
+[1/4] node=marker-multi-gpu-server-01 · venv staging → /tmp/pii_ner_3655/ner_env
+[2/4] python 3.12 (uv) 재배선
+[3/4] CUDA LD 경로 + import 점검
+  torch 2.12.0+cu130 cuda True
+[4/4] 학습 시작 — base=openai/privacy-filter out=/data1/mk04/pii_ner/out/openai_hilr_slurm --trust --bf16 --lr 1e-4 --epochs 5 --maxlen 128
+학습: KDPII 40109 + 생성행정 1398 = 41507
+[openai/privacy-filter] 라벨 20종 · 토큰화...
+train 41507 / valid 5011 / KDPII test 4891 / 생성 test 540
+[transformers] OpenAIPrivacyFilterForTokenClassification LOAD REPORT from: openai/privacy-filter
+Key          | Status   |                                                                                         
+-------------+----------+-----------------------------------------------------------------------------------------
+score.bias   | MISMATCH | Reinit due to size mismatch - ckpt: torch.Size([33]) vs model:torch.Size([41])          
+score.weight | MISMATCH | Reinit due to size mismatch - ckpt: torch.Size([33, 640]) vs model:torch.Size([41, 640])
+Notes:
+- MISMATCH:	ckpt weights were loaded, but they did not match the original empty weight shapes.
+[transformers] warmup_ratio is deprecated and will be removed in v5.2. Use `warmup_steps` instead.
+{'loss': '2.74', 'grad_norm': '7.602', 'learning_rate': '3.066e-05', 'epoch': '0.1541'}
+{'loss': '0.3167', 'grad_norm': '3.772', 'learning_rate': '6.148e-05', 'epoch': '0.3082'}
+{'loss': '0.2029', 'grad_norm': '3.436', 'learning_rate': '9.23e-05', 'epoch': '0.4622'}
+{'loss': '0.1576', 'grad_norm': '6.354', 'learning_rate': '9.743e-05', 'epoch': '0.6163'}
+{'loss': '0.1166', 'grad_norm': '3.636', 'learning_rate': '9.401e-05', 'epoch': '0.7704'}
+{'loss': '0.1107', 'grad_norm': '2.064', 'learning_rate': '9.058e-05', 'epoch': '0.9245'}
+[A{'eval_loss': '0.1213', 'eval_f1': '0.5208', 'eval_precision': '0.5529', 'eval_recall': '0.4922', 'eval_runtime': '32.03', 'eval_samples_per_second': '156.4', 'eval_steps_per_second': '2.466', 'epoch': '1'}
+                                               [A
+{'loss': '0.0893', 'grad_norm': '3.122', 'learning_rate': '8.716e-05', 'epoch': '1.079'}
+{'loss': '0.06481', 'grad_norm': '2.484', 'learning_rate': '8.374e-05', 'epoch': '1.233'}
+{'loss': '0.06017', 'grad_norm': '3.005', 'learning_rate': '8.031e-05', 'epoch': '1.387'}
+{'loss': '0.06087', 'grad_norm': '1.078', 'learning_rate': '7.689e-05', 'epoch': '1.541'}
+{'loss': '0.05994', 'grad_norm': '2.072', 'learning_rate': '7.346e-05', 'epoch': '1.695'}
+{'loss': '0.05894', 'grad_norm': '1.13', 'learning_rate': '7.004e-05', 'epoch': '1.849'}
+[A{'eval_loss': '0.09639', 'eval_f1': '0.6089', 'eval_precision': '0.598', 'eval_recall': '0.6202', 'eval_runtime': '27.84', 'eval_samples_per_second': '180', 'eval_steps_per_second': '2.838', 'epoch': '2'}
+                                               [A
+{'loss': '0.05577', 'grad_norm': '2.321', 'learning_rate': '6.662e-05', 'epoch': '2.003'}
+{'loss': '0.02285', 'grad_norm': '2.33', 'learning_rate': '6.319e-05', 'epoch': '2.157'}
+{'loss': '0.02118', 'grad_norm': '0.9635', 'learning_rate': '5.977e-05', 'epoch': '2.311'}
+{'loss': '0.02174', 'grad_norm': '2.86', 'learning_rate': '5.634e-05', 'epoch': '2.465'}
+{'loss': '0.02143', 'grad_norm': '0.2457', 'learning_rate': '5.292e-05', 'epoch': '2.619'}
+{'loss': '0.01769', 'grad_norm': '3.026', 'learning_rate': '4.949e-05', 'epoch': '2.773'}
+{'loss': '0.01819', 'grad_norm': '0.8104', 'learning_rate': '4.607e-05', 'epoch': '2.928'}
+[A{'eval_loss': '0.1112', 'eval_f1': '0.6338', 'eval_precision': '0.6239', 'eval_recall': '0.644', 'eval_runtime': '81.73', 'eval_samples_per_second': '61.31', 'eval_steps_per_second': '0.967', 'epoch': '3'}
+                                               [A
+{'loss': '0.01599', 'grad_norm': '1.62', 'learning_rate': '4.265e-05', 'epoch': '3.082'}
+{'loss': '0.006312', 'grad_norm': '2.721', 'learning_rate': '3.922e-05', 'epoch': '3.236'}
+{'loss': '0.007546', 'grad_norm': '0.8384', 'learning_rate': '3.58e-05', 'epoch': '3.39'}
+{'loss': '0.006613', 'grad_norm': '0.258', 'learning_rate': '3.237e-05', 'epoch': '3.544'}
+{'loss': '0.005665', 'grad_norm': '1.388', 'learning_rate': '2.895e-05', 'epoch': '3.698'}
+{'loss': '0.00537', 'grad_norm': '1.798', 'learning_rate': '2.553e-05', 'epoch': '3.852'}
+[A{'eval_loss': '0.1275', 'eval_f1': '0.6302', 'eval_precision': '0.617', 'eval_recall': '0.644', 'eval_runtime': '28.87', 'eval_samples_per_second': '173.6', 'eval_steps_per_second': '2.736', 'epoch': '4'}
+                                               [A
+{'loss': '0.005755', 'grad_norm': '0.262', 'learning_rate': '2.21e-05', 'epoch': '4.006'}
+{'loss': '0.002506', 'grad_norm': '0.1714', 'learning_rate': '1.868e-05', 'epoch': '4.16'}
+{'loss': '0.003039', 'grad_norm': '0.05822', 'learning_rate': '1.525e-05', 'epoch': '4.314'}
+{'loss': '0.003888', 'grad_norm': '0.3368', 'learning_rate': '1.183e-05', 'epoch': '4.468'}
+{'loss': '0.003108', 'grad_norm': '0.3993', 'learning_rate': '8.406e-06', 'epoch': '4.622'}
+{'loss': '0.00301', 'grad_norm': '0.09612', 'learning_rate': '4.982e-06', 'epoch': '4.777'}
+{'loss': '0.002655', 'grad_norm': '0.04565', 'learning_rate': '1.558e-06', 'epoch': '4.931'}
+[A{'eval_loss': '0.1297', 'eval_f1': '0.6338', 'eval_precision': '0.6204', 'eval_recall': '0.6478', 'eval_runtime': '28.93', 'eval_samples_per_second': '173.2', 'eval_steps_per_second': '2.731', 'epoch': '5'}
+                                               [A
+{'train_runtime': '6619', 'train_samples_per_second': '31.36', 'train_steps_per_second': '0.981', 'train_loss': '0.1322', 'epoch': '5'}
+==== [openai/privacy-filter] KDPII_test ====
+overall F1=0.633 P=0.612 R=0.655
+              precision    recall  f1-score   support
+     ADDRESS      0.636     0.673     0.654       104
+         AGE      0.823     0.879     0.850        58
+  BLOOD_TYPE      0.977     0.977     0.977        44
+        CLUB      0.377     0.377     0.377       159
+  DEPARTMENT      0.837     0.828     0.832        99
+    DT_BIRTH      0.868     0.943     0.904        70
+   EDUCATION      0.618     0.756     0.680        90
+       GRADE      0.919     0.944     0.932        36
+      HEIGHT      0.908     0.908     0.908        65
+       MAJOR      0.742     0.754     0.748        65
+    MILITARY      0.551     0.844     0.667        32
+ NATIONALITY      0.833     0.845     0.839        71
+    NICKNAME      0.286     0.276     0.281       152
+      PERSON      0.550     0.575     0.562       181
+       PLACE      0.321     0.383     0.349       115
+    POSITION      0.681     0.768     0.722       125
+    RELIGION      0.750     0.857     0.800        49
+         SEX      0.979     0.979     0.979        48
+      WEIGHT      0.827     0.878     0.851        49
+   WORKPLACE      0.346     0.395     0.369       119
+   micro avg      0.612     0.655     0.633      1731
+   macro avg      0.691     0.742     0.714      1731
+weighted avg      0.615     0.655     0.633      1731
+==== [openai/privacy-filter] generated_540 ====
+overall F1=0.437 P=0.456 R=0.419
+              precision    recall  f1-score   support
+     ADDRESS      0.308     0.523     0.388       306
+         AGE      0.250     0.235     0.242        68
+    DT_BIRTH      0.670     0.643     0.656        98
+   EDUCATION      0.196     0.220     0.208        50
+       GRADE      0.000     0.000     0.000         0
+      HEIGHT      0.710     0.759     0.733        29
+       MAJOR      0.415     0.596     0.489        57
+ NATIONALITY      0.889     0.170     0.286        47
+      PERSON      0.637     0.390     0.484       710
+       PLACE      0.000     0.000     0.000         0
+    POSITION      0.481     0.236     0.316       157
+         SEX      0.000     0.000     0.000         0
+      WEIGHT      0.611     0.786     0.688        28
+   micro avg      0.456     0.419     0.437      1550
+   macro avg      0.397     0.351     0.345      1550
+weighted avg      0.527     0.419     0.442      1550
+저장: /data1/mk04/pii_ner/out/openai_hilr_slurm/final + result.json
