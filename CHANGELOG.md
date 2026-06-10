@@ -5,11 +5,36 @@
 
 ## [Unreleased]
 
+## [1.14.0] - 2026-06-10
+
+### Added
+- **`MergeMode.ROLE_SPLIT`** — 토큰 NER 하이브리드(룰=결정적 ID, ML=퍼지 *교체*)를
+  라이브러리 병합 모드로 제공. `Anonymizer(secondary_detector=..., merge_mode="role_split",
+  role_split_labels=...)`. 외부 검증(OOD·체크섬 유효 gold)에서 **F1 0.97** 로 union 상회
+  — `docs/HYBRID_NER.md` 외부 검증 절.
+- **`HFTokenNERAdapter`** (`ko_pii.integrations.hf_token_ner`) — HYBRID_NER 레시피로
+  직접 학습한 토큰분류 NER 을 `secondary_detector` 로 꽂는 범용 어댑터 (lazy 로드,
+  BIO 디코딩은 torch 없이 테스트 가능한 순수 함수).
+- `[classifier]` extra 에 `datasets` 추가 — `python -m ko_pii.classifier.train` 이
+  extra 설치만으로 동작하도록.
+
 ### Fixed
 - **RRN 공백 구분자 변형 검출** — 서식 표기 `880101 - 1234568`(공백+하이픈+공백)이
   구분자 2자 제한에 걸려 미검출되던 갭 수정(하이브리드 NER 체크섬 프로브에서 발견).
   공백으로 감싼 구분자만 추가 허용 — 순수 공백 3자(표 칼럼 나열)는 계속 비허용으로
   FP 확대 없음. 회귀 테스트 3건 추가.
+- `PIIClassifier.from_pretrained` — 모델 경로가 없을 때 raw HuggingFace 에러 대신
+  "가중치 미배포 — 직접 학습" 안내가 담긴 `FileNotFoundError`.
+
+### Docs
+- README 예제 실측 교정(한/영) — `combined_risk` 속성명(`distinct_identifiers`/
+  `distinct_quasi`), `k_anonymity` 시그니처(`quasi_keys`/`threshold`/`satisfies_threshold`),
+  `anonymize_records` 튜플 반환 언패킹, partial 표기(`홍OO`), IntEnum 출력(`.name`).
+  전 스니펫 실행 검증 완료.
+- README 하이브리드 절 — **두 하이브리드(토큰 NER vs 문서 분류기) 구분 표** +
+  `role_split` 사용법 추가 (오독 방지).
+- `experiments/ner` 이식성 — 스크립트 8종 절대경로 제거(레포 상대 + env 폴백),
+  `code/requirements.txt`(실측 스택 고정) 신설. 외부 머신 재현 검증 완료.
 
 ## [1.13.1] - 2026-06-10
 
