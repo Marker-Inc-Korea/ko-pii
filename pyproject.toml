@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ko-pii"
-version = "1.13.1"
+version = "1.14.0"
 description = "한국어 PII 검출 + 가역 가명화 라이브러리 (ML 없이 룰 기반)"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -59,7 +59,7 @@ llamaindex = ["llama-index-core>=0.10"]
 langchain = ["langchain-core>=0.1"]
 # 룰+ML 하이브리드 분류기 (opt-in) — *코어는 ML 없이 동작*, 본 extra 설치 시에만 활성화.
 # 모델 가중치는 미배포 (학습 데이터 라이선스) — `python -m ko_pii.classifier.train` 으로 직접 학습.
-classifier = ["torch>=2.0", "transformers>=4.40", "scikit-learn>=1.0"]
+classifier = ["torch>=2.0", "transformers>=4.40", "scikit-learn>=1.0", "datasets>=2.0"]
 # 모든 옵션 통합
 all = [
     "olefile>=0.46", "pdfplumber>=0.10", "pypdf>=3.0",

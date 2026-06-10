@@ -3,17 +3,20 @@
 
 모델은 '어디부터 어디까지가 무슨 PII 인지'(span+label)만 출력한다 — 마스킹은
 그 span 에 대한 후처리이며, 룰 검출이든 ML 검출이든 같은 후처리를 꽂을 수 있음을 시연.
-usage: mask_demo.py [model_dir]
+usage: mask_demo.py <model_dir>   (인자 생략 시 환경변수 KO_PII_NER_MODEL 사용)
 """
 import os, sys
-os.environ.setdefault("HF_HOME", "/data1/mk04/.cache/huggingface")
-sys.path.insert(0, "/data1/mk04/projects/ko-pii/src")
+from pathlib import Path
+ROOT = Path(__file__).resolve().parents[3]  # 레포 루트 (experiments/ner/code/ 기준)
+sys.path.insert(0, str(ROOT / "src"))
 import torch
 from transformers import AutoTokenizer, AutoModelForTokenClassification
 from ko_pii import Anonymizer
 from ko_pii.detect import detect_all
 
-M = sys.argv[1] if len(sys.argv) > 1 else "/data1/mk04/pii_ner/out/klue_all_slurm/final"
+M = sys.argv[1] if len(sys.argv) > 1 else os.environ.get("KO_PII_NER_MODEL", "")
+if not M:
+    sys.exit("usage: mask_demo.py <model_dir>   (또는 환경변수 KO_PII_NER_MODEL 설정)")
 TEXT = "신청인 홍길동 (880101-1234568) 연락처 010-1234-5678\n주소: 서울특별시 강남구 테헤란로 152"
 
 print("원문:")

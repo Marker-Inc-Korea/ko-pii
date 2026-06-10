@@ -5,12 +5,14 @@ Set A 구성 6종: rule / ml(퍼지모델) / ml(전체모델) / hybrid(룰+퍼�
 hybrid(룰+전체ML 퍼지부) / verified(전체ML+룰 체크섬 검증).
 Set B: rule vs 두 ML 모델의 PERSON (KLUE 관행: 한글 풀네임 gold, partial overlap).
 
-usage: external_eval.py
+usage: external_eval.py --model-fuzzy <dir> --model-all <dir>
+  (인자 생략 시 환경변수 KO_PII_NER_MODEL_FUZZY / KO_PII_NER_MODEL_ALL 사용)
 """
-import os, sys, json, re
-os.environ.setdefault("HF_HOME", "/data1/mk04/.cache/huggingface")
+import os, sys, json, re, argparse
+from pathlib import Path
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
-sys.path.insert(0, "/data1/mk04/projects/ko-pii/src")
+ROOT = Path(__file__).resolve().parents[3]  # 레포 루트 (experiments/ner/code/ 기준)
+sys.path.insert(0, str(ROOT / "src"))
 import torch
 from collections import defaultdict
 from transformers import AutoTokenizer, AutoModelForTokenClassification
@@ -24,10 +26,20 @@ from ko_pii.checksum.corp_reg_checksum import is_valid_checksum as corp_ok
 PML = 3
 FUZZY = {"PERSON", "ADDRESS", "POSITION", "EDUCATION", "MAJOR",
          "NATIONALITY", "AGE", "DT_BIRTH", "HEIGHT", "WEIGHT"}
-SETA = "/data1/mk04/projects/ko-pii/data/corpus/external_inject_v2.jsonl"
-SETB = "/data1/mk04/projects/ko-pii/data/klue_ner/klue-ner-v1.1_dev.tsv"
-M_FUZZY = "/data1/mk04/pii_ner/out/klue_large_slurm/final"
-M_ALL = "/data1/mk04/pii_ner/out/klue_all_slurm/final"
+SETA = str(ROOT / "data" / "corpus" / "external_inject_v2.jsonl")
+SETB = str(ROOT / "data" / "klue_ner" / "klue-ner-v1.1_dev.tsv")
+OUT_DIR = ROOT / "out"
+
+ap = argparse.ArgumentParser()
+ap.add_argument("--model-fuzzy", default=os.environ.get("KO_PII_NER_MODEL_FUZZY"),
+                help="퍼지 20종 모델 디렉토리 (기본: $KO_PII_NER_MODEL_FUZZY)")
+ap.add_argument("--model-all", default=os.environ.get("KO_PII_NER_MODEL_ALL"),
+                help="전체 36종 모델 디렉토리 (기본: $KO_PII_NER_MODEL_ALL)")
+args = ap.parse_args()
+if not args.model_fuzzy or not args.model_all:
+    ap.error("--model-fuzzy / --model-all 필요 (또는 환경변수 KO_PII_NER_MODEL_FUZZY / KO_PII_NER_MODEL_ALL)")
+M_FUZZY = args.model_fuzzy
+M_ALL = args.model_all
 
 
 def verify_id(label, span):
@@ -211,6 +223,7 @@ for name, model in [("ml_all", ma), ("ml_fuzzy", MLModel(M_FUZZY))]:
     res[f"setB_{name}"] = {"f1": F, "precision": P, "recall": R}
     print(f"  {name:13s} F1={F:.3f} P={P:.3f} R={R:.3f}", flush=True)
 
-out = "/data1/mk04/pii_ner/out/external_eval.json"
+os.makedirs(OUT_DIR, exist_ok=True)
+out = str(OUT_DIR / "external_eval.json")
 json.dump(res, open(out, "w"), ensure_ascii=False, indent=1)
 print(f"\n저장: {out}", flush=True)

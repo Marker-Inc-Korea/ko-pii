@@ -3,16 +3,19 @@
 
 유효/무효(체크섬 깨짐)/포맷 변형 ID에 대해 두 검출기의 판정을 비교한다.
 ML이 체크섬을 검증하지 못함(무효 번호도 검출)과 포맷 일반화 차이를 보는 목적.
-usage: checksum_probe.py [model_dir]
+usage: checksum_probe.py <model_dir>   (인자 생략 시 환경변수 KO_PII_NER_MODEL 사용)
 """
 import os, sys
-os.environ.setdefault("HF_HOME", "/data1/mk04/.cache/huggingface")
-sys.path.insert(0, "/data1/mk04/projects/ko-pii/src")
+from pathlib import Path
+ROOT = Path(__file__).resolve().parents[3]  # 레포 루트 (experiments/ner/code/ 기준)
+sys.path.insert(0, str(ROOT / "src"))
 import torch
 from transformers import AutoTokenizer, AutoModelForTokenClassification
 from ko_pii.detect import detect_all
 
-M = sys.argv[1] if len(sys.argv) > 1 else "/data1/mk04/pii_ner/out/klue_all_slurm/final"
+M = sys.argv[1] if len(sys.argv) > 1 else os.environ.get("KO_PII_NER_MODEL", "")
+if not M:
+    sys.exit("usage: checksum_probe.py <model_dir>   (또는 환경변수 KO_PII_NER_MODEL 설정)")
 
 
 def rrn(base12):

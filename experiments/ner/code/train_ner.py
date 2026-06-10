@@ -8,7 +8,7 @@
 usage: train_ner.py --base klue/roberta-large --out OUT [--no-generated] [--trust]
 """
 import os, sys, json, argparse, re
-os.environ.setdefault("HF_HOME", "/data1/mk04/.cache/huggingface")
+from pathlib import Path
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 import numpy as np
 from datasets import Dataset
@@ -63,8 +63,10 @@ ENT = sorted(set(KD_MAP.values()) | GEN_TYPES)
 LABELS = ["O"] + [f"{p}-{e}" for e in ENT for p in ("B", "I")]
 L2I = {l: i for i, l in enumerate(LABELS)}
 
-KD = "/data1/mk04/projects/ko-pii/data/kdpii"
-GEN = "/data1/mk04/projects/ko-pii/data"
+ROOT = Path(__file__).resolve().parents[3]  # 레포 루트 (experiments/ner/code/ 기준)
+KD = str(ROOT / "data" / "kdpii")
+GEN = str(ROOT / "data")
+os.makedirs(args.out, exist_ok=True)
 tok = AutoTokenizer.from_pretrained(args.base, trust_remote_code=args.trust)
 
 

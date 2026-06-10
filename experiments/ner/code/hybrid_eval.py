@@ -5,14 +5,17 @@
 usage: hybrid_eval.py <model_dir>
 """
 import os, sys, json, re
-os.environ.setdefault("HF_HOME", "/data1/mk04/.cache/huggingface")
-sys.path.insert(0, "/data1/mk04/projects/ko-pii/src")
+from pathlib import Path
+ROOT = Path(__file__).resolve().parents[3]  # 레포 루트 (experiments/ner/code/ 기준)
+sys.path.insert(0, str(ROOT / "src"))
 import torch
 from transformers import AutoTokenizer, AutoModelForTokenClassification
 from collections import defaultdict
 from ko_pii.eval.kdpii import match_forms_overlap, KDPII_LABEL_MAP
 from ko_pii.detect import detect_all
 
+if len(sys.argv) < 2:
+    sys.exit("usage: hybrid_eval.py <model_dir | openai-base>")
 MODEL = sys.argv[1]
 PML = 3
 FUZZY = {"PERSON", "ADDRESS", "POSITION", "EDUCATION", "MAJOR",
@@ -114,9 +117,9 @@ def gen_gold(d):
         g[p["type"]].add(p["text"])
     return g
 
-kd = json.load(open("/data1/mk04/projects/ko-pii/data/kdpii/test.json"))
+kd = json.load(open(ROOT / "data" / "kdpii" / "test.json", encoding="utf-8"))
 for x in kd: x["__text__"] = x["sentence"]
-gen = [json.loads(l) for l in open("/data1/mk04/projects/ko-pii/data/generated_eval.jsonl")]
+gen = [json.loads(l) for l in open(ROOT / "data" / "generated_eval.jsonl", encoding="utf-8")]
 for x in gen: x["__text__"] = x["text"]
 
 print("==== 전후 비교 (ko-pii 룰단독 → +ML 하이브리드) ====", flush=True)

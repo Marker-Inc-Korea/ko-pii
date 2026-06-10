@@ -12,9 +12,10 @@ usage: eval_suite.py <model_dir | base-fuzzy>
   base-fuzzy = klue/roberta-large 무학습(헤드 랜덤) + 퍼지 20종 라벨공간
 """
 import os, sys, json, re
-os.environ.setdefault("HF_HOME", "/data1/mk04/.cache/huggingface")
+from pathlib import Path
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
-sys.path.insert(0, "/data1/mk04/projects/ko-pii/src")
+ROOT = Path(__file__).resolve().parents[3]  # 레포 루트 (experiments/ner/code/ 기준)
+sys.path.insert(0, str(ROOT / "src"))
 import torch
 from collections import defaultdict
 from transformers import AutoTokenizer, AutoModelForTokenClassification
@@ -26,8 +27,9 @@ PML = 3
 # 하이브리드 정의(기존 문서와 동일): ML이 교체하는 공유 퍼지 10종
 FUZZY = {"PERSON", "ADDRESS", "POSITION", "EDUCATION", "MAJOR",
          "NATIONALITY", "AGE", "DT_BIRTH", "HEIGHT", "WEIGHT"}
-KD = "/data1/mk04/projects/ko-pii/data/kdpii"
-GEN = "/data1/mk04/projects/ko-pii/data"
+KD = str(ROOT / "data" / "kdpii")
+GEN = str(ROOT / "data")
+OUT_DIR = ROOT / "out"
 
 KD_MAP_FUZZY = {
     "PS_NAME": "PERSON", "PS_NICKNAME": "NICKNAME", "LC_ADDRESS": "ADDRESS",
@@ -47,6 +49,8 @@ KD_MAP_DET = {
 }
 KD_MAP_ALL = {**KD_MAP_FUZZY, **KD_MAP_DET}
 
+if len(sys.argv) < 2:
+    sys.exit("usage: eval_suite.py <model_dir | base-fuzzy>")
 MODEL = sys.argv[1]
 if MODEL == "base-fuzzy":
     base = "klue/roberta-large"
@@ -266,6 +270,7 @@ for name, docs, gfn, space in [("KDPII_test", kd_test, kdpii_gold, KD_SPACE),
         res[f"score_{name}_{mode}"] = {"f1": f, "precision": p, "recall": r}
         print(f"  {mode:7s} F1={f:.3f} P={p:.3f} R={r:.3f}", flush=True)
 
-out_path = f"/data1/mk04/pii_ner/out/evalsuite_{TAG}.json"
+os.makedirs(OUT_DIR, exist_ok=True)
+out_path = str(OUT_DIR / f"evalsuite_{TAG}.json")
 json.dump(res, open(out_path, "w"), ensure_ascii=False, indent=1)
 print(f"\n저장: {out_path}", flush=True)
