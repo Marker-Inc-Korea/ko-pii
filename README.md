@@ -19,7 +19,7 @@ print(result.text)
 # 신청인 <PERSON_1> (<RRN_1>) 연락처 <PHONE_1>
 
 print(result.vault.reveal("<RRN_1>"))            # 880101-1234568 (권한자만 복원)
-print(result.combined_risk.combined_risk)        # RiskLevel.CRITICAL
+print(result.combined_risk.combined_risk.name)   # CRITICAL
 ```
 
 ### 가명화 전후 비교
@@ -34,7 +34,7 @@ tokenize (토큰 치환 + Vault 복원 가능):
   주소: <ADDRESS_1>
 
 partial (일부만 가림 — 실무 양식):
-  신청인 홍** (880101-1******) 연락처 010-****-5678
+  신청인 홍OO (880101-1******) 연락처 010-****-5678
   주소: 서울특별시 강남구 ***
 
 redact (카테고리명 치환):
@@ -175,8 +175,8 @@ result = anon.process(incoming_petition_text)
 # 결합 위험도가 CRITICAL 이면 담당자에게 알림
 if result.combined_risk.combined_risk >= RiskLevel.CRITICAL:
     notify_admin(
-        identifiers=result.combined_risk.identifiers,        # {"RRN", "PHONE"}
-        quasi=result.combined_risk.quasi_identifiers,        # {"PERSON", "ADDRESS"}
+        identifiers=result.combined_risk.distinct_identifiers,  # ["RRN"]
+        quasi=result.combined_risk.distinct_quasi,              # ["ADDRESS", "PERSON", "PHONE"]
     )
 
 # 응대 직원에게는 가명화 버전 제공
@@ -274,15 +274,16 @@ print(result.summary["by_label"])        # {"RRN": 1, "PHONE": 1, "PERSON": 1}
 
 ```python
 # 검출 결과의 결합 위험도 자동 평가
-print(result.combined_risk.combined_risk)        # RiskLevel.CRITICAL
-print(result.combined_risk.identifiers)          # {"RRN"}
-print(result.combined_risk.quasi_identifiers)    # {"PERSON", "ADDRESS", "DT_BIRTH"}
+print(result.combined_risk.combined_risk.name)    # CRITICAL
+print(result.combined_risk.distinct_identifiers)  # ["RRN"]
+print(result.combined_risk.distinct_quasi)        # ["PERSON", "PHONE"]
 
 # k-익명성 평가 (집단 데이터)
 from ko_pii.analytics import k_anonymity
-report = k_anonymity(records, quasi_identifiers=["age", "city", "job"], k=5)
-print(report.satisfies_k)                  # True/False
-print(report.generalization_suggestions)   # ["age: 30-39", ...]
+report = k_anonymity(records, quasi_keys=["age", "city", "job"], threshold=5)
+print(report.k)                     # 최소 그룹 크기
+print(report.satisfies_threshold)   # True/False
+print(report.rationale)             # ["준식별자 ['age', 'city', 'job'] 기준 N개 그룹", ...]
 ```
 
 ### CSV/XLSX 표 자동 처리
@@ -293,8 +294,9 @@ import csv
 
 rows = list(csv.DictReader(open("employees.csv")))
 # 헤더 "성명/주민번호/연락처/주소" → 자동으로 PERSON/RRN/PHONE/ADDRESS 매핑
-result = anonymize_records(rows, strategy="tokenize")
-print(result.rows[0])
+anon_rows, vault = anonymize_records(rows, strategy="tokenize")
+print(anon_rows[0])
+# {'성명': '<PERSON_1>', '주민번호': '<RRN_1>', '연락처': '<PHONE_1>', '주소': '<ADDRESS_1>'}
 ```
 
 ### 검토 큐 워크플로우 (오탐 학습)
@@ -516,7 +518,26 @@ chain = retriever | KoPiiRedactor(mode="STRICT") | prompt | llm
 
 ### 룰+ML 하이브리드 (opt-in)
 
-**코어는 ML 없이 동작**하되, 정확도가 더 필요하면 `[classifier]` extra 로 ML 분류기를 얹어 **룰과 ML을 원하는 방식으로 결합**할 수 있습니다. 결합 방식과 민감도를 직접 설정:
+**코어는 ML 없이 동작**하되, 정확도가 더 필요하면 ML 을 얹을 수 있습니다. 하이브리드는 **두 종류**이며 서로 다른 기능입니다:
+
+| | ① 토큰 NER 하이브리드 (span 교체) | ② 문서 분류기 하이브리드 (confidence 결합) |
+|---|---|---|
+| 무엇 | 룰=결정적 ID(체크섬), ML=퍼지(이름·주소 등) **검출 자체를 교체** | 문서 수준 "PII 있음/없음" 분류기로 룰 결과를 보강 (span 추가 없음) |
+| 사용 | `Anonymizer(secondary_detector=..., merge_mode="role_split")` | `ko_pii.classifier.HybridAnonymizer` |
+| 성능 | 외부 검증 **F1 0.97** ([`docs/HYBRID_NER.md`](docs/HYBRID_NER.md)) | 검토 트리거·민감도 조절용 |
+
+**① 토큰 NER 하이브리드** — [`docs/HYBRID_NER.md`](docs/HYBRID_NER.md) 레시피로 직접 학습한 NER 모델을 꽂으면 됩니다:
+
+```python
+from ko_pii import Anonymizer
+from ko_pii.integrations.hf_token_ner import HFTokenNERAdapter
+
+ml = HFTokenNERAdapter("out/ner_fuzzy/final")   # 직접 학습한 모델 (레시피 참조)
+anon = Anonymizer(secondary_detector=ml, merge_mode="role_split")
+result = anon.process(text)   # 모든 전략(tokenize/partial/redact)·Vault 그대로 동작
+```
+
+**② 문서 분류기 하이브리드** — `[classifier]` extra 로 결합 방식과 민감도를 직접 설정:
 
 | 결합 모드 | 동작 | 용도 |
 |---|---|---|

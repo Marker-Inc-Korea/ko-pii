@@ -19,7 +19,7 @@ print(result.text)
 # 신청인 <PERSON_1> (<RRN_1>) 연락처 <PHONE_1>
 
 print(result.vault.reveal("<RRN_1>"))            # 880101-1234568 (only authorized users can restore)
-print(result.combined_risk.combined_risk)        # RiskLevel.CRITICAL
+print(result.combined_risk.combined_risk.name)   # CRITICAL
 ```
 
 ### Before / after pseudonymization
@@ -34,7 +34,7 @@ tokenize (token substitution + restorable via Vault):
   주소: <ADDRESS_1>
 
 partial (mask only part — real-world form style):
-  신청인 홍** (880101-1******) 연락처 010-****-5678
+  신청인 홍OO (880101-1******) 연락처 010-****-5678
   주소: 서울특별시 강남구 ***
 
 redact (replace with category name):
@@ -175,8 +175,8 @@ result = anon.process(incoming_petition_text)
 # If the combined risk is CRITICAL, notify the handler
 if result.combined_risk.combined_risk >= RiskLevel.CRITICAL:
     notify_admin(
-        identifiers=result.combined_risk.identifiers,        # {"RRN", "PHONE"}
-        quasi=result.combined_risk.quasi_identifiers,        # {"PERSON", "ADDRESS"}
+        identifiers=result.combined_risk.distinct_identifiers,  # ["RRN"]
+        quasi=result.combined_risk.distinct_quasi,              # ["ADDRESS", "PERSON", "PHONE"]
     )
 
 # Give the responding staff a pseudonymized version
@@ -339,15 +339,16 @@ print(result.summary["by_label"])        # {"RRN": 1, "PHONE": 1, "PERSON": 1}
 
 ```python
 # Automatic combined-risk assessment of detection results
-print(result.combined_risk.combined_risk)        # RiskLevel.CRITICAL
-print(result.combined_risk.identifiers)          # {"RRN"}
-print(result.combined_risk.quasi_identifiers)    # {"PERSON", "ADDRESS", "DT_BIRTH"}
+print(result.combined_risk.combined_risk.name)    # CRITICAL
+print(result.combined_risk.distinct_identifiers)  # ["RRN"]
+print(result.combined_risk.distinct_quasi)        # ["PERSON", "PHONE"]
 
 # k-anonymity assessment (aggregate data)
 from ko_pii.analytics import k_anonymity
-report = k_anonymity(records, quasi_identifiers=["age", "city", "job"], k=5)
-print(report.satisfies_k)                  # True/False
-print(report.generalization_suggestions)   # ["age: 30-39", ...]
+report = k_anonymity(records, quasi_keys=["age", "city", "job"], threshold=5)
+print(report.k)                     # minimum group size
+print(report.satisfies_threshold)   # True/False
+print(report.rationale)             # ["준식별자 ['age', 'city', 'job'] 기준 N개 그룹", ...]
 ```
 
 ### Automatic CSV/XLSX table processing
@@ -358,8 +359,9 @@ import csv
 
 rows = list(csv.DictReader(open("employees.csv")))
 # Headers "성명/주민번호/연락처/주소" → automatically mapped to PERSON/RRN/PHONE/ADDRESS
-result = anonymize_records(rows, strategy="tokenize")
-print(result.rows[0])
+anon_rows, vault = anonymize_records(rows, strategy="tokenize")
+print(anon_rows[0])
+# {'성명': '<PERSON_1>', '주민번호': '<RRN_1>', '연락처': '<PHONE_1>', '주소': '<ADDRESS_1>'}
 ```
 
 ### Review-queue workflow (false-positive learning)
@@ -581,7 +583,26 @@ chain = retriever | KoPiiRedactor(mode="STRICT") | prompt | llm
 
 ### Rule+ML hybrid (opt-in)
 
-**The core works without ML**, but if you need more accuracy you can layer an ML classifier via the `[classifier]` extra and **combine rules and ML however you want**. Configure the combination method and sensitivity yourself:
+**The core works without ML**, but you can layer ML on top. There are **two distinct hybrids** — they are different features:
+
+| | ① Token-NER hybrid (span replacement) | ② Document-classifier hybrid (confidence blend) |
+|---|---|---|
+| What | rules = deterministic IDs (checksums), ML = fuzzy categories — **replaces detections** | document-level "has PII" classifier reinforcing rule results (adds no spans) |
+| Use | `Anonymizer(secondary_detector=..., merge_mode="role_split")` | `ko_pii.classifier.HybridAnonymizer` |
+| Performance | external validation **F1 0.97** ([`docs/HYBRID_NER.md`](docs/HYBRID_NER.md)) | review triggers / sensitivity tuning |
+
+**① Token-NER hybrid** — plug in an NER model you trained with the [`docs/HYBRID_NER.md`](docs/HYBRID_NER.md) recipe:
+
+```python
+from ko_pii import Anonymizer
+from ko_pii.integrations.hf_token_ner import HFTokenNERAdapter
+
+ml = HFTokenNERAdapter("out/ner_fuzzy/final")   # model you trained (see recipe)
+anon = Anonymizer(secondary_detector=ml, merge_mode="role_split")
+result = anon.process(text)   # all strategies (tokenize/partial/redact) and the Vault just work
+```
+
+**② Document-classifier hybrid** — via the `[classifier]` extra, configure the combination method and sensitivity yourself:
 
 | Combination mode | Behavior | Use |
 |---|---|---|
