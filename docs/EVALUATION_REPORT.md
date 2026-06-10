@@ -148,7 +148,7 @@ ko-pii 와 **완전 독립적으로** 만들어진 두 외부 데이터셋에서
 
 - **A. 사용자 자체 라벨링 30~100 문서** — 외부 인원이 실제 공문서에 PII 의 라벨링 → 가장 강력한 검증 (작업량: 4~8시간)
 - **B. 더 많은 외부 GT 데이터셋 평가** — KMOU/KoBERT-NER 등 추가 (작업량: 1~3시간/데이터셋)
-- **C. 외부 비교 모델 추가** — ✅ **2026-05-22 완료**: Microsoft Presidio (default + KR 정규식 보강) 추가 측정. 4 벤치마크 모두 *동일한 상대 순위* (ko-pii > openai/PF > Presidio+KR > Presidio default) 로 self-fulfilling 가설 약화. OpenMed/PF-multilingual 추가 측정도 진행 중.
+- **C. 외부 비교 모델 추가** — ✅ **2026-05-22 완료**: Microsoft Presidio (default + KR 정규식 보강) 추가 측정. 4 벤치마크 모두 *동일한 상대 순위* (ko-pii > openai/PF > Presidio+KR > Presidio default) 로 self-fulfilling 가설 약화. OpenMed/PF-multilingual 은 torch 버전 매칭 이슈로 측정 제외 (추가 평가 계획 없음).
 - **D. 동료/외부 라벨러 검증** — 학회 · github 공개 검토
 
 본 라이브러리의 권장 — 사용자 도메인 (한국 공공) 에 본격 운영 전 30~100 문서 자체 라벨링 (옵션 A) 으로 한 번 더 검증.

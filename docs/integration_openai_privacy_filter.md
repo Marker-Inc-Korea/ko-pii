@@ -258,7 +258,7 @@ python data/eval_injected_corpus.py data/corpus/injected_pii_corpus.jsonl
 
 > 두 도구는 *다른 목적용*. 한국 공공 부문 배포 시 Privacy Filter 단독 사용은 부적합 (라벨 스코프). ko-pii 의 한국 특화 + Privacy Filter 의 일반 PII 자연어 강점을 *결합 (union 모드)* 하는 게 본 문서의 권장. 본 섹션 위 4가지 병합 모드 (union/intersection/cross_validation/enrich_primary) 가 그 통합의 도구.
 
-진정한 head-to-head 비교 대상은 **OpenMed/privacy-filter-multilingual** (한국어 공식 지원, 217 라벨 — ko-pii 의 다수 카테고리 커버). 본 평가에는 미포함 (torch 버전 매칭 이슈 — 후속 평가 예정).
+진정한 head-to-head 비교 대상은 **OpenMed/privacy-filter-multilingual** (한국어 공식 지원, 217 라벨 — ko-pii 의 다수 카테고리 커버). 본 평가에는 미포함 (torch 버전 매칭 이슈로 제외 — 추가 평가 계획 없음).
 
 상세 분석 + 카테고리 풀 표: [`docs/EVALUATION_REPORT.md`](EVALUATION_REPORT.md) §1-bis + §2. 원본 평가 출력: `data/corpus/kdpii_3way_full.txt`.
 

@@ -609,7 +609,9 @@ pip install ko-pii[classifier]      # torch + transformers + scikit-learn
 python -m ko_pii.classifier.train ...   # train the model yourself
 ```
 
-> Pretrained weights are not distributed (training-data licensing) — code and training recipe are provided.
+> Pretrained weights are not distributed (training-data licensing) — code and training recipe are provided. **The tuned NER model is planned for a later release** (after licensing review and generalization evaluation).
+>
+> Hybrid evaluation (rules-only vs hybrid, base vs tuned matrix): [`docs/HYBRID_NER.md`](docs/HYBRID_NER.md) — **+0.14–0.19** over rules-only (klue); the gains are *consistent* only with a *properly tuned Korean NER* (base zero-shot is counterproductive).
 
 ---
 
