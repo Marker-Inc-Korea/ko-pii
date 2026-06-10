@@ -28,6 +28,23 @@ class TestRRNPositive:
         assert results[0].legal_basis == "개인정보보호법 제24조의2"
         assert results[0].extra["category"] == "고유식별정보"
 
+    def test_space_wrapped_hyphen(self):
+        # 서식 표기 '880101 - 1234568' (공백+하이픈+공백, 3자) — 체크섬 프로브에서
+        # 발견된 미검출 갭 회귀 테스트.
+        results = _detect_list("주민번호 : 880101 - 1234568 조회 요청.")
+        assert len(results) == 1
+        assert results[0].text == "880101 - 1234568"
+        assert results[0].extra["checksum_valid"] is True
+
+    def test_hyphen_then_space(self):
+        results = _detect_list("주민번호 880101- 1234568")
+        assert len(results) == 1
+        assert results[0].text == "880101- 1234568"
+
+    def test_three_pure_spaces_not_matched(self):
+        # 구분자 없는 공백 3자는 표 칼럼 나열일 가능성 — 매치 비허용 유지.
+        assert _detect_list("880101   1234568") == []
+
     def test_foreigner_gender_digits_skipped(self):
         # gender_digit ∈ {5,6,7,8} = foreigner, handled by patterns.frn —
         # the RRN detector must not claim these.
