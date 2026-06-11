@@ -342,6 +342,8 @@ for r in detect("신청인 880101-1234568"):
 
 ## 33 PII 카테고리
 
+> 전체 라벨 키는 `ko-pii --labels` (CLI) 또는 `from ko_pii.labels import ALL_LABELS, LABEL_INFO` (Python) 로 조회할 수 있습니다.
+
 ### 결정적 검증 (체크섬·화이트리스트)
 
 | 카테고리 | 검증 | 위험도 |

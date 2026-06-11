@@ -407,6 +407,8 @@ for r in detect("신청인 880101-1234568"):
 
 ## 33 PII categories
 
+> List all label keys with `ko-pii --labels` (CLI) or `from ko_pii.labels import ALL_LABELS, LABEL_INFO` (Python).
+
 ### Deterministic verification (checksum / whitelist)
 
 | Category | Verification | Risk |

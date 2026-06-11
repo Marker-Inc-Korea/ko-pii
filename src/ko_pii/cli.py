@@ -25,7 +25,13 @@ def _build_parser() -> argparse.ArgumentParser:
         description="Rule-based PII detection and reversible pseudonymization "
                     "for Korean public-sector documents.",
     )
-    p.add_argument("input", help="Input file path (or '-' for stdin).")
+    p.add_argument("input", nargs="?",
+                   help="Input file path (or '-' for stdin).")
+    p.add_argument(
+        "--labels",
+        action="store_true",
+        help="Print the 33 PII category labels (include/exclude keys) and exit.",
+    )
     p.add_argument(
         "-m", "--mode",
         choices=[m.value for m in ProcessingMode],
@@ -231,7 +237,15 @@ def _run_batch(args) -> int:
 
 
 def main(argv: Optional[list[str]] = None) -> int:
-    args = _build_parser().parse_args(argv)
+    parser = _build_parser()
+    args = parser.parse_args(argv)
+
+    if args.labels:
+        from ko_pii.labels import format_labels_table
+        print(format_labels_table())
+        return 0
+    if args.input is None:
+        parser.error("input is required (or use --labels to list categories)")
 
     if args.batch:
         return _run_batch(args)
