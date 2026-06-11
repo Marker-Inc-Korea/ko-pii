@@ -15,7 +15,8 @@ style: |
 
 ### 한국어 PII 검출·가명화 라이브러리 — 구현 & 사용법
 
-규칙 + 사전 + 체크섬 · ML 없이 · 외부 의존성 0 · 33종 PII
+규칙 + 사전 + 체크섬 코어(ML 없이 · 외부 의존성 0) · 33종 PII
+\+ 옵션 NER 하이브리드 — **외부 검증 F1 0.97** (v1.14)
 
 `pip install ko-pii`
 
@@ -117,7 +118,27 @@ text = read_text("민원.hwp")                     # HWP·PDF·DOCX·XLSX
 # CLI
 ko-pii doc.pdf -m STRICT -s tokenize -o masked.txt
 ko-pii ./docs --batch --recursive --workers 4   # 디렉토리 일괄
+ko-pii --labels                                 # 33종 라벨 키 목록 (NEW)
 ```
+
+---
+
+## 33종 카테고리 — include/exclude 라벨 키
+
+| 그룹 | 라벨 키 |
+|---|---|
+| **결정적 검증** (8) | `RRN` 주민 · `FRN` 외국인 · `BUSINESS_REG` 사업자 · `CORP_REG` 법인 · `DRIVER_LICENSE` 면허 · `PASSPORT` 여권 · `CARD` 카드 · `PNU` 토지 |
+| **키워드 anchor** (8) | `MEDICAL_INSURANCE` 건강보험 · `PRESCRIPTION_ID` 처방 · `EDI_DRUG` 약품코드 · `FAX` · `ACCOUNT` 계좌 · `EMPLOYEE_ID` 사번 · `PETITION_ID` 민원 · `COURT_CASE` 사건 |
+| **형식 검증** (7) | `PHONE` · `EMAIL` · `IP` · `URL` · `POSTAL_CODE` 우편 · `VEHICLE` 차량 · `DOC_ID` 문서번호 |
+| **사전·컨텍스트** (6) | `PERSON` 성명 · `ADDRESS` 주소 · `NATIONALITY` 국적 · `EDUCATION` 학력 · `MAJOR` 전공 · `POSITION` 직책 |
+| **인적 속성** (4) | `DT_BIRTH` 생년월일 · `AGE` 나이 · `HEIGHT` 신장 · `WEIGHT` 체중 |
+
+```python
+from ko_pii.labels import ALL_LABELS, LABEL_INFO     # 코드에서 정본 조회
+detect_all(text, include=["PERSON"])                 # 이름만 탐지
+```
+
+→ CLI `ko-pii --labels` 와 코드 레지스트리가 **단일 정본** (redact 한글명과 테스트로 동기화)
 
 ---
 
@@ -142,7 +163,12 @@ ko-pii ./docs --batch --recursive --workers 4   # 디렉토리 일괄
 # 가역 가명화 + 영속 Vault + 감사로그
 r.vault.save("vault.json"); ReversibleVault.load("vault.json")
 
-# 룰 + ML 하이브리드 (pip install ko-pii[classifier])
+# 토큰 NER 하이브리드 (v1.14) — 룰=결정적 ID, ML=퍼지 *교체* (role_split)
+from ko_pii.integrations.hf_token_ner import HFTokenNERAdapter
+Anonymizer(secondary_detector=HFTokenNERAdapter("out/ner/final"),
+           merge_mode="role_split")            # 외부 검증 F1 0.97 구성 그대로
+
+# 문서 분류기 하이브리드 (pip install ko-pii[classifier]) — 검토 트리거용
 from ko_pii.classifier import HybridAnonymizer, HybridMode
 HybridAnonymizer(rule, clf, mode=HybridMode.REVIEW_FLAG, classifier_threshold=0.5)
 ```
@@ -181,12 +207,76 @@ HybridAnonymizer(rule, clf, mode=HybridMode.REVIEW_FLAG, classifier_threshold=0.
 
 ---
 
+## NEW ① 퍼지의 약점은 ML 로 — 어떤 모델? (백본 실측)
+
+룰의 약점 = 이름·주소 같은 **퍼지** 카테고리 → 토큰분류 NER 로 보완. 후보 전부 동일 레시피로 학습:
+
+| 베이스 | 크기 | KDPII | 판정 |
+|---|:---:|:---:|---|
+| **klue/roberta-large** (한국어 인코더) | 336M | **0.950** | ✅ 에폭 1에 0.92, 3ep 포화 |
+| openai/privacy-filter (PII 전용 MoE) | 1.4B | 0.633 | lr 5배로도 klue 미달 |
+| gemma-4-E2B (신형 디코더 LLM, 직접 튜닝) | 4.6B | 0.353 | 두 lr 모두 ~0.33 정체 |
+
+→ **"더 새롭고 큰 모델"로 뒤집히는 문제가 아님** — 한국어 양방향 인코더가 정답, 병목은 데이터
+→ 학습 15~30분/GPU 1장 · 전 과정 아카이브 공개(`experiments/ner/` — 학습 9런·평가 17런·레지스트리)
+
+---
+
+## NEW ② 평가를 의심하기 — gold 가 가짜 번호였다
+
+인분포 벤치마크에선 **ML 단독(0.949)이 최강**으로 보였다. 그런데:
+
+- **평가셋 gold ID 가 대부분 "형식만 맞는 가짜"** — KDPII 카드 gold 의 **9%만** Luhn 유효,
+  생성셋도 주민 15%·사업자 13%·법인 19%만 체크섬 유효
+- 룰은 실존 불가 번호를 거부(올바른 설계)했는데 벤치마크가 FN 으로 처벌
+  — 사업자 recall **0.129 = gold 유효율 13%** 와 정확히 일치 (스모킹 건)
+
+**→ 외부 검증셋 v2 를 새로 구축** (미사용 도메인 · ID 100% 체크섬 유효 · 신규 주입 패턴):
+
+| 외부 검증 (400문서) | F1 | ID recall |
+|---|:---:|---|
+| **하이브리드 (룰=ID, ML=퍼지)** | **0.968** | **1.00 × 4종** |
+| ML 단독 | 0.929 | 0.85~0.94 |
+| 룰 단독 | 0.892 ← 0.659 에서 복권 | 1.00 × 4종 |
+
+**아티팩트를 제거하니 순위가 원복** — 역할 분담 하이브리드가 진짜 챔피언
+
+---
+
+## NEW ③ v1.14.0 — 하이브리드를 라이브러리 기능으로
+
+```python
+ml = HFTokenNERAdapter("out/ner_fuzzy/final")   # 직접 학습한 NER (레시피 공개)
+anon = Anonymizer(secondary_detector=ml, merge_mode="role_split")
+```
+
+- **`role_split` 병합 모드**: 합산(union)이 아닌 **교체** — 약한 쪽 FP 가 강한 쪽을 오염 못 함
+  (union 은 항상 role_split 이하 — 실측)
+- 인간 라벨 외부 데이터(KLUE-NER 5,000문장)에서도 퍼지는 ML 압승: **0.84 vs 룰 0.38**
+- 함께 배포: RRN 공백 표기 검출(`880101 - 1234568`), README 전 예제 실행 검증,
+  실험 스크립트 이식성(레포만으로 재현)
+
+---
+
+## NEW ④ 남은 작업 — 가중치 공개 게이트
+
+| 항목 | 상태 |
+|---|---|
+| 라이선스 검토 | ✅ **완료** — KDPII CC-BY-4.0(원출처 확인) · 생성셋 Apache 2.0 · 베이스 KLUE CC-BY-SA → 공개 시 가중치 CC-BY-SA-4.0 |
+| 모델카드 초안 | ✅ 작성 완료 (한계 정직 고지 포함) |
+| **공공문서 인간 라벨 검증** | 🔲 **마지막 게이트** — 키트·웹 UI 준비 완료, 라벨링 반나절 → 점수로 공개 판정 |
+
+- 공개 전에도 사용자 동선은 닫혀 있음: 레시피 + 레포 데이터로 **직접 학습 → role_split 두 줄**
+- 그 외: 도메인 꼬리 케이스(별명·은어) 보강, cross-encoder reranker (후순위)
+
+---
+
 ## 정리
 
-- **33종 한국 PII** 검출 + 가명화 — 룰+사전+체크섬, **ML 없이·외부 의존성 0**
-- **정확도**: 결정적 PII ≈ 100%, 외부 벤치도 해외 도구 우위
-- **속도**: 0.56 ms/문서 (~1,800/초), GPU 불필요
-- **품질**: 772 테스트 · CI(3.10~3.13) · PyPI 배포 · 웹 데모
+- **33종 한국 PII** 검출 + 가명화 — 코어는 룰+사전+체크섬, **ML 없이·외부 의존성 0**
+- **정확도**: 결정적 PII ≈ 100% · 외부 벤치 해외 도구 우위 · **NER 하이브리드 외부 검증 0.97**
+- **속도**: 0.56 ms/문서 (~1,800/초), GPU 불필요 (하이브리드는 opt-in)
+- **품질**: **792 테스트** · CI(3.10~3.13) · **PyPI v1.14.0** · 웹 데모 · 실험 전 과정 아카이브
 
 ```bash
 pip install ko-pii          # 코어 (외부 의존성 0)
