@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ko-pii"
-version = "1.15.0"
+version = "1.15.1"
 description = "한국어 PII 검출 + 가역 가명화 라이브러리 (ML 없이 룰 기반)"
 readme = "README.md"
 requires-python = ">=3.10"
