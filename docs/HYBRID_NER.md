@@ -258,7 +258,19 @@ result = anonymizer.process(text)   # tokenize/partial/redact 등 전 전략·Va
 
 ## 모델 공개 (예정)
 
-본 하이브리드의 튜닝 NER(`klue/roberta-large` 기반)은 **추후 공개 예정**입니다. 학습 데이터
-라이선스 검토(KDPII·생성셋 재배포 가능 여부)와 도메인 일반화 평가 후 `[classifier]` extra로
-가중치를 배포하거나 학습 레시피를 모듈로 제공할 계획입니다. 현재는 **코드·평가·레시피(위 절)만 공개**하며
-가중치는 미배포입니다.
+본 하이브리드의 튜닝 NER(`klue/roberta-large` 기반)은 **추후 공개 예정**이며, 현재는
+**코드·평가·레시피(위 절)만 공개**, 가중치는 미배포입니다.
+
+**라이선스 검토 — 완료.** 선행 조건이던 학습 데이터 라이선스 검토를 마쳤습니다:
+
+| 구성 요소 | 라이선스 | 공개 시 의무 |
+|---|---|---|
+| KDPII (학습 데이터) | **CC-BY-4.0** ([Zenodo 10968609](https://zenodo.org/records/10968609) 원출처 확인) | 출처표시 (모델카드 인용) — [`data/kdpii/README.md`](../data/kdpii/README.md) |
+| 생성셋 1,398 (학습 데이터) | Gemma-4-31B 산출물 — **Gemma 4 = 표준 Apache 2.0** (구 Gemma 약관 미적용) | 없음 |
+| klue/roberta-large (베이스) | HF 무표기·KLUE 프로젝트 **CC-BY-SA-4.0** | **가중치를 CC-BY-SA-4.0 으로 공개** + KLUE 출처표시 (보수적 해석 기준) |
+
+→ 공개 자체에 라이선스 장애는 없으며, 공개 시 **모델 라이선스 = CC-BY-SA-4.0**(레포 코드 MIT 와 분리),
+모델카드에 KLUE·KDPII attribution. 모델카드 초안: [`experiments/ner/MODEL_CARD.md`](../experiments/ner/MODEL_CARD.md).
+
+**남은 선행 조건은 하나 — 도메인 일반화 평가**(실제 공공문서 인간 라벨셋). 라벨링 키트가
+[`data/labeling/`](../data/labeling/) 에 준비되어 있습니다 (샘플 100문서 + 가이드, 예상 반나절).
