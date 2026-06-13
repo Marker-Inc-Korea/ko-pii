@@ -47,3 +47,18 @@ def test_unicode_dash_separators_detected() -> None:
 
 def test_unicode_dash_in_normal_text_no_fp() -> None:
     assert not detect_all("프로젝트 기간 2020–2021 자료를 검토합니다")
+
+
+# --- round-4: 고정 숫자체 목록 밖의 비주류 Nd 숫자체도 폴딩되어야 ---
+
+def test_rare_numeral_systems_rrn_detected() -> None:
+    # 고정 16개 _DIGIT_BASES 가 놓치던 숫자체 — 이제 전체 Nd 를 unicodedata.decimal 로 환원.
+    assert detect_all("주민번호 ᠙᠐᠐᠑᠐᠑-᠑᠒᠓᠔᠕᠖᠗")        # Mongolian (U+1810)
+    assert detect_all("주민번호 ߉߀߀߁߀߁-߁߂߃߄߅߆߇")        # N'Ko (U+07C0)
+    assert detect_all("카드 ꧔꧑꧑꧑-꧑꧑꧑꧑-꧑꧑꧑꧑-꧑꧑꧑꧑")    # Javanese (U+A9D0): 4111…
+    assert detect_all("주민번호 ꘩꘠꘠꘡꘠꘡-꘡꘢꘣꘤꘥꘦꘧")        # Vai (U+A620)
+
+
+def test_fullwidth_and_rare_numeral_no_normal_fp() -> None:
+    # 일반 한글 문장은 비주류 숫자체 폴딩 추가에도 오탐되지 않아야.
+    assert not detect_all("회의는 다음 주 화요일 오후에 진행됩니다")
