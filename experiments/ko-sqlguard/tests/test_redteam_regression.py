@@ -340,9 +340,10 @@ ROUND5_COLUMN_OK = [
     # genuine CTE column (CTE name not a restricted real table) still passes.
     "WITH c AS (SELECT 1 AS foo) SELECT c.foo FROM c",
     "WITH r AS (SELECT id, name FROM customers) SELECT r.id, r.name FROM r",
-    # unqualified column over a mix of unrestricted + restricted table: not over-blocked.
-    "SELECT sum(total) OVER () FROM orders o JOIN customers c ON o.id = c.id",
-    "SELECT total FROM orders o JOIN customers c ON o.id = c.id",
+    # round-6: unqualified columns in a mixed join are now fail-closed (see
+    # test_unqualified_join_fail_closed_blocks); the legitimate read must QUALIFY.
+    "SELECT sum(o.total) OVER () FROM orders o JOIN customers c ON o.id = c.id",
+    "SELECT o.total FROM orders o JOIN customers c ON o.id = c.id",
     # CTE named after the real TABLE (no alias): FROM resolves the CTE, real table
     # is never read (customers.ssn is a non-existent CTE column) -> no leak, allowed.
     "WITH customers AS (SELECT 1) SELECT customers.ssn FROM customers",
@@ -414,3 +415,68 @@ def test_merge_do_nothing_blocks_in_read_only() -> None:
     r = check(sql, policy=POLICY)
     assert r.verdict is Verdict.BLOCK
     assert any(v.code == "statement_type" for v in r.violations), [v.code for v in r.violations]
+
+
+# --- round-6: unqualified-column fail-open in mixed joins (the round-5 has_unrestricted gap) ---
+
+UNQUALIFIED_JOIN_LEAK = [
+    "SELECT ssn FROM customers JOIN orders ON customers.id = orders.id LIMIT 50",
+    "SELECT ssn FROM customers JOIN orders USING (id)",
+    "SELECT ssn FROM customers JOIN (SELECT id FROM orders) o ON customers.id = o.id",
+    "SELECT ssn, name, email FROM customers JOIN orders USING (id)",
+    # JOIN ... USING (ssn): the USING column is itself a disallowed customers column.
+    "SELECT id FROM customers c JOIN orders o USING (id) JOIN customers c2 USING (ssn)",
+]
+
+
+@pytest.mark.parametrize("sql", UNQUALIFIED_JOIN_LEAK, ids=lambda s: s[:40])
+def test_unqualified_join_fail_closed_blocks(sql: str) -> None:
+    r = check(sql, policy=POLICY)
+    assert r.verdict is Verdict.BLOCK, sql
+    assert any(v.code == "column_not_allowed" for v in r.violations), [v.code for v in r.violations]
+
+
+# --- round-6: whole-row references serialize every column of a restricted table ---
+
+WHOLE_ROW_LEAK = [
+    "SELECT to_jsonb(c) FROM customers c JOIN orders o ON c.id=o.id",
+    "SELECT array_agg(c) FROM customers c",
+    "SELECT to_jsonb(customers) FROM customers JOIN orders o ON customers.id=o.id",
+    "SELECT j FROM (SELECT to_jsonb(c) j FROM customers c JOIN orders o ON c.id=o.id) s",
+    "SELECT row_to_json(c) FROM customers c",
+]
+
+
+@pytest.mark.parametrize("sql", WHOLE_ROW_LEAK, ids=lambda s: s[:40])
+def test_whole_row_reference_blocks(sql: str) -> None:
+    r = check(sql, policy=POLICY)
+    assert r.verdict is Verdict.BLOCK, sql
+    assert any(v.code == "column_not_allowed" for v in r.violations), [v.code for v in r.violations]
+
+
+# --- round-6: catalog/config functions usable as a FROM/LATERAL source + pg_notify ---
+
+ROUND6_FUNCTIONS = [
+    "SELECT k.word FROM orders o JOIN LATERAL pg_get_keywords() k ON k.word = o.status",
+    "SELECT c.name FROM orders o JOIN LATERAL pg_config() c ON c.name = o.status",
+    "SELECT pg_notify('attacker_channel', 'exfil:secret')",
+    "SELECT pg_notify('c','p') FROM orders LIMIT 1",
+]
+
+
+@pytest.mark.parametrize("sql", ROUND6_FUNCTIONS, ids=lambda s: s[:40])
+def test_round6_function_blocks(sql: str) -> None:
+    r = check(sql, policy=POLICY)
+    assert r.verdict is Verdict.BLOCK, sql
+    assert any(v.code == "blocked_function" for v in r.violations), [v.code for v in r.violations]
+
+
+def test_round6_qualified_reads_still_pass() -> None:
+    # fail-closed 전환이 정상 qualified 읽기를 막지 않아야(과탐 방지).
+    for sql in (
+        "SELECT id FROM customers JOIN orders USING (id)",
+        "SELECT c.id, c.name FROM customers c JOIN orders o ON c.id=o.id",
+        "SELECT o.total FROM orders o JOIN customers c ON o.id=c.id",
+        "SELECT generate_series(1,10)",
+    ):
+        assert check(sql, policy=POLICY).verdict is not Verdict.BLOCK, sql

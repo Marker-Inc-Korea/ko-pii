@@ -123,6 +123,34 @@ and **ko-prompt-guard** (Latin/IPA confusables, `*|/`-splitting, Hangul fillers,
 leetspeak; 안전·보안 규칙 / "읽어" / romanized-variant patterns; 6 false positives)
 — each covered by its own regression suite.
 
+**Round 6 — unqualified-column fail-open, whole-row refs, indirect reads.** The
+sixth pass (post-round-5 build, 12 deeper lenses) found that the round-5
+`window_agg` false-positive fix had opened a real hole, plus several indirect
+read vectors — all in ko-sqlguard (337 tests):
+1. **HIGH — unqualified column fail-open in mixed joins.** `SELECT ssn FROM
+   customers JOIN orders USING (id)` leaked: round-5's `has_unrestricted` branch
+   waved through any unqualified column whenever an all-columns table was in
+   scope, on the theory it "might" belong to that table. But `ssn` exists only on
+   the restricted `customers`, so it resolved there and leaked. Reverted to
+   **fail-closed**: an unqualified column not in any restricted table's allowlist
+   is blocked (qualify it). The legitimate `total` read must now write `o.total`
+   — the price of fail-closed column enforcement, paid deliberately.
+2. **HIGH — whole-row references.** `to_jsonb(c)` / `array_agg(customers)` /
+   `row_to_json(c)` serialize *every* column of a restricted table. An unqualified
+   identifier equal to a restricted table name/alias is now blocked.
+3. **HIGH/MEDIUM — JOIN USING (ssn)** (the USING column is itself a disallowed
+   column) and catalog/config functions usable as a FROM/LATERAL source
+   (`pg_get_keywords()`, `pg_config()`), plus `pg_notify` — all now blocked.
+
+The same round hardened **ko-pii** (fraction/division-slash separators →
+detected; corp-reg separator parity; international `+82 (0)10` form; ISBN-vs-corp
+false positive) and **ko-prompt-guard** (always-strip combining marks incl.
+precomposed forms via NFD; semicolon splitting; safety-rule pattern now requires
+a response-request to kill academic/physical false positives; developer-mode
+negation). Hanja transliteration, multi-step semantic jailbreaks, and the
+4-4 representative-phone / unseparated-13-digit overlaps are acknowledged Tier-2
+limits (see each tool's README).
+
 ## Out of scope by design (the remaining 13)
 
 `generate_series(1, 1e18)`, `repeat('x', 2e9)`, `array_fill(...)`, and unbounded

@@ -62,10 +62,13 @@ def nfkc_fold(text: str) -> str:
         j = i + 1
         while j < n and (unicodedata.combining(text[j]) or _is_conjoining_jamo(text[j])):
             j += 1
-        base_is_alpha = text[i].isalpha()
-        for fc in unicodedata.normalize("NFKC", text[i:j]):
-            if not base_is_alpha and unicodedata.combining(fc):
-                continue
-            out.append(fc)
+        # 한국어 프롬프트 가드: 글자에 덧붙은 결합표시(U+0300 등)는 정상 한글에 거의
+        # 없고 '시̀스̀템̀'/'i̥g̥n̥o̥r̥e̥' 처럼 토큰을 쪼개는 우회 신호다 → 항상 제거.
+        # NFKC 만으로는 precomposed 형(ḁ=U+1E01)이 안 펴지므로 NFD 로 분해해 결합표시를
+        # 떼고 NFC 로 재조합한다. 한글 음절은 conjoining jamo 로 분해되나 combining()==0
+        # 이라 보존된다(PII 가드 ko-pii 와 달리 라틴 diacritic 보존은 불필요).
+        nfd = unicodedata.normalize("NFD", unicodedata.normalize("NFKC", text[i:j]))
+        stripped = "".join(c for c in nfd if not unicodedata.combining(c))
+        out.append(unicodedata.normalize("NFC", stripped))
         i = j
     return "".join(out)

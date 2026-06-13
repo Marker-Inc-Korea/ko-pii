@@ -105,10 +105,17 @@ def check_columns(stmt: exp.Expression, policy: GuardPolicy) -> list[Violation]:
         if t.alias:
             all_quals.add(t.alias)
 
-    # single_table 은 실테이블이 정확히 1개(그게 제약)일 때만. 비제약 실테이블이 함께
-    # 있으면 unqualified 컬럼은 그쪽 소속일 수 있어 적용 불가(과탐 방지).
+    # single_table 은 실테이블이 정확히 1개(그게 제약)일 때만.
     single_table = real_cols[0] if len(tables) == 1 and len(real_cols) == 1 else None
-    has_unrestricted = len(tables) > len(real_cols)
+    # 제약 allowlist 합집합 — unqualified 컬럼의 fail-closed 판정용.
+    union_cols: frozenset[str] = frozenset().union(*real_cols) if real_cols else frozenset()
+
+    # JOIN ... USING (col): USING 컬럼이 제약 테이블의 공통 컬럼인데 allowlist 밖이면
+    # 그 금지 컬럼에 접근하는 것 → BLOCK ('USING (ssn)' 우회 차단).
+    for join in stmt.find_all(exp.Join):
+        for ident in join.args.get("using") or []:
+            if real_cols and ident.name.lower() not in union_cols:
+                violations.append(_col_violation(ident.name, None))
 
     for col in stmt.find_all(exp.Column):
         qualifier = col.table
@@ -145,19 +152,34 @@ def check_columns(stmt: exp.Expression, policy: GuardPolicy) -> list[Violation]:
                     )
                 )
         else:
-            if single_table is not None:
-                if name.lower() not in single_table:
+            nlow = name.lower()
+            # whole-row 참조: 제약 테이블명/별칭을 컬럼처럼 쓰면(to_jsonb(c)/array_agg(customers))
+            # 전체 row(금지 컬럼 포함)가 직렬화돼 노출된다 → BLOCK.
+            if nlow in restricted_tables:
+                violations.append(
+                    Violation(
+                        code="column_not_allowed",
+                        severity=Severity.HIGH,
+                        reason=f"whole-row reference {name!r} exposes every column of a "
+                        "column-restricted table",
+                        action="block",
+                        fix="Select allowlisted columns explicitly, not the whole row.",
+                    )
+                )
+            elif single_table is not None:
+                if nlow not in single_table:
                     violations.append(_col_violation(name, None))
-            elif has_unrestricted:
-                continue  # 비제약 실테이블 존재 → unqualified 는 그쪽 소속 가능, 통과.
-            elif len(real_cols) >= 2:
-                union: set[str] = set().union(*real_cols)
-                if name.lower() not in union:
+            elif real_cols:
+                # 제약 테이블이 scope 에 있으면 fail-closed: 비제약 테이블이 함께 있어도
+                # unqualified 컬럼이 어느 제약 allowlist 에도 없으면 모호 → 차단(qualify 요구).
+                # (round-5 의 has_unrestricted fail-open 이 customers.ssn 우회를 허용했다.)
+                if nlow not in union_cols:
                     violations.append(
                         Violation(
                             code="column_not_allowed",
                             severity=Severity.MEDIUM,
-                            reason=f"unqualified column {name!r} not in any allowed column list",
+                            reason=f"unqualified column {name!r} is ambiguous with a "
+                            "column-restricted table in scope; qualify it",
                             action="block",
                             fix="Qualify the column with its table name.",
                         )
