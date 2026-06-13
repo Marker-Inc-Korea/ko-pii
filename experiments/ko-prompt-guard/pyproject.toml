@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ko-prompt-guard"
+version = "0.1.0"
+description = "Deterministic Korean prompt-injection / jailbreak de-obfuscation and guard"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "mk04" }]
+keywords = ["korean", "prompt-injection", "jailbreak", "llm", "guardrail", "security", "unicode"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Natural Language :: Korean",
+    "Programming Language :: Python :: 3",
+    "Topic :: Security",
+]
+# Core is pure-stdlib + pydantic. No ML, no network. (ko-pii unicode_norm is
+# vendored & extended, not imported, to keep this self-contained.)
+dependencies = [
+    "pydantic>=2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.4",
+    "mypy>=1.10",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests embed long, literal obfuscated payloads that must not be reflowed.
+"tests/**" = ["E501"]
+# Pattern dictionary is dense regex data; long lines are intentional.
+"src/ko_prompt_guard/patterns.py" = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+files = ["src"]
