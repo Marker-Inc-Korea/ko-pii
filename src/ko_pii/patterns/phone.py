@@ -26,7 +26,7 @@ CATEGORY = "일반개인정보"
 
 # International prefix: +82, 0082, or 82- (less common). The body strips the
 # leading 0 of the area code per ITU-T E.123 conventions.
-_INTL_PREFIX = r"(?:\+82|0082|82)[-.\s]?"
+_INTL_PREFIX = r"(?:\+82|0082|82)[-.\s]?(?:\(0\)[-.\s]?)?"
 
 _MOBILE = re.compile(
     r"(?<![0-9+])"

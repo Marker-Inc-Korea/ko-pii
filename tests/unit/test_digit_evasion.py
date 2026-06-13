@@ -132,3 +132,32 @@ def test_real_ip_still_detected_after_version_gate() -> None:
         "10.0.0.5", "10.0.0.10",
     ]
     assert any(d.label == "IP" for d in detect_all("서버 IP 192.168.0.100"))
+
+
+# --- round-6 red-team: slash-homoglyph separators + separator parity + intl (0) ---
+
+def test_slash_homoglyph_separators_detected() -> None:
+    assert detect_all("4111⁄1111⁄1111⁄1111")        # U+2044 fraction slash (card)
+    assert detect_all("4111／1111／1111／1111")        # U+FF0F fullwidth solidus (NFKC)
+    assert detect_all("주민 900101⁄5234567")          # RRN via fraction slash
+    assert detect_all("외국인등록번호 900101⁄5234569")  # FRN via fraction slash
+
+
+def test_corp_reg_separator_parity() -> None:
+    assert detect_all("법인등록번호 183008.8390499")   # dot
+    assert detect_all("법인등록번호 183008/8390499")   # slash
+
+
+def test_intl_phone_parenthesized_trunk_zero() -> None:
+    assert detect_all("Tel: +82 (0)10 9876 5432")
+
+
+def test_isbn_not_corp_reg() -> None:
+    # GS1 Bookland(978/979) 무구분자 13자리는 도서 바코드 → 법인번호 오탐 금지.
+    for t in ("도서 ISBN 9788494548130 절판", "도서 ISBN 9788956609959 (구판)"):
+        assert not any(d.label == "CORP_REG" for d in detect_all(t)), t
+
+
+def test_fraction_still_preserved_round6() -> None:
+    # 슬래시 폴딩 추가가 분수 정상 텍스트를 PII 로 오탐하면 안 됨.
+    assert not detect_all("½컵 설탕과 ⅓컵 소금을 넣으세요")
