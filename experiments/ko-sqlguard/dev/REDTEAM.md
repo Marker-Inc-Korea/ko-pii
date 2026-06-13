@@ -93,6 +93,36 @@ denylist. (`ROUND3_*`)
    `pg_get_object_address`, `pg_get_function_arguments`), `row_security_active`,
    and the `*_shared` advisory-lock variants.
 
+**Round 5 — CTE-alias column bypass, reg* casts, ON CONFLICT / MERGE gaps.** A
+fifth multi-agent pass (16 lenses across all three ko-* tools; attack → independent
+skeptic verify) confirmed five more ko-sqlguard defects:
+1. **HIGH — CTE/alias name-collision column bypass.** `WITH c AS (SELECT 1) SELECT
+   c.ssn FROM customers c` leaked a disallowed column: a CTE named after the
+   restricted table's *alias* poisoned `cte_aliases`, and the column loop's
+   `if qualifier in ctes: continue` ran *before* consulting `restricted_tables`,
+   so the alias (which the scope resolver correctly binds to the physical
+   `customers`) was treated as a CTE column and skipped. Fixed by checking
+   `restricted_tables` first; a qualifier resolving to no in-scope source is now
+   rejected fail-closed (also closes the quoted-upper-case alias
+   `SELECT C.ssn FROM customers "C"`).
+2. **MEDIUM — `::reg*` casts.** `'pg_authid'::regclass` resolves a catalog object
+   by name (equivalent to the blocked `to_regclass()`) with no table ref. Any cast
+   to an OID-registry pseudo-type is now blocked.
+3. **HIGH — INSERT … ON CONFLICT DO UPDATE.** Passed under `allow_insert` alone
+   while performing an UPDATE. Now gated by `allow_update` (DO NOTHING stays ok).
+4. **MEDIUM — MERGE … DO NOTHING under read_only.** The per-WHEN gate saw no DML
+   action and passed; MERGE is write/lock-class, so any MERGE is now blocked under
+   `read_only`.
+5. A `window_agg` false positive (`sum(total) OVER ()` over an unrestricted+
+   restricted join wrongly blocked) was fixed: the single-table column heuristic
+   now applies only when exactly one real table is in scope.
+
+The same round hardened **ko-pii** (conjoining-jamo / middle-dot / circled-digit
+evasions; FRN separator parity; IMEI/barcode and version-string false positives)
+and **ko-prompt-guard** (Latin/IPA confusables, `*|/`-splitting, Hangul fillers,
+leetspeak; 안전·보안 규칙 / "읽어" / romanized-variant patterns; 6 false positives)
+— each covered by its own regression suite.
+
 ## Out of scope by design (the remaining 13)
 
 `generate_series(1, 1e18)`, `repeat('x', 2e9)`, `array_fill(...)`, and unbounded

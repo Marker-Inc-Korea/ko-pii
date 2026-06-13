@@ -50,7 +50,8 @@ def main() -> None:
     print(f"  ★ ΔRecall = +{(on - off) / n:.0%}")
     print("  난독 종류별 (ON / OFF):")
     for fam, (fn_, fon, foff) in sorted(by_fam.items()):
-        print(f"    {fam:10s} {fon}/{fn_} ({fon / fn_:.0%})  vs  OFF {foff}/{fn_} ({foff / fn_:.0%})")
+        p_on, p_off = fon / fn_, foff / fn_
+        print(f"    {fam:16s} {fon}/{fn_} ({p_on:.0%})  vs  OFF {foff}/{fn_} ({p_off:.0%})")
 
     # 2) 탐지 F1 + FPR — 공격(난독변종+의미) vs 정상.
     attacks = [o for _, _, o in pairs] + SEMANTIC_INJECTIONS

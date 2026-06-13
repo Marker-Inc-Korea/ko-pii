@@ -17,6 +17,17 @@ CYRILLIC_TO_LATIN: dict[str, str] = {
     "А": "A", "В": "B", "Е": "E", "К": "K", "М": "M", "Н": "H", "О": "O",
     "Р": "P", "С": "C", "Т": "T", "У": "Y", "Х": "X", "І": "I", "Ј": "J",
     "Ѕ": "S", "г": "r", "п": "n",
+    "ү": "y", "Ү": "Y", "ұ": "y", "Ұ": "Y", "ӯ": "y", "ў": "y", "Ў": "Y",
+}
+
+# 라틴 확장/IPA 닮은꼴 — 단일 스크립트라도 ASCII 와 혼동되므로 mixed-script 게이팅
+# 없이 무조건 폴딩한다(UTS#39 confusables; 정상 텍스트엔 거의 안 쓰이는 음성 글자).
+# 예: 'iɡnore'(U+0261)·'disreɡard'는 전부 라틴이라 mixed 판정에 안 걸려 통과했다.
+LATIN_CONFUSABLE: dict[str, str] = {
+    "ɡ": "g", "ɢ": "g", "ı": "i", "ɩ": "i", "ɪ": "i", "ɫ": "l", "ł": "l",
+    "ɴ": "n", "ʀ": "r", "ᴄ": "c", "ᴇ": "e", "ᴏ": "o", "ᴘ": "p", "ʟ": "l",
+    "ɑ": "a", "ᴀ": "a", "ѕ": "s", "ɓ": "b", "ԁ": "d", "ɥ": "h", "ʜ": "h",
+    "ᴋ": "k", "ᴍ": "m", "ᴛ": "t", "ᴜ": "u", "ᴠ": "v", "ᴡ": "w", "ʏ": "y",
 }
 
 # 그리스 → 라틴
@@ -78,6 +89,9 @@ def is_mixed_script(token: str) -> bool:
 
 
 def _fold_token(token: str, *, fold_hangul: bool) -> str:
+    # 라틴 confusable 은 단일 스크립트라도 무조건 폴딩(mixed 게이팅 밖).
+    if any(c in LATIN_CONFUSABLE for c in token):
+        token = "".join(LATIN_CONFUSABLE.get(c, c) for c in token)
     if not is_mixed_script(token):
         return token
     out: list[str] = []

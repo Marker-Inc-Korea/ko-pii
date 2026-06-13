@@ -313,3 +313,104 @@ def test_round4_function_blocks(sql: str) -> None:
     r = check(sql, policy=POLICY)
     assert r.verdict is Verdict.BLOCK, sql
     assert any(v.code == "blocked_function" for v in r.violations), [v.code for v in r.violations]
+
+
+# --- round-5: CTE/alias name-collision bypasses the column allowlist ---
+
+CTE_ALIAS_COLLISION = [
+    # a CTE whose name equals the restricted table's ALIAS poisons cte_aliases, so the
+    # qualified column was skipped — but FROM's alias shadows the CTE per SQL scope.
+    "WITH c AS (SELECT 1 AS id) SELECT c.ssn FROM customers c LIMIT 10",
+    "WITH cust AS (SELECT 1) SELECT cust.ssn, cust.password, cust.dob FROM customers AS cust LIMIT 5",
+    "WITH c AS (SELECT 1 AS id) SELECT c.ssn FROM orders o JOIN customers c "
+    "ON o.cid = c.id UNION SELECT id::text FROM orders",
+    # quoted upper-case alias whose qualifier does not resolve -> fail-closed.
+    'SELECT C.ssn FROM customers "C"',
+]
+
+
+@pytest.mark.parametrize("sql", CTE_ALIAS_COLLISION, ids=lambda s: s[:40])
+def test_cte_alias_collision_blocks(sql: str) -> None:
+    r = check(sql, policy=POLICY)
+    assert r.verdict is Verdict.BLOCK, sql
+    assert any(v.code == "column_not_allowed" for v in r.violations), [v.code for v in r.violations]
+
+
+ROUND5_COLUMN_OK = [
+    # genuine CTE column (CTE name not a restricted real table) still passes.
+    "WITH c AS (SELECT 1 AS foo) SELECT c.foo FROM c",
+    "WITH r AS (SELECT id, name FROM customers) SELECT r.id, r.name FROM r",
+    # unqualified column over a mix of unrestricted + restricted table: not over-blocked.
+    "SELECT sum(total) OVER () FROM orders o JOIN customers c ON o.id = c.id",
+    "SELECT total FROM orders o JOIN customers c ON o.id = c.id",
+    # CTE named after the real TABLE (no alias): FROM resolves the CTE, real table
+    # is never read (customers.ssn is a non-existent CTE column) -> no leak, allowed.
+    "WITH customers AS (SELECT 1) SELECT customers.ssn FROM customers",
+]
+
+
+@pytest.mark.parametrize("sql", ROUND5_COLUMN_OK, ids=lambda s: s[:40])
+def test_round5_column_no_false_positive(sql: str) -> None:
+    assert check(sql, policy=POLICY).verdict is not Verdict.BLOCK, sql
+
+
+# --- round-5: ::reg* casts are catalog probes (equivalent to to_reg*()) ---
+
+REG_CAST_BLOCK = [
+    "SELECT 'pg_authid'::regclass FROM orders LIMIT 1",
+    "SELECT 'postgres'::regrole::oid FROM orders LIMIT 1",
+    "SELECT 'customers'::regclass::oid",
+    "SELECT 'pg_read_file'::regproc",
+    "SELECT 'public'::regnamespace",
+]
+
+
+@pytest.mark.parametrize("sql", REG_CAST_BLOCK, ids=lambda s: s[:40])
+def test_reg_cast_blocks(sql: str) -> None:
+    r = check(sql, policy=POLICY)
+    assert r.verdict is Verdict.BLOCK, sql
+    assert any(v.code == "blocked_function" for v in r.violations), [v.code for v in r.violations]
+
+
+def test_ordinary_cast_not_blocked() -> None:
+    # 일반 캐스트는 막지 않아야(과탐 방지).
+    assert check("SELECT id::text FROM orders", policy=POLICY).verdict is not Verdict.BLOCK
+    assert check("SELECT count(*)::int FROM orders", policy=POLICY).verdict is not Verdict.BLOCK
+
+
+# --- round-5: INSERT ... ON CONFLICT DO UPDATE is an UPDATE; gate by allow_update ---
+
+_INS = GuardPolicy(allowed_tables=None, read_only=False, allow_insert=True, allow_update=False)
+_UPD = GuardPolicy(allowed_tables=None, read_only=False, allow_insert=True, allow_update=True)
+
+ON_CONFLICT_UPDATE = [
+    "INSERT INTO orders (id) VALUES (1) ON CONFLICT (id) DO UPDATE SET total=99",
+    "WITH src AS (SELECT 1 AS id) INSERT INTO orders (id) SELECT id FROM src "
+    "ON CONFLICT (id) DO UPDATE SET total=2",
+]
+
+
+@pytest.mark.parametrize("sql", ON_CONFLICT_UPDATE, ids=lambda s: s[:40])
+def test_on_conflict_do_update_blocks_without_allow_update(sql: str) -> None:
+    r = check(sql, policy=_INS)
+    assert r.verdict is Verdict.BLOCK, sql
+    assert any(v.code == "statement_type" for v in r.violations), [v.code for v in r.violations]
+
+
+def test_on_conflict_do_nothing_allowed() -> None:
+    sql = "INSERT INTO orders (id) VALUES (1) ON CONFLICT (id) DO NOTHING"
+    assert check(sql, policy=_INS).verdict is not Verdict.BLOCK
+
+
+def test_on_conflict_do_update_allowed_with_permission() -> None:
+    sql = "INSERT INTO orders (id) VALUES (1) ON CONFLICT (id) DO UPDATE SET total=9"
+    assert check(sql, policy=_UPD).verdict is not Verdict.BLOCK
+
+
+# --- round-5: MERGE is write/lock-class; block any MERGE under read_only ---
+
+def test_merge_do_nothing_blocks_in_read_only() -> None:
+    sql = "MERGE INTO orders o USING customers c ON o.id=c.id WHEN MATCHED THEN DO NOTHING"
+    r = check(sql, policy=POLICY)
+    assert r.verdict is Verdict.BLOCK
+    assert any(v.code == "statement_type" for v in r.violations), [v.code for v in r.violations]

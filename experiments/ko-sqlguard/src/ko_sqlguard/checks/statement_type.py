@@ -102,6 +102,38 @@ def check_statement_type(stmt: exp.Expression, policy: GuardPolicy) -> list[Viol
                 )
             )
 
+    # 5b) MERGE itself is a write-class statement that takes locks on the target.
+    #     The per-WHEN gate above misses a MERGE whose only action is DO NOTHING
+    #     (no DML node, so _merge_action returns None). Under read_only, block any
+    #     MERGE regardless of its actions.
+    if policy.read_only and stmt.find(exp.Merge) is not None:
+        violations.append(
+            Violation(
+                code="statement_type",
+                severity=Severity.HIGH,
+                reason="MERGE acquires write locks on its target; blocked under read_only",
+                action="block",
+                fix="MERGE is a write statement: disable read_only and grant allow_* flags.",
+            )
+        )
+
+    # 6) INSERT ... ON CONFLICT DO UPDATE performs an UPDATE; gate it by
+    #    allow_update, mirroring the MERGE per-action gate. DO NOTHING is harmless.
+    for oc in stmt.find_all(exp.OnConflict):
+        action = oc.args.get("action")
+        aname = (action.name if isinstance(action, exp.Var) else "") or ""
+        if "UPDATE" in aname.upper() and not policy.allow_update:
+            violations.append(
+                Violation(
+                    code="statement_type",
+                    severity=Severity.HIGH,
+                    reason="INSERT ... ON CONFLICT DO UPDATE performs an UPDATE; requires "
+                    f"allow_update (read_only={policy.read_only})",
+                    action="block",
+                    fix="Enable allow_update, or use ON CONFLICT DO NOTHING.",
+                )
+            )
+
     return violations
 
 

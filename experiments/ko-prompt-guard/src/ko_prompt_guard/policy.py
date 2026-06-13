@@ -23,6 +23,7 @@ class GuardPolicy(BaseModel):
 
     # --- detection toggles ---
     detect_encoding: bool = True       # base64 / hex / %xx payload heuristics
+    de_leet: bool = True               # leetspeak digit->letter decode (보강 scan; '1gn0r3')
 
     # Treating obfuscation itself as a signal: if de-obfuscation changed the text
     # AND a pattern then matched, escalate. Pure obfuscation with no payload only

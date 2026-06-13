@@ -98,19 +98,30 @@ def check_columns(stmt: exp.Expression, policy: GuardPolicy) -> list[Violation]:
             )
         )
 
-    # 별칭은 같은 실테이블을 가리키므로 실테이블 수로 판정(별칭 등록이 부풀린 len 무시).
-    single_table = real_cols[0] if len(real_cols) == 1 else None
+    # in-scope qualifier 전체(실테이블명/별칭 + CTE + 파생테이블 별칭) — fail-closed 판정용.
+    all_quals: set[str] = set(ctes) | set(derived.keys())
+    for t in tables:
+        all_quals.add(t.name)
+        if t.alias:
+            all_quals.add(t.alias)
+
+    # single_table 은 실테이블이 정확히 1개(그게 제약)일 때만. 비제약 실테이블이 함께
+    # 있으면 unqualified 컬럼은 그쪽 소속일 수 있어 적용 불가(과탐 방지).
+    single_table = real_cols[0] if len(tables) == 1 and len(real_cols) == 1 else None
+    has_unrestricted = len(tables) > len(real_cols)
 
     for col in stmt.find_all(exp.Column):
         qualifier = col.table
         name = col.name
         if qualifier:
-            if qualifier in ctes:
-                continue
             allowed_cols = restricted_tables.get(qualifier)
             if allowed_cols is not None:
+                # 제약 실테이블 또는 그 별칭 — 동명 CTE 가 있어도 FROM 별칭이 우선(SQL
+                # 스코프). restricted 검사를 CTE skip 보다 먼저 둬야 CTE-동명 우회를 막는다.
                 if name.lower() not in allowed_cols:
                     violations.append(_col_violation(name, qualifier))
+            elif qualifier in ctes:
+                continue  # 제약 실테이블과 이름 충돌 없는 진짜 CTE 컬럼.
             elif qualifier in derived:
                 # 파생테이블 별칭: outer 컬럼을 inner 실소스로 환원해 검사.
                 inner, col_aliases = derived[qualifier]
@@ -120,20 +131,37 @@ def check_columns(stmt: exp.Expression, policy: GuardPolicy) -> list[Violation]:
                     rcols = restricted.get(rtable.lower())
                     if rcols is not None and rcol.lower() not in rcols:
                         violations.append(_col_violation(name, qualifier))
-        else:
-            # Unqualified: resolvable only if there is exactly one restricted table.
-            if single_table is not None and name.lower() not in single_table:
-                violations.append(_col_violation(name, None))
-            elif single_table is None and len(real_cols) > 1:
+            elif qualifier not in all_quals:
+                # 어떤 in-scope 소스와도 매칭 안 되는 qualifier(따옴표 대소문자 우회 등)
+                # → fail-closed. 제약 테이블의 컬럼을 다른 케이스로 노렸을 수 있다.
                 violations.append(
                     Violation(
                         code="column_not_allowed",
                         severity=Severity.MEDIUM,
-                        reason=f"unqualified column {name!r} is ambiguous under a column allowlist",
+                        reason=f"qualified column {qualifier}.{name} does not resolve to any "
+                        "in-scope table; rejected fail-closed",
                         action="block",
-                        fix="Qualify the column with its table name.",
+                        fix="Qualify the column with a table/alias spelled exactly as in FROM.",
                     )
                 )
+        else:
+            if single_table is not None:
+                if name.lower() not in single_table:
+                    violations.append(_col_violation(name, None))
+            elif has_unrestricted:
+                continue  # 비제약 실테이블 존재 → unqualified 는 그쪽 소속 가능, 통과.
+            elif len(real_cols) >= 2:
+                union: set[str] = set().union(*real_cols)
+                if name.lower() not in union:
+                    violations.append(
+                        Violation(
+                            code="column_not_allowed",
+                            severity=Severity.MEDIUM,
+                            reason=f"unqualified column {name!r} not in any allowed column list",
+                            action="block",
+                            fix="Qualify the column with its table name.",
+                        )
+                    )
     return violations
 
 

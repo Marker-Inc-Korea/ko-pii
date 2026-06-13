@@ -16,7 +16,8 @@ import unicodedata
 
 _INVISIBLE = re.compile(
     r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f"
-    r"­​-‏‪-‮⁠-⁯⩴﻿]"
+    r"­​-‏‪-‮⁠-⁯⩴﻿"
+    r"ᅟᅠㅤﾠ]"  # 한글 필러(빈칸 렌더링) — 칸별 분리 우회 '이ㅤ전ㅤ지'
 )
 
 _COMBINING = re.compile(
