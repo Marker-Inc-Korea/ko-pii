@@ -31,7 +31,7 @@ CATEGORY = "법인식별정보"
 _PATTERN = re.compile(
     r"(?<![0-9])"
     r"([0-9]{6})"
-    r"-?"
+    r"(?:\s?[-./]\s?|[-./\s]{0,2})"   # RRN 과 동일 구분자(점/슬래시/공백/래핑 하이픈)
     r"([0-9]{7})"
     r"(?![0-9])"
 )
@@ -56,6 +56,10 @@ def detect(text: str) -> Iterator[DetectionResult]:
     for m in _PATTERN.finditer(text):
         front, back = m.group(1), m.group(2)
         digits = front + back
+        # GS1 Bookland(ISBN/ISSN, 978/979 시작)의 무구분자 13자리는 도서 바코드이지
+        # 법인등록번호가 아니다 → 제외(법인번호는 978/979 로 시작하지 않아 recall 무해).
+        if front[:3] in ("978", "979") and m.group(0) == digits:
+            continue
         if not is_valid_checksum(digits):
             continue
         if is_valid_rrn_checksum(digits) and _is_valid_date_prefix(front):
