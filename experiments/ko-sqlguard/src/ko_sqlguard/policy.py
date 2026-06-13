@@ -83,6 +83,7 @@ DEFAULT_BLOCKED_FUNCTIONS: frozenset[str] = frozenset(
         "pg_stat_reset",
         "pg_stat_get_activity",
         "pg_database_size",
+        "pg_get_userbyid",
         "pg_read_server_files",
         # --- configuration read/write (info disclosure / state change) ---
         "set_config",

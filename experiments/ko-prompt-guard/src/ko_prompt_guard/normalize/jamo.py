@@ -69,6 +69,10 @@ def compose_jamo_run(run: str) -> str:
         if i + 1 < n and can_be_jung(run[i + 1]):
             cho, jung = ch, run[i + 1]
             jong, consumed, k = "", 2, i + 2
+            # 잉여 중성 반복 흡수 ('ㅁㅜㅜㅜ' → '무') — 난독 변종.
+            while k < n and run[k] == jung:
+                k += 1
+                consumed += 1
             if k + 1 < n and (run[k], run[k + 1]) in DOUBLE_JONG:
                 after = run[k + 2] if k + 2 < n else ""
                 if not (after and can_be_jung(after)):

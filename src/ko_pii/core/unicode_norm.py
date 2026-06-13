@@ -44,6 +44,16 @@ _COMBINING = re.compile(
     r"\u20D0-\u20FF\uFE20-\uFE2F]"
 )
 
+# \uBE44ASCII \uC22B\uC790 \u2192 ASCII \uC22B\uC790 \uD3F4\uB529. NFKC \uB294 \uC774\uB4E4\uC744 \uD3B4\uC9C0 \uC54A\uC73C\uBBC0\uB85C(\uC815\uADDC\uD615) \uC9C1\uC811 \uB9E4\uD551\uD55C\uB2E4.
+# \uC8FC\uBBFC/\uC0AC\uC5C5\uC790/\uCE74\uB4DC \uBC88\uD638\uB97C Arabic-Indic \uC22B\uC790\uB85C \uC801\uC740 \uAC80\uCD9C \uC6B0\uD68C\uB97C \uCC28\uB2E8. 1:1 \uCE58\uD658\uC774\uB77C
+# offset_map \uC774 \uBCF4\uC874\uB41C\uB2E4.
+_ASCII_DIGITS: dict[str, str] = {
+    chr(base + d): chr(0x30 + d)
+    for base in (0x0660, 0x06F0)  # Arabic-Indic, Extended Arabic-Indic
+    for d in range(10)
+}
+_FOLD_DIGIT = re.compile(r"[\u0660-\u0669\u06F0-\u06F9]")
+
 
 def needs_normalization(text: str) -> bool:
     """\uC815\uADDC\uD654(\uC6B0\uD68C \uCC28\uB2E8)\uAC00 \uD544\uC694\uD55C\uAC00 \u2014 \uBE44ASCII\uC774\uAC70\uB098 \uC81C\uC5B4/\uBCF4\uC774\uC9C0 \uC54A\uB294 \uBB38\uC790 \uD3EC\uD568.
@@ -76,6 +86,7 @@ def normalize_unicode(text: str) -> tuple[str, list[int]]:
     if (
         not _INVISIBLE.search(text)
         and not _COMBINING.search(text)
+        and not _FOLD_DIGIT.search(text)
         and unicodedata.is_normalized("NFKC", text)
     ):
         return text, []
@@ -102,7 +113,7 @@ def normalize_unicode(text: str) -> tuple[str, list[int]]:
             # PII 를 쪼개는 우회 → 제거. 문자(é=e+´ 등 정상 diacritic)는 보존.
             if not base_is_alpha and unicodedata.combining(fc):
                 continue
-            out.append(fc)
+            out.append(_ASCII_DIGITS.get(fc, fc))
             omap.append(i)
         i = j
     return "".join(out), omap

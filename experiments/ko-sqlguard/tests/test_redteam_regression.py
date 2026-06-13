@@ -148,3 +148,33 @@ CONTROLS_OK = [
 def test_controls_still_allowed(sql: str) -> None:
     r = check(sql, policy=POLICY)
     assert r.verdict is not Verdict.BLOCK, [v.model_dump() for v in r.violations]
+
+
+# --- Bug 5: table-alias column-allowlist bypass (round 2 red-team) ---
+
+ALIAS_COLUMN_BYPASS = [
+    "SELECT c.ssn FROM customers c",
+    "SELECT c.password FROM customers c",
+    "SELECT cu.password_hash FROM customers cu LIMIT 10",
+    "SELECT c.ssn FROM orders o JOIN customers c ON o.id = c.id WHERE o.id = 1",
+    "SELECT c.* FROM customers c",
+]
+
+
+@pytest.mark.parametrize("sql", ALIAS_COLUMN_BYPASS, ids=lambda s: s[:40])
+def test_alias_column_bypass_blocks(sql: str) -> None:
+    r = check(sql, policy=POLICY)
+    assert r.verdict is Verdict.BLOCK, sql
+    assert any(v.code == "column_not_allowed" for v in r.violations), [v.code for v in r.violations]
+
+
+def test_alias_allowed_columns_still_pass() -> None:
+    # 별칭을 써도 허용 컬럼은 통과해야 (과탐 방지).
+    assert check("SELECT c.id, c.name FROM customers c", policy=POLICY).verdict is not Verdict.BLOCK
+    assert check("SELECT o.total FROM orders o", policy=POLICY).verdict is not Verdict.BLOCK
+
+
+def test_pg_get_userbyid_blocks() -> None:
+    r = check("SELECT pg_get_userbyid(10)", policy=POLICY)
+    assert r.verdict is Verdict.BLOCK
+    assert any(v.code == "blocked_function" for v in r.violations)

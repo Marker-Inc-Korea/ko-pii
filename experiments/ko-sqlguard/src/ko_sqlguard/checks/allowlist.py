@@ -53,13 +53,22 @@ def check_columns(stmt: exp.Expression, policy: GuardPolicy) -> list[Violation]:
     violations: list[Violation] = []
     ctes = cte_aliases(stmt)
     tables = [t for t in real_tables(stmt)]
-    # Map a bare/qualified table name to its restricted column set, if any.
+    # Map a bare/qualified table name AND its alias to its restricted column set.
+    # Registering the alias is critical: a qualified column uses the alias
+    # (`c.ssn` from `customers c`), so keying only by the real name lets the
+    # column allowlist be bypassed with a one-token alias.
     restricted_tables: dict[str, frozenset[str]] = {}
     for t in tables:
+        cols: frozenset[str] | None = None
         for cand in table_key_candidates(t):
-            cols = restricted.get(cand)
-            if cols is not None:
-                restricted_tables[t.name] = cols
+            found = restricted.get(cand)
+            if found is not None:
+                cols = found
+                break
+        if cols is not None:
+            restricted_tables[t.name] = cols
+            if t.alias:
+                restricted_tables[t.alias] = cols
 
     if not restricted_tables:
         return []
