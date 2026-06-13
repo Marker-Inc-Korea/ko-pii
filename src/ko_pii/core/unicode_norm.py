@@ -47,12 +47,20 @@ _COMBINING = re.compile(
 # \uBE44ASCII \uC22B\uC790 \u2192 ASCII \uC22B\uC790 \uD3F4\uB529. NFKC \uB294 \uC774\uB4E4\uC744 \uD3B4\uC9C0 \uC54A\uC73C\uBBC0\uB85C(\uC815\uADDC\uD615) \uC9C1\uC811 \uB9E4\uD551\uD55C\uB2E4.
 # \uC8FC\uBBFC/\uC0AC\uC5C5\uC790/\uCE74\uB4DC \uBC88\uD638\uB97C Arabic-Indic \uC22B\uC790\uB85C \uC801\uC740 \uAC80\uCD9C \uC6B0\uD68C\uB97C \uCC28\uB2E8. 1:1 \uCE58\uD658\uC774\uB77C
 # offset_map \uC774 \uBCF4\uC874\uB41C\uB2E4.
-_ASCII_DIGITS: dict[str, str] = {
-    chr(base + d): chr(0x30 + d)
-    for base in (0x0660, 0x06F0)  # Arabic-Indic, Extended Arabic-Indic
-    for d in range(10)
+# \uBE44ASCII \uC22B\uC790\uCCB4(\uC544\uB78D/\uB370\uBC14\uB098\uAC00\uB9AC/\uBCB5\uACE8/\uD0DC\uAD6D \uB4F1) \u2192 ASCII, \uADF8\uB9AC\uACE0 \uB2E4\uC591\uD55C \uD558\uC774\uD508\u00B7\uB300\uC2DC\u00B7
+# \uB9C8\uC774\uB108\uC2A4 \u2192 ASCII '-'. NFKC \uAC00 \uD3B4\uC9C0 \uC54A\uB294 \uAC80\uCD9C \uC6B0\uD68C\uB97C \uC9C1\uC811 \uB9E4\uD551\uD55C\uB2E4(1:1, offset \uBCF4\uC874).
+_DIGIT_BASES = (
+    0x0660, 0x06F0, 0x0966, 0x09E6, 0x0A66, 0x0AE6, 0x0B66, 0x0BE6,
+    0x0C66, 0x0CE6, 0x0D66, 0x0E50, 0x0ED0, 0x0F20, 0x1040, 0x17E0,
+)
+_DASH_CHARS = "\u2010\u2011\u2012\u2013\u2014\u2015\u2043\u2212\uFE58\uFE63\uFF0D"
+_CHAR_FOLD: dict[str, str] = {
+    **{chr(b + d): chr(0x30 + d) for b in _DIGIT_BASES for d in range(10)},
+    **{c: "-" for c in _DASH_CHARS},
 }
-_FOLD_DIGIT = re.compile(r"[\u0660-\u0669\u06F0-\u06F9]")
+_FOLD_DIGIT = re.compile(
+    r"[\u0660-\u0669\u06F0-\u06F9\u0966-\u096F\u09E6-\u09EF\u0A66-\u0A6F\u0AE6-\u0AEF\u0B66-\u0B6F\u0BE6-\u0BEF\u0C66-\u0C6F\u0CE6-\u0CEF\u0D66-\u0D6F\u0E50-\u0E59\u0ED0-\u0ED9\u0F20-\u0F29\u1040-\u1049" + _DASH_CHARS + "]"
+)
 
 # \uB77C\uD2F4 \uAE00\uB9AC\uD504\uB85C \uC704\uC7A5\uD55C \uC22B\uC790(O\u21920, l\u21921 \u2026). \uC815\uC0C1 \uC601\uBB38(NO/ID/SOS)\uC744 \uAE68\uC9C0 \uC54A\uB3C4\uB85D
 # '\uC22B\uC790 2\uAC1C \uC774\uC0C1 + \uD638\uBAB0\uB85C\uADF8 1\uAC1C \uC774\uC0C1'\uC73C\uB85C \uC774\uB904\uC9C4 \uC22B\uC790\uC5F4 \uD1A0\uD070\uC5D0\uC11C\uB9CC \uD3F4\uB529\uD55C\uB2E4.
@@ -141,7 +149,7 @@ def normalize_unicode(text: str) -> tuple[str, list[int]]:
             # PII 를 쪼개는 우회 → 제거. 문자(é=e+´ 등 정상 diacritic)는 보존.
             if not base_is_alpha and unicodedata.combining(fc):
                 continue
-            out.append(_ASCII_DIGITS.get(fc, fc))
+            out.append(_CHAR_FOLD.get(fc, fc))
             omap.append(i)
         i = j
     return "".join(out), omap
