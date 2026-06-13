@@ -63,12 +63,23 @@ def _is_valid_ipv6(addr: str) -> bool:
         return False
 
 
+# 버전/빌드 문자열은 IPv4 와 형식이 같다('소프트웨어 버전 10.0.19.41'). 좌측에 버전
+# 단서가 바로 붙거나(예 'v10.0.19.41') 근접하면 IP 로 채택하지 않는다(과탐 방지).
+# 영문 토큰은 단어 경계로 한정 — 'server'/'driver' 내부의 'ver' 오매칭 방지.
+_VERSION_CTX = re.compile(
+    r"(?:버전|버젼|펌웨어|릴리[스즈]|빌드|패치|"
+    r"(?<![A-Za-z])(?:[vV]\.?|ver\.?|version|firmware|release|build|patch))\s*$"
+)
+
+
 def detect(text: str) -> Iterator[DetectionResult]:
     seen: set[tuple[int, int]] = set()
 
     for m in _IPV4.finditer(text):
         addr = m.group(1)
         if not _is_valid_ipv4(addr):
+            continue
+        if _VERSION_CTX.search(text[max(0, m.start() - 12):m.start()]):
             continue
         span = (m.start(), m.end())
         seen.add(span)

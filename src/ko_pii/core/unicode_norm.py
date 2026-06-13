@@ -15,7 +15,6 @@ offset 이 깨진다. 글자별 폴딩 + offset_map 으로 원본 위치를 보�
 from __future__ import annotations
 
 import re
-import sys
 import unicodedata
 from dataclasses import replace
 from typing import TYPE_CHECKING
@@ -50,16 +49,30 @@ _COMBINING = re.compile(
 # offset_map \uC774 \uBCF4\uC874\uB41C\uB2E4.
 # \uBE44ASCII \uC22B\uC790\uCCB4(\uC544\uB78D/\uB370\uBC14\uB098\uAC00\uB9AC/\uBCB5\uACE8/\uD0DC\uAD6D \uB4F1) \u2192 ASCII, \uADF8\uB9AC\uACE0 \uB2E4\uC591\uD55C \uD558\uC774\uD508\u00B7\uB300\uC2DC\u00B7
 # \uB9C8\uC774\uB108\uC2A4 \u2192 ASCII '-'. NFKC \uAC00 \uD3B4\uC9C0 \uC54A\uB294 \uAC80\uCD9C \uC6B0\uD68C\uB97C \uC9C1\uC811 \uB9E4\uD551\uD55C\uB2E4(1:1, offset \uBCF4\uC874).
-# \uBAA8\uB4E0 \uC720\uB2C8\uCF54\uB4DC Nd(\uC2ED\uC9C4 \uC22B\uC790) \u2192 ASCII \uD3F4\uB529. \uACE0\uC815 16\uAC1C \uC22B\uC790\uCCB4 \uD558\uB4DC\uCF54\uB529\uC740 \uBABD\uACE8/Vai/
-# N'Ko/\uC790\uBC14 \uB4F1 NFKC \uAC00 \uD3B4\uC9C0 \uBABB\uD558\uB294 \uC22B\uC790\uCCB4\uB97C \uB193\uCCE4\uB2E4 \u2014 Nd \uB294 \uC815\uC758\uC0C1 0\u20139 \uAC12\uC744 \uAC00\uC9C0\uBBC0\uB85C
-# ``unicodedata.decimal`` \uB85C 1:1 \uD658\uC6D0(\uAE38\uC774 \uBD88\uBCC0 \u2192 offset \uBCF4\uC874). \uC0C1\uD55C U+1FFFF: \uD604\uC7AC
-# \uC720\uB2C8\uCF54\uB4DC\uC758 \uCD5C\uC0C1\uC704 Nd(U+1FBF9, Segmented Digits)\uB97C \uB36E\uC73C\uBA74\uC11C import \uBE44\uC6A9\uC744 \uC904\uC778\uB2E4.
-_NONASCII_DIGIT_FOLD: dict[str, str] = {
-    chr(cp): str(unicodedata.decimal(chr(cp)))
-    for cp in range(0x80, 0x20000)
-    if unicodedata.category(chr(cp)) == "Nd"
-}
-_DASH_CHARS = "\u2010\u2011\u2012\u2013\u2014\u2015\u2043\u2212\uFE58\uFE63\uFF0D"
+# \uBAA8\uB4E0 \uC720\uB2C8\uCF54\uB4DC \uB2E8\uC77C \uC22B\uC790 \uAE00\uC790 \u2192 ASCII \uD3F4\uB529. \uACE0\uC815 16\uAC1C \uC22B\uC790\uCCB4 \uD558\uB4DC\uCF54\uB529\uC740 \uBABD\uACE8/Vai/
+# N'Ko/\uC790\uBC14 \uB4F1 NFKC \uAC00 \uD3B4\uC9C0 \uBABB\uD558\uB294 \uC22B\uC790\uCCB4\uB97C \uB193\uCCE4\uB2E4. Nd(\uC2ED\uC9C4 \uC22B\uC790)\uB294 decimal() \uB85C,
+# No(\uC6D0/\uAD04\uD638/\uB529\uBCB3/\uC704\uCCA8\uC790 \uC22B\uC790: \u2468 \u277E \u2780 \u00B2 \uB4F1 NFKC \uBBF8\uC801\uC6A9\uBD84)\uB294 \uB2E8\uC77C \uC790\uB9BF\uAC12\uC774 \uC788\uB294 \uAC83\uB9CC
+# digit() \uB85C \uD658\uC6D0\uD55C\uB2E4(\u00BD \uB4F1 \uBD84\uC218\uB294 digit() \uC5C6\uC74C \u2192 \uBCF4\uC874). 1:1 \uCE58\uD658\uC774\uB77C offset \uBCF4\uC874.
+# \uC0C1\uD55C U+1FFFF: \uD604\uC7AC \uC720\uB2C8\uCF54\uB4DC \uCD5C\uC0C1\uC704 Nd(U+1FBF9)\uB97C \uB36E\uC73C\uBA74\uC11C import \uBE44\uC6A9\uC744 \uC904\uC778\uB2E4.
+def _build_digit_fold() -> dict[str, str]:
+    fold: dict[str, str] = {}
+    for cp in range(0x80, 0x20000):
+        ch = chr(cp)
+        cat = unicodedata.category(ch)
+        if cat == "Nd":
+            fold[ch] = str(unicodedata.decimal(ch))
+        elif cat == "No":
+            try:
+                fold[ch] = str(unicodedata.digit(ch))
+            except ValueError:
+                pass  # \uBD84\uC218 \uB4F1 \uB2E8\uC77C \uC790\uB9BF\uAC12 \uC5C6\uB294 No \uB294 \uC81C\uC678(\u00BD\u00B7\u00BC \uBCF4\uC874)
+    return fold
+
+
+_NONASCII_DIGIT_FOLD: dict[str, str] = _build_digit_fold()
+# \uB300\uC2DC\uB958 + \uAC00\uC6B4\uB383\uC810\uB958(\uC22B\uC790 \uAD6C\uBD84\uC790\uB85C \uC4F0\uC774\uB294 \u00B7\u2022\u2027\u2219\u22C5\u30FB\uFF65\u318D) \u2192 ASCII '-'. PII \uADF8\uB8F9 \uAD6C\uBD84\uC790\uAC00
+# \uAC00\uC6B4\uB383\uC810\uC774\uC5B4\uB3C4 \uAC80\uCD9C\uB418\uB3C4\uB85D(010\u00B71234\u00B75678). 1:1 \uCE58\uD658\uC774\uB77C offset \uBCF4\uC874.
+_DASH_CHARS = "\u2010\u2011\u2012\u2013\u2014\u2015\u2043\u2212\uFE58\uFE63\uFF0D\u00B7\u2022\u2027\u2219\u22C5\u30FB\uFF65\u318D"
 _CHAR_FOLD: dict[str, str] = {
     **_NONASCII_DIGIT_FOLD,
     **{c: "-" for c in _DASH_CHARS},
@@ -67,6 +80,10 @@ _CHAR_FOLD: dict[str, str] = {
 # fast-path \uAC80\uC0AC\uC6A9: _CHAR_FOLD \uC758 \uBAA8\uB4E0 \uBB38\uC790(\uBE44ASCII \uC22B\uC790 + \uB300\uC2DC)\uB97C \uC7A1\uB294 \uBB38\uC790\uD074\uB798\uC2A4\uB97C
 # \uC790\uB3D9 \uC0DD\uC131 \u2014 \uC22B\uC790\uCCB4 \uBAA9\uB85D\uACFC regex \uAC00 \uC5B4\uAE0B\uB0A0 \uC77C\uC774 \uC5C6\uB2E4.
 _FOLD_DIGIT = re.compile("[" + "".join(re.escape(c) for c in _CHAR_FOLD) + "]")
+
+# 조합용 한글 자모(NFD 분해형 + '9001ᄀ01' 우회). NFKC 가 단독 자모를 안 바꿔
+# fast-path 가 그냥 통과시키므로, 클러스터 루프를 타도록 fast-path 에서 별도 검사한다.
+_CONJOINING_JAMO_RE = re.compile(r"[ᄀ-ᇿꥠ-꥿ힰ-퟿]")
 
 # \uB77C\uD2F4 \uAE00\uB9AC\uD504\uB85C \uC704\uC7A5\uD55C \uC22B\uC790(O\u21920, l\u21921 \u2026). \uC815\uC0C1 \uC601\uBB38(NO/ID/SOS)\uC744 \uAE68\uC9C0 \uC54A\uB3C4\uB85D
 # '\uC22B\uC790 2\uAC1C \uC774\uC0C1 + \uD638\uBAB0\uB85C\uADF8 1\uAC1C \uC774\uC0C1'\uC73C\uB85C \uC774\uB904\uC9C4 \uC22B\uC790\uC5F4 \uD1A0\uD070\uC5D0\uC11C\uB9CC \uD3F4\uB529\uD55C\uB2E4.
@@ -129,6 +146,7 @@ def normalize_unicode(text: str) -> tuple[str, list[int]]:
         not _INVISIBLE.search(text)
         and not _COMBINING.search(text)
         and not _FOLD_DIGIT.search(text)
+        and not _CONJOINING_JAMO_RE.search(text)
         and unicodedata.is_normalized("NFKC", text)
     ):
         return text, []
@@ -151,9 +169,12 @@ def normalize_unicode(text: str) -> tuple[str, list[int]]:
             j += 1
         base_is_alpha = text[i].isalpha()
         for fc in unicodedata.normalize("NFKC", text[i:j]):
-            # 숫자/기호 베이스에 NFKC 로 합쳐지지 않고 남은 결합표시(U+0301 등)는
-            # PII 를 쪼개는 우회 → 제거. 문자(é=e+´ 등 정상 diacritic)는 보존.
-            if not base_is_alpha and unicodedata.combining(fc):
+            # 숫자/기호 베이스에 NFKC 로 합쳐지지 않고 남은 결합표시(U+0301 등)나 조합용
+            # 한글 자모(U+1100~, '9001ᄀ01' 처럼 숫자에 끼어 PII 를 쪼개는 우회)는 제거.
+            # 문자(é=e+´, NFD 한글 등 정상 결합)는 base 가 alpha 라 보존된다.
+            if not base_is_alpha and (
+                unicodedata.combining(fc) or _is_conjoining_jamo(fc)
+            ):
                 continue
             out.append(_CHAR_FOLD.get(fc, fc))
             omap.append(i)

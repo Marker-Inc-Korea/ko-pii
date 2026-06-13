@@ -62,3 +62,73 @@ def test_rare_numeral_systems_rrn_detected() -> None:
 def test_fullwidth_and_rare_numeral_no_normal_fp() -> None:
     # 일반 한글 문장은 비주류 숫자체 폴딩 추가에도 오탐되지 않아야.
     assert not detect_all("회의는 다음 주 화요일 오후에 진행됩니다")
+
+
+# --- round-5 red-team: conjoining jamo / middle-dot / No-category digits ---
+
+def test_conjoining_jamo_split_pii_detected() -> None:
+    # 조합용 한글 자모(U+1100~)를 숫자 사이에 끼워 PII 를 쪼갠 우회.
+    assert detect_all("주민등록번호 9001ᄀ01-1234567")
+    assert detect_all("외국인등록번호 900101-5ᄀ234567")
+    assert detect_all("카드 4111-11ᄀ11-1111-1111")
+    assert detect_all("사업자 220-8ᄀ1-62517")
+
+
+def test_conjoining_jamo_normal_hangul_no_fp() -> None:
+    import unicodedata
+    assert not detect_all("홍길동 안녕하세요 오늘 회의 자료입니다")
+    assert not detect_all(unicodedata.normalize("NFD", "한글 정상 문장입니다"))
+
+
+def test_middle_dot_separator_detected() -> None:
+    assert detect_all("연락처 010·1234·5678 입니다")     # U+00B7
+    assert detect_all("주민 900101·1234567 입니다")
+
+
+def test_no_category_digits_detected() -> None:
+    # 원/괄호/딩벳 숫자(category No) — NFKC 가 안 펴므로 digit() 로 환원.
+    assert detect_all("제 주민등록번호는 ❾⓿⓿❶⓿❶-❶❷❸❹❺❻❼ 이고")     # negative-circled
+    assert detect_all("주민번호 ➈⓪⓪➀⓪➀-➀➁➂➃➄➅➆ 입니다")           # dingbat circled
+    assert detect_all("카드번호 ❹❶❶❶-❶❶❶❶-❶❶❶❶-❶❶❶❶")
+
+
+def test_no_category_fractions_preserved() -> None:
+    # 분수(½)·위첨자(²)는 단일 자릿값이 없어 폴딩 제외 → PII 오탐 없음.
+    assert not detect_all("½컵 설탕과 ⅓컵 소금을 넣으세요")
+    assert not detect_all("면적은 25m² 입니다")
+
+
+# --- round-5: FRN separator parity with RRN (dot / spaced forms) ---
+
+def test_frn_dot_and_spaced_separators_detected() -> None:
+    assert detect_all("외국인등록번호 900101.5234569")
+    assert detect_all("외국인등록번호 900101 . 5234569")
+    assert detect_all("외국인등록번호 900101  5234569")
+    assert detect_all("외국인등록번호 900101-5234569")
+
+
+# --- round-5 false positives: barcode/IMEI not CARD, version not IP ---
+
+def test_card_length_brand_consistency_no_fp() -> None:
+    # 15자리 IMEI(35…)·13자리 EAN 바코드(3·5…)는 카드가 아니다.
+    assert not any(d.label == "CARD" for d in detect_all("단말기 IMEI: 353280112345674"))
+    assert not any(d.label == "CARD" for d in detect_all("상품 바코드 3685957489060 / 5498174104092"))
+
+
+def test_real_cards_still_detected() -> None:
+    for n in ("378282246310005", "5555555555554444", "4111111111111111",
+              "4222222222222", "6011111111111117"):
+        assert any(d.label == "CARD" for d in detect_all("카드 " + n)), n
+
+
+def test_version_string_not_ip() -> None:
+    assert not any(d.label == "IP" for d in detect_all("소프트웨어 버전 10.0.19.41 배포"))
+    assert not any(d.label == "IP" for d in detect_all("v1.2.3.4 릴리스"))
+
+
+def test_real_ip_still_detected_after_version_gate() -> None:
+    # 'server' 의 'ver' 가 버전 단서로 오인되어 IP 를 누락하면 안 됨(단어 경계).
+    assert [d.text for d in detect_all("client 10.0.0.5 → server 10.0.0.10") if d.label == "IP"] == [
+        "10.0.0.5", "10.0.0.10",
+    ]
+    assert any(d.label == "IP" for d in detect_all("서버 IP 192.168.0.100"))
