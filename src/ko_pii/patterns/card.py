@@ -62,6 +62,13 @@ def detect(text: str) -> Iterator[DetectionResult]:
             continue
         if digits[0] not in _VALID_BIN_FIRST_DIGITS:
             continue
+        # 길이-브랜드 일관성: 존재하지 않는 조합을 거른다. 13자리 카드는 구형 Visa(4)
+        # 뿐이고 15자리는 Amex(34/37)뿐 — 이 규칙은 실 카드 recall 을 해치지 않으면서
+        # EAN-13 바코드(3·5 로 시작)나 15자리 IMEI(35…)의 Luhn-우연 통과 FP 를 막는다.
+        if len(digits) == 13 and digits[0] != "4":
+            continue
+        if len(digits) == 15 and digits[:2] not in {"34", "37"}:
+            continue
         if not is_valid_luhn(digits):
             continue
         yield DetectionResult(
