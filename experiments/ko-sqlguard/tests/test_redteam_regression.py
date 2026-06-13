@@ -178,3 +178,42 @@ def test_pg_get_userbyid_blocks() -> None:
     r = check("SELECT pg_get_userbyid(10)", policy=POLICY)
     assert r.verdict is Verdict.BLOCK
     assert any(v.code == "blocked_function" for v in r.violations)
+
+
+# --- round-3: alias registration broke single-table judgement (false positives) ---
+
+ROUND3_NO_FALSE_POSITIVE = [
+    "SELECT id FROM customers c",
+    "SELECT name FROM customers c ORDER BY name",
+    "SELECT count(*) FROM customers",
+    "SELECT count(*) AS n, c.email FROM customers c GROUP BY c.email",
+    "SELECT c.email FROM customers c WHERE c.id = 1",
+]
+
+
+@pytest.mark.parametrize("sql", ROUND3_NO_FALSE_POSITIVE, ids=lambda s: s[:40])
+def test_round3_no_false_positive(sql: str) -> None:
+    r = check(sql, policy=POLICY)
+    assert r.verdict is not Verdict.BLOCK, [v.model_dump() for v in r.violations]
+
+
+# --- round-3: introspection / privilege / xml / sequence functions ---
+
+ROUND3_FUNCTIONS = [
+    "SELECT to_regclass('secrets')",
+    "SELECT to_regnamespace('pg_catalog')",
+    "SELECT has_table_privilege('secrets', 'SELECT')",
+    "SELECT has_column_privilege('customers', 'ssn', 'SELECT')",
+    "SELECT pg_has_role('postgres', 'USAGE')",
+    "SELECT schema_to_xml('public', true, true, '')",
+    "SELECT currval('orders_id_seq')",
+    "SELECT pg_get_viewdef('v'::regclass)",
+    "SELECT pg_export_snapshot()",
+]
+
+
+@pytest.mark.parametrize("sql", ROUND3_FUNCTIONS, ids=lambda s: s[:40])
+def test_round3_function_blocks(sql: str) -> None:
+    r = check(sql, policy=POLICY)
+    assert r.verdict is Verdict.BLOCK, sql
+    assert any(v.code == "blocked_function" for v in r.violations), [v.code for v in r.violations]

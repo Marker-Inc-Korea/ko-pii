@@ -58,6 +58,7 @@ def check_columns(stmt: exp.Expression, policy: GuardPolicy) -> list[Violation]:
     # (`c.ssn` from `customers c`), so keying only by the real name lets the
     # column allowlist be bypassed with a one-token alias.
     restricted_tables: dict[str, frozenset[str]] = {}
+    real_cols: list[frozenset[str]] = []  # 실테이블 단위(별칭 제외) — single/ambiguous 판정용
     for t in tables:
         cols: frozenset[str] | None = None
         for cand in table_key_candidates(t):
@@ -69,12 +70,14 @@ def check_columns(stmt: exp.Expression, policy: GuardPolicy) -> list[Violation]:
             restricted_tables[t.name] = cols
             if t.alias:
                 restricted_tables[t.alias] = cols
+            real_cols.append(cols)
 
     if not restricted_tables:
         return []
 
     # A star (`*` or `t.*`) under a column restriction can't be constrained.
-    if stmt.find(exp.Star) is not None:
+    # count(*) 의 star 는 행 수 집계라 컬럼 노출이 아니므로 제외(과탐 방지).
+    if any(not isinstance(s.parent, exp.Count) for s in stmt.find_all(exp.Star)):
         violations.append(
             Violation(
                 code="column_not_allowed",
@@ -85,11 +88,8 @@ def check_columns(stmt: exp.Expression, policy: GuardPolicy) -> list[Violation]:
             )
         )
 
-    single_table = (
-        restricted_tables[next(iter(restricted_tables))]
-        if len(restricted_tables) == 1
-        else None
-    )
+    # 별칭은 같은 실테이블을 가리키므로 실테이블 수로 판정(별칭 등록이 부풀린 len 무시).
+    single_table = real_cols[0] if len(real_cols) == 1 else None
 
     for col in stmt.find_all(exp.Column):
         qualifier = col.table
@@ -104,7 +104,7 @@ def check_columns(stmt: exp.Expression, policy: GuardPolicy) -> list[Violation]:
             # Unqualified: resolvable only if there is exactly one restricted table.
             if single_table is not None and name.lower() not in single_table:
                 violations.append(_col_violation(name, None))
-            elif single_table is None and len(restricted_tables) > 1:
+            elif single_table is None and len(real_cols) > 1:
                 violations.append(
                     Violation(
                         code="column_not_allowed",

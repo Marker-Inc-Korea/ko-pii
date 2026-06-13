@@ -32,3 +32,18 @@ def test_latin_homoglyph_rrn_detected() -> None:
 def test_normal_english_not_folded() -> None:
     # 'NO'/'ID'/'SOS' 등 정상 영문은 숫자열이 아니므로 폴딩/오탐되지 않아야.
     assert not detect_all("Please say NO to the ID check. SOS is a code.")
+
+
+def test_devanagari_thai_digits_detected() -> None:
+    assert detect_all("주민번호 ९०१०१०-१२३४५६७")          # Devanagari
+    assert detect_all("카드 ๔๑๑๑-๑๑๑๑-๑๑๑๑-๑๑๑๑")        # Thai
+
+
+def test_unicode_dash_separators_detected() -> None:
+    assert detect_all("연락처 010–1234–5678")             # EN DASH
+    assert detect_all("주민번호 901010—1234567")          # EM DASH
+    assert detect_all("연락처 010－1234－5678")            # 전각 하이픈
+
+
+def test_unicode_dash_in_normal_text_no_fp() -> None:
+    assert not detect_all("프로젝트 기간 2020–2021 자료를 검토합니다")

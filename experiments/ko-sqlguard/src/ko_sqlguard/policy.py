@@ -85,6 +85,42 @@ DEFAULT_BLOCKED_FUNCTIONS: frozenset[str] = frozenset(
         "pg_database_size",
         "pg_get_userbyid",
         "pg_read_server_files",
+        # --- catalog definition dumpers (leak schema of out-of-allowlist objects
+        #     by OID/regclass; need NO table reference, so the table allowlist
+        #     never engages). FKs/CHECKs expose relationships & business logic. ---
+        "pg_get_constraintdef",
+        "pg_get_indexdef",
+        "pg_get_viewdef",
+        "pg_get_functiondef",
+        "pg_get_triggerdef",
+        "pg_get_ruledef",
+        "pg_get_partkeydef",
+        "pg_get_statisticsobjdef",
+        "pg_get_expr",
+        "pg_get_serial_sequence",
+        # --- object/privilege introspection (probe existence/perms of
+        #     out-of-allowlist objects; take no table reference so the table
+        #     allowlist never engages) ---
+        "to_regclass",
+        "to_regnamespace",
+        "to_regtype",
+        "to_regproc",
+        "has_table_privilege",
+        "has_column_privilege",
+        "has_database_privilege",
+        "has_schema_privilege",
+        "has_sequence_privilege",
+        "pg_has_role",
+        "schema_to_xml",
+        "schema_to_xmlschema",
+        "table_to_xmlschema",
+        "cursor_to_xmlschema",
+        "currval",
+        "pg_export_snapshot",
+        "pg_blocking_pids",
+        "pg_log_backend_memory_contexts",
+        "pg_ls_logicalmapdir",
+        "pg_ls_logicalsnapdir",
         # --- configuration read/write (info disclosure / state change) ---
         "set_config",
         "current_setting",
