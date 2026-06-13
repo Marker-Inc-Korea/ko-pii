@@ -38,14 +38,19 @@ _P1: list[tuple[re.Pattern[str], Severity]] = [
     (re.compile(
         r"(?:ignore|disregard|forget)\s+(?:all\s+)?(?:your\s+|the\s+)?"
         r"(?:instructions|prompts|rules|guidelines|directives)", _I), _H),
-    # 'ignore all previous …' 헤더 (대상어가 한글이거나 생략돼도) — ΔRecall 미스 보강
-    (re.compile(r"(?:ignore|disregard|forget|override)\s+all\s+"
-                r"(?:the\s+|your\s+)?(?:previous|prior|above|earlier|preceding)", _I), _H),
+    # 'ignore all previous …' 헤더 (대상어가 한글이거나 생략돼도) — ΔRecall 미스 보강.
+    # \s* (0+): 분리 합치기로 단어 경계가 사라진 'ignoreall previous'도 커버(splitting).
+    (re.compile(r"(?:ignore|disregard|forget|override)\s*all\s*"
+                r"(?:the\s*|your\s*)?(?:previous|prior|above|earlier|preceding)", _I), _H),
     # --- round-2 레드팀: 지시 제거/리셋/초기화/덮어쓰기/무효화 ---
+    # '설정'은 일상성이 높아(휴대폰/공장/계정 설정 초기화) 대상어에서 분리 — round-4 과탐.
     (re.compile(r"(?:이전|기존|앞선|앞의|위(?:의)?|지금까지|처음|초기)?(?:의|\s)*(?:모든\s*)?"
-                r"(?:지시|지침|명령|규칙|설정|프롬프트|역할|맥락)"
+                r"(?:지시|지침|명령|규칙|프롬프트|역할|맥락)"
                 r"[^.\n]{0,12}?(?:지우|지워|리셋|초기화|덮어[써쓰]|무효|폐기|취소|날려|"
                 r"효력(?:이)?\s*없|효력\s*상실)", _I), _H),
+    # '설정' 리셋은 LLM 맥락 한정사(시스템/네/원래…)와 결합할 때만 — 기기·계정 설정 제외.
+    (re.compile(r"(?:시스템|네|너의|당신의|원래|이전|기존|초기)\s*설정"
+                r"[^.\n]{0,12}?(?:지우|지워|리셋|초기화|덮어[써쓰]|무효|폐기|취소|날려)", _I), _H),
     (re.compile(r"(?:지시|지침|명령|규칙|프롬프트|설정)"
                 r"[^.\n]{0,8}?(?:따를\s*필요\s*없|안\s*따라도\s*(?:돼|된다)|"
                 r"무시해도\s*(?:돼|된다)|효력(?:이)?\s*없)", _I), _H),
@@ -180,6 +185,14 @@ _ENCODING: list[tuple[re.Pattern[str], Severity]] = [
 ]
 
 
+# 번역/인용 프레이밍 — 영어 injection 표면형이 '명령'이 아니라 '인용 대상'일 때의 단서.
+# 한글 명령(이전 지시 무시)은 직접적이라 이 가드 대상 아님(영어 표면형에만 적용).
+_TRANSLATION_FRAME = re.compile(
+    r"번역|translate|무슨\s*뜻|뜻이\s*(?:뭐|무엇)|뜻을|해석|영어로|한국어로|"
+    r"무슨\s*의미|의미(?:가|를)\s*(?:뭐|무엇|알려)", _I
+)
+
+
 def scan(text: str) -> list[Violation]:
     """clean text 에 패턴 매칭. 카테고리별 최고 severity 매치만 보고."""
     out: list[Violation] = []
@@ -197,6 +210,16 @@ def scan(text: str) -> list[Violation]:
                     end=m.end(),
                     matched=m.group(0),
                 )
+        # 영어 표면형 injection(ASCII)이 번역/인용 프레이밍과 함께면 인용으로 간주해 제외.
+        # 한글 명령이 동반되면 best 가 한글(비ASCII)이라 그대로 잡힌다(우회 방지).
+        if (
+            best is not None
+            and category is Category.INSTRUCTION_OVERRIDE
+            and best.matched is not None
+            and best.matched.isascii()
+            and _TRANSLATION_FRAME.search(text)
+        ):
+            best = None
         if best is not None:
             out.append(best)
     return out

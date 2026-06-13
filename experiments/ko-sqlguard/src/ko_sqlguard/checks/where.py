@@ -7,12 +7,24 @@ from ..policy import GuardPolicy
 from ..result import Severity, Violation
 
 
+def _within_merge(node: exp.Expression) -> bool:
+    """A MERGE WHEN action is scoped by the MERGE ON condition, not a WHERE."""
+    p = node.parent
+    while p is not None:
+        if isinstance(p, (exp.When, exp.Merge)):
+            return True
+        p = p.parent
+    return False
+
+
 def check_require_where(stmt: exp.Expression, policy: GuardPolicy) -> list[Violation]:
     if not policy.require_where_on_write:
         return []
     violations: list[Violation] = []
     for node_type in (exp.Update, exp.Delete):
         for node in stmt.find_all(node_type):
+            if _within_merge(node):
+                continue
             if node.args.get("where") is None:
                 violations.append(
                     Violation(

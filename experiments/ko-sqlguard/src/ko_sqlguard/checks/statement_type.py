@@ -24,6 +24,8 @@ def check_statement_type(stmt: exp.Expression, policy: GuardPolicy) -> list[Viol
     #    CTEs and subqueries, plus the top statement itself). One violation per
     #    node type is enough to block.
     for node_type in MUTATION_PERMIT:
+        if node_type is exp.Merge:
+            continue  # MERGE is gated per-WHEN-action below (5).
         if stmt.find(node_type) is None or _permitted(node_type, policy):
             continue
         ddl = node_type in DDL_NODES
@@ -83,4 +85,34 @@ def check_statement_type(stmt: exp.Expression, policy: GuardPolicy) -> list[Viol
             )
         )
 
+    # 5) MERGE: gate each WHEN action by the matching allow_* flag. The DELETE
+    #    action parses to Var('DELETE'), not exp.Delete, so a single allow_update
+    #    gate (the old MUTATION_PERMIT mapping) let MERGE...THEN DELETE escalate.
+    for when in stmt.find_all(exp.When):
+        action = _merge_action(when.args.get("then"))
+        if action is not None and not getattr(policy, f"allow_{action}", False):
+            violations.append(
+                Violation(
+                    code="statement_type",
+                    severity=Severity.HIGH,
+                    reason=f"MERGE ... THEN {action.upper()} requires allow_{action} "
+                    f"(read_only={policy.read_only})",
+                    action="block",
+                    fix=f"Enable allow_{action}, or remove the {action} action.",
+                )
+            )
+
     return violations
+
+
+def _merge_action(then: exp.Expression | None) -> str | None:
+    """The DML action of a MERGE WHEN clause: 'update' / 'insert' / 'delete'."""
+    if isinstance(then, exp.Update):
+        return "update"
+    if isinstance(then, exp.Insert):
+        return "insert"
+    if isinstance(then, exp.Delete):
+        return "delete"
+    if isinstance(then, exp.Var) and (then.name or "").upper() == "DELETE":
+        return "delete"
+    return None

@@ -217,3 +217,99 @@ def test_round3_function_blocks(sql: str) -> None:
     r = check(sql, policy=POLICY)
     assert r.verdict is Verdict.BLOCK, sql
     assert any(v.code == "blocked_function" for v in r.violations), [v.code for v in r.violations]
+
+
+# --- round-4: derived-table (subquery) alias columns resolved to real source ---
+
+def test_derived_table_disallowed_inner_blocks() -> None:
+    # inner projects a disallowed column -> BLOCK.
+    r = check("SELECT x.c FROM (SELECT ssn FROM customers) x(c)", policy=POLICY)
+    assert r.verdict is Verdict.BLOCK
+    assert any(v.code == "column_not_allowed" for v in r.violations)
+
+
+DERIVED_TABLE_OK = [
+    "SELECT x.ssn FROM (SELECT id FROM customers) x(ssn)",   # allowed id re-named: data is id
+    "SELECT x.id FROM (SELECT id FROM customers) x",
+    "SELECT x.total FROM (SELECT price FROM orders) x(total)",  # orders all-columns allowed
+    "SELECT x.computed FROM (SELECT id + 1 AS computed FROM customers) x",  # computed: not a real col
+]
+
+
+@pytest.mark.parametrize("sql", DERIVED_TABLE_OK, ids=lambda s: s[:40])
+def test_derived_table_allowed_passes(sql: str) -> None:
+    # 허용 컬럼을 다른 이름으로 재노출하거나 계산식이면 통과(실 데이터가 허용/계산).
+    assert check(sql, policy=POLICY).verdict is not Verdict.BLOCK, sql
+
+
+# --- round-4: MERGE per-WHEN-action privilege gating ---
+
+_MERGE_RW = GuardPolicy(read_only=False, allow_update=True, allowed_tables=None)
+_MERGE_DEL = GuardPolicy(
+    read_only=False, allow_update=True, allow_delete=True, allowed_tables=None
+)
+
+MERGE_ESCALATION = [
+    # DELETE action parses to Var('DELETE'); a single allow_update gate let it escalate.
+    "MERGE INTO orders o USING customers c ON o.id=c.id WHEN MATCHED THEN DELETE",
+    "MERGE INTO orders o USING customers c ON o.id=c.id "
+    "WHEN MATCHED AND o.total < 0 THEN DELETE",
+    # INSERT action with only allow_update must block too.
+    "MERGE INTO orders o USING src s ON o.id=s.id WHEN NOT MATCHED THEN INSERT VALUES (s.id)",
+]
+
+
+@pytest.mark.parametrize("sql", MERGE_ESCALATION, ids=lambda s: s[:40])
+def test_merge_action_escalation_blocks(sql: str) -> None:
+    r = check(sql, policy=_MERGE_RW)
+    assert r.verdict is Verdict.BLOCK, sql
+    assert any(v.code == "statement_type" for v in r.violations), [v.code for v in r.violations]
+
+
+def test_merge_update_with_permission_passes() -> None:
+    # allow_update면 MERGE UPDATE는 통과해야 — ON 조건이 행을 스코프(missing_where 과탐 금지).
+    sql = "MERGE INTO orders o USING src s ON o.id=s.id WHEN MATCHED THEN UPDATE SET o.x=1"
+    assert check(sql, policy=_MERGE_RW).verdict is not Verdict.BLOCK
+
+
+def test_merge_delete_with_permission_passes() -> None:
+    sql = "MERGE INTO orders o USING customers c ON o.id=c.id WHEN MATCHED THEN DELETE"
+    assert check(sql, policy=_MERGE_DEL).verdict is not Verdict.BLOCK
+
+
+def test_plain_update_without_where_still_blocks() -> None:
+    # MERGE 면제가 일반 WHERE-less UPDATE 까지 풀어주면 안 됨.
+    r = check("UPDATE orders SET x=1", policy=_MERGE_RW)
+    assert r.verdict is Verdict.BLOCK
+    assert any(v.code == "missing_where" for v in r.violations)
+
+
+# --- round-4: catalog/replication/identity introspection functions ---
+
+ROUND4_FUNCTIONS = [
+    "SELECT pg_relation_filenode('orders')",
+    "SELECT pg_relation_size('orders')",
+    "SELECT pg_total_relation_size('orders')",
+    "SELECT pg_tablespace_location(1663)",
+    "SELECT pg_filenode_relation(0, 16384)",
+    "SELECT pg_stat_reset_single_table_counters(16384)",
+    "SELECT pg_stat_get_backend_activity(1)",
+    "SELECT pg_replication_slot_advance('s', '0/0')",
+    "SELECT pg_logical_emit_message(true, 'p', 'm')",
+    "SELECT pg_wal_replay_pause()",
+    "SELECT pg_control_system()",
+    "SELECT pg_describe_object(1259, 16384, 0)",
+    "SELECT pg_identify_object(1259, 16384, 0)",
+    "SELECT pg_get_object_address('table', '{orders}', '{}')",
+    "SELECT pg_get_function_arguments(16384)",
+    "SELECT pg_get_function_result(16384)",
+    "SELECT row_security_active('orders')",
+    "SELECT pg_try_advisory_lock_shared(1)",
+]
+
+
+@pytest.mark.parametrize("sql", ROUND4_FUNCTIONS, ids=lambda s: s[:40])
+def test_round4_function_blocks(sql: str) -> None:
+    r = check(sql, policy=POLICY)
+    assert r.verdict is Verdict.BLOCK, sql
+    assert any(v.code == "blocked_function" for v in r.violations), [v.code for v in r.violations]
