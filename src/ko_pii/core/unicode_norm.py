@@ -54,6 +54,31 @@ _ASCII_DIGITS: dict[str, str] = {
 }
 _FOLD_DIGIT = re.compile(r"[\u0660-\u0669\u06F0-\u06F9]")
 
+# \uB77C\uD2F4 \uAE00\uB9AC\uD504\uB85C \uC704\uC7A5\uD55C \uC22B\uC790(O\u21920, l\u21921 \u2026). \uC815\uC0C1 \uC601\uBB38(NO/ID/SOS)\uC744 \uAE68\uC9C0 \uC54A\uB3C4\uB85D
+# '\uC22B\uC790 2\uAC1C \uC774\uC0C1 + \uD638\uBAB0\uB85C\uADF8 1\uAC1C \uC774\uC0C1'\uC73C\uB85C \uC774\uB904\uC9C4 \uC22B\uC790\uC5F4 \uD1A0\uD070\uC5D0\uC11C\uB9CC \uD3F4\uB529\uD55C\uB2E4.
+# \uC8FC\uBBFC/\uCE74\uB4DC/\uC0AC\uC5C5\uC790\uBC88\uD638\uB97C 'l234567' \uCC98\uB7FC \uC801\uC740 \uAC80\uCD9C \uC6B0\uD68C\uB97C \uCC28\uB2E8. 1:1 \uCE58\uD658(\uAE38\uC774 \uBD88\uBCC0)
+# \uC774\uB77C offset_map \uC774 \uBCF4\uC874\uB41C\uB2E4.
+_DIGIT_HOMOGLYPH: dict[str, str] = {
+    "O": "0", "o": "0", "Q": "0", "l": "1", "I": "1", "|": "1",
+    "S": "5", "B": "8", "Z": "2", "G": "6",
+}
+_DIGIT_HG_CHARS = "".join(re.escape(c) for c in _DIGIT_HOMOGLYPH)
+_DIGIT_HG_TOKEN = re.compile(rf"[0-9{_DIGIT_HG_CHARS}][0-9{_DIGIT_HG_CHARS}\-\u2010-\u2015]*")
+
+
+def _fold_digit_homoglyphs(text: str) -> str:
+    """\uC22B\uC790\uC5F4 \uD1A0\uD070 \uC548\uC758 \uB77C\uD2F4 \uD638\uBAB0\uB85C\uADF8\uB97C \uC22B\uC790\uB85C \uD3F4\uB529(1:1, \uAE38\uC774 \uBD88\uBCC0)."""
+
+    def repl(m: re.Match[str]) -> str:
+        s = m.group(0)
+        digits = sum(c.isdigit() for c in s)
+        hg = sum(c in _DIGIT_HOMOGLYPH for c in s)
+        if digits >= 2 and hg >= 1:
+            return "".join(_DIGIT_HOMOGLYPH.get(c, c) for c in s)
+        return s
+
+    return _DIGIT_HG_TOKEN.sub(repl, text)
+
 
 def needs_normalization(text: str) -> bool:
     """\uC815\uADDC\uD654(\uC6B0\uD68C \uCC28\uB2E8)\uAC00 \uD544\uC694\uD55C\uAC00 \u2014 \uBE44ASCII\uC774\uAC70\uB098 \uC81C\uC5B4/\uBCF4\uC774\uC9C0 \uC54A\uB294 \uBB38\uC790 \uD3EC\uD568.
@@ -80,6 +105,9 @@ def normalize_unicode(text: str) -> tuple[str, list[int]]:
     에 대응하는 원본 ``text`` 위치. 변화가 없으면 ``normalized == text`` (offset_map
     은 빈 리스트 — 호출측이 무시).
     """
+    # 라틴 호몰로그 숫자 폴딩(1:1, 길이 불변 → offset 보존). 빠른 경로 전에 적용해야
+    # 'l234567' 같은 ASCII-호몰로그 우회도 펴진다.
+    text = _fold_digit_homoglyphs(text)
     # 빠른 경로: 이미 NFKC 이고 보이지 않는/결합 문자도 없으면 그대로 (no-op).
     # 결합표시는 이미 NFKC 일 수 있어(1+◌́ 는 합성형 없음) 별도 검사 — 빠진 채
     # 건너뛰면 숫자에 붙은 결합표시가 PII 를 쪼개 누출된다.

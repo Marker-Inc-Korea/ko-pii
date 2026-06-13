@@ -22,3 +22,13 @@ def test_ascii_digits_still_detected() -> None:
 
 def test_normal_text_unaffected() -> None:
     assert not detect_all("안녕하세요 반갑습니다 오늘 날씨가 좋네요")
+
+
+def test_latin_homoglyph_rrn_detected() -> None:
+    # 0→O, 1→l 로 위장한 주민번호.
+    assert detect_all("제 주민등록번호는 9OOlOl-l234567 입니다")
+
+
+def test_normal_english_not_folded() -> None:
+    # 'NO'/'ID'/'SOS' 등 정상 영문은 숫자열이 아니므로 폴딩/오탐되지 않아야.
+    assert not detect_all("Please say NO to the ID check. SOS is a code.")
