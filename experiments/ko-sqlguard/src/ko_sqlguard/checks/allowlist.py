@@ -94,18 +94,27 @@ def check_columns(stmt: exp.Expression, policy: GuardPolicy) -> list[Violation]:
     if not restricted_tables:
         return []
 
-    # A star (`*` or `t.*`) under a column restriction can't be constrained.
-    # count(*) 의 star 는 행 수 집계라 컬럼 노출이 아니므로 제외(과탐 방지).
-    if any(not isinstance(s.parent, exp.Count) for s in stmt.find_all(exp.Star)):
-        violations.append(
-            Violation(
-                code="column_not_allowed",
-                severity=Severity.MEDIUM,
-                reason="SELECT * cannot be constrained while a column allowlist is active",
-                action="block",
-                fix="List explicit columns instead of '*'.",
-            )
-        )
+    # star(`*`/`t.*`)는 대상이 컬럼 제약 테이블일 때만 막는다. 비제약 테이블(전컬럼 허용)
+    # 의 star 는 노출 위험이 없다 — 예: orders 가 [] 면 'SELECT * FROM orders' 는 허용.
+    # count(*) 의 star 는 행 수 집계라 제외(과탐 방지).
+    for s in stmt.find_all(exp.Star):
+        if isinstance(s.parent, exp.Count):
+            continue
+        if isinstance(s.parent, exp.Column) and s.parent.table:
+            # qualified star (t.*): qualifier 가 제약 테이블/별칭일 때만 차단.
+            if s.parent.table in restricted_tables:
+                violations.append(_star_violation())
+                break
+            continue
+        # unqualified star (*): 소속 SELECT 의 소스에 제약 테이블이 있으면(또는 소스를
+        # 못 찾으면 fail-closed) 차단.
+        anc = s.find_ancestor(exp.Select)
+        srcs = list(anc.find_all(exp.Table)) if anc is not None else []
+        if not srcs or any(
+            any(cand in restricted for cand in table_key_candidates(t)) for t in srcs
+        ):
+            violations.append(_star_violation())
+            break
 
     # in-scope qualifier 전체(실테이블명/별칭 + CTE + 파생테이블 별칭) — fail-closed 판정용.
     all_quals: set[str] = set(ctes) | set(derived.keys())
@@ -232,6 +241,16 @@ def _resolve_derived_column(
         if real is not None:
             return (real, inner_col.name)
     return None
+
+
+def _star_violation() -> Violation:
+    return Violation(
+        code="column_not_allowed",
+        severity=Severity.MEDIUM,
+        reason="SELECT * over a column-restricted table cannot be constrained",
+        action="block",
+        fix="List explicit columns instead of '*'.",
+    )
 
 
 def _col_violation(name: str, qualifier: str | None) -> Violation:

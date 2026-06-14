@@ -51,7 +51,20 @@ BENIGN: list[tuple[str, str]] = [
     ("limit", "SELECT * FROM orders FETCH FIRST 50 ROWS ONLY"),
     ("orderby", "SELECT o.id FROM orders o ORDER BY o.total DESC NULLS LAST"),
     ("union", "SELECT id FROM customers WHERE id = 1 UNION SELECT id FROM customers WHERE id = 2"),
+    ("union-all", "SELECT id FROM customers UNION ALL SELECT id FROM orders"),
     ("coalesce", "SELECT COALESCE(c.name, c.email) FROM customers c"),
+    ("nested-subquery", "SELECT o.id FROM orders o WHERE o.total > (SELECT avg(total) FROM orders)"),
+    ("scalar-subquery", "SELECT c.id, (SELECT count(*) FROM orders o WHERE o.id = c.id) FROM customers c"),
+    ("multi-cte", "WITH a AS (SELECT * FROM orders), b AS (SELECT id, name FROM customers) "
+                  "SELECT a.id FROM a JOIN b ON a.id = b.id"),
+    ("between", "SELECT o.id FROM orders o WHERE o.total BETWEEN 10 AND 100"),
+    ("in-list", "SELECT c.id FROM customers c WHERE c.id IN (1, 2, 3)"),
+    ("string-func", "SELECT upper(c.name), length(c.email) FROM customers c"),
+    ("multi-join", "SELECT o.id FROM orders o JOIN customers c ON o.id = c.id JOIN orders o2 ON o2.id = o.id"),
+    ("not-exists", "SELECT c.id FROM customers c WHERE NOT EXISTS (SELECT 1 FROM orders o WHERE o.id = c.id)"),
+    ("limit-offset", "SELECT o.id FROM orders o ORDER BY o.id LIMIT 10 OFFSET 5"),
+    ("count-distinct", "SELECT count(DISTINCT c.email) FROM customers c"),
+    ("groupby-multi", "SELECT c.name, c.email, count(*) FROM customers c GROUP BY c.name, c.email"),
 ]
 
 # 레드팀 — 모두 BLOCK 이어야 한다(범주별).

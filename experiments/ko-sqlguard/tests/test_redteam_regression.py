@@ -507,3 +507,31 @@ def test_lateral_disallowed_column_still_blocks() -> None:
     r = check(sql, policy=POLICY)
     assert r.verdict is Verdict.BLOCK
     assert any(v.code == "column_not_allowed" for v in r.violations)
+
+
+# --- star over a non-restricted table is allowed; over a restricted table blocks ---
+
+def test_star_over_unrestricted_table_allowed() -> None:
+    # orders 는 전컬럼 허용([]) → 'SELECT *' 노출 위험 없음(과탐 방지).
+    for sql in (
+        "SELECT * FROM orders",
+        "SELECT * FROM orders o WHERE o.id = 1",
+        "WITH a AS (SELECT * FROM orders), b AS (SELECT id, name FROM customers) "
+        "SELECT a.id FROM a JOIN b ON a.id = b.id",
+    ):
+        assert check(sql, policy=POLICY).verdict is not Verdict.BLOCK, sql
+
+
+STAR_OVER_RESTRICTED = [
+    "SELECT * FROM customers",
+    "SELECT c.* FROM customers c",
+    "SELECT * FROM orders o JOIN customers c ON o.id = c.id",
+    "SELECT c.* FROM orders o JOIN customers c ON o.id = c.id",
+]
+
+
+@pytest.mark.parametrize("sql", STAR_OVER_RESTRICTED, ids=lambda s: s[:40])
+def test_star_over_restricted_table_blocks(sql: str) -> None:
+    r = check(sql, policy=POLICY)
+    assert r.verdict is Verdict.BLOCK, sql
+    assert any(v.code == "column_not_allowed" for v in r.violations), [v.code for v in r.violations]
