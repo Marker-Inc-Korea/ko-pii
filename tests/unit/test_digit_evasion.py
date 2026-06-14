@@ -185,3 +185,28 @@ def test_real_pii_survives_fp_fixes() -> None:
     assert any(d.label == "DT_BIRTH" for d in detect_all("제 생일은 1988.03.15 입니다"))
     assert any(d.label == "RRN" for d in detect_all("주민등록번호 880101-2345678"))
     assert any(d.label == "IP" for d in detect_all("서버 IP 192.168.0.100"))
+
+
+# --- false-positive sweep: herb/MFDS terms not PERSON, reserved IP / English section not IP ---
+
+def test_herb_mfds_terms_not_person() -> None:
+    for t in ("황기와 인삼을 배합한 처방입니다.", "이름: 당귀, 효능: 보혈",
+              "시호와 황금을 군약으로 한다.", "산수유 오미자 갈근을 달인다",
+              "수입식품 의약외품 마약류 분류 안내"):
+        assert not any(d.label == "PERSON" for d in detect_all(t)), t
+
+
+def test_real_person_name_still_detected() -> None:
+    assert any(d.label == "PERSON" for d in detect_all("담당자 김철수 사무관입니다"))
+
+
+def test_reserved_ip_and_english_section_not_ip() -> None:
+    for t in ("logged at 127.0.0.1 in the harness", "게이트웨이 0.0.0.0",
+              "브로드캐스트 255.255.255.255", "Section 4.2.1.3 of the manual",
+              "Chapter 1.2.3.4 covers calibration"):
+        assert not any(d.label == "IP" for d in detect_all(t)), t
+
+
+def test_public_ip_still_detected() -> None:
+    assert any(d.label == "IP" for d in detect_all("외부 서버 8.8.8.8 접속"))
+    assert any(d.label == "IP" for d in detect_all("내부 IP 192.168.0.100"))
