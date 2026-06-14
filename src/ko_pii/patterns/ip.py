@@ -53,6 +53,21 @@ def _is_valid_ipv4(addr: str) -> bool:
     return True
 
 
+def _is_reserved_ipv4(addr: str) -> bool:
+    """IANA 특수목적 주소 — 개인 식별과 무관해 PII 가 아니다(loopback 127.0.0.1 등).
+    사설망(10/172.16/192.168)은 결합 시 식별 가능성이 있어 제외하지 않는다(recall 보존)."""
+    a, b, c, _d = (int(x) for x in addr.split("."))
+    return (
+        a == 127                       # loopback 127/8
+        or a == 0                      # "this network" 0/8
+        or (a == 169 and b == 254)     # link-local 169.254/16
+        or (a == 192 and b == 0 and c == 2)      # TEST-NET-1 (문서용)
+        or (a == 198 and b == 51 and c == 100)   # TEST-NET-2
+        or (a == 203 and b == 0 and c == 113)    # TEST-NET-3
+        or a >= 224                    # multicast / reserved 224.0.0.0+
+    )
+
+
 def _is_valid_ipv6(addr: str) -> bool:
     # Strip zone id (e.g. "fe80::1%eth0") — ipaddress doesn't accept it
     raw = addr.split("%", 1)[0]
@@ -70,8 +85,14 @@ _VERSION_CTX = re.compile(
     r"(?:버전|버젼|펌웨어|릴리[스즈]|빌드|패치|"
     r"(?<![A-Za-z])(?:[vV]\.?|ver\.?|version|firmware|release|build|patch))\s*$"
 )
-# 문서 섹션/항목 번호('표 3.2.1.4', '별표 1.2.3.4')도 IPv4 형식이라 좌측 단서로 제외.
-_SECTION_CTX = re.compile(r"(?:표|그림|별표|도표|붙임|항목|조항|조|항|단계|절|장|버전|챕터)\s*$")
+# 문서 섹션/항목 번호('표 3.2.1.4', 'Section 4.2.1.3')도 IPv4 형식이라 좌측 단서로 제외.
+_SECTION_CTX = re.compile(
+    r"(?:"
+    r"표|그림|별표|도표|붙임|항목|조항|조|항|단계|절|장|버전|챕터"
+    r"|[Ss]ection|[Cc]hapter|[Ff]igure|[Tt]able|[Aa]ppendix|[Cc]lause"
+    r"|(?<![A-Za-z])(?:[Ss]ec|[Cc]h|[Ff]ig|[Aa]pp)\.?"
+    r")\s*$"
+)
 # 우측에 '버전' 단서가 바로 붙는 경우('2.10.4.5 버전입니다')도 버전 문자열로 본다.
 _VERSION_RIGHT = re.compile(r"^\s*(?:버전|버젼|version|빌드|build|릴리[스즈])")
 
@@ -81,7 +102,7 @@ def detect(text: str) -> Iterator[DetectionResult]:
 
     for m in _IPV4.finditer(text):
         addr = m.group(1)
-        if not _is_valid_ipv4(addr):
+        if not _is_valid_ipv4(addr) or _is_reserved_ipv4(addr):
             continue
         left = text[max(0, m.start() - 12):m.start()]
         if _VERSION_CTX.search(left) or _SECTION_CTX.search(left):

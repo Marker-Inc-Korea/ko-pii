@@ -21,12 +21,25 @@ class TestIPPositive:
         assert len(results) == 1
 
     def test_boundary_zero(self):
-        results = _detect_list("게이트웨이 0.0.0.0")
+        # octet 0 in a public address parses + detects.
+        results = _detect_list("주소 8.8.0.1")
         assert len(results) == 1
 
     def test_boundary_max(self):
-        results = _detect_list("브로드캐스트 255.255.255.255")
+        # octet 255 in a public address parses + detects.
+        results = _detect_list("주소 8.255.8.8")
         assert len(results) == 1
+
+    def test_reserved_ranges_not_pii(self):
+        # IANA 특수목적 주소는 개인 식별 불가 → PII 아님(과탐 방지).
+        for t in (
+            "게이트웨이 0.0.0.0",
+            "브로드캐스트 255.255.255.255",
+            "localhost 127.0.0.1 접속",
+            "멀티캐스트 224.0.0.1",
+            "Section 4.2.1.3 of the manual",
+        ):
+            assert _detect_list(t) == [], t
 
     def test_multiple_ips(self):
         text = "client 10.0.0.5 → server 10.0.0.10"
