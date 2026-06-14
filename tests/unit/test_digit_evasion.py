@@ -161,3 +161,27 @@ def test_isbn_not_corp_reg() -> None:
 def test_fraction_still_preserved_round6() -> None:
     # 슬래시 폴딩 추가가 분수 정상 텍스트를 PII 로 오탐하면 안 됨.
     assert not detect_all("½컵 설탕과 ⅓컵 소금을 넣으세요")
+
+
+# --- false-positive sweep: MFDS labels / barcodes / section numbers not flagged ---
+
+def test_mfds_label_dates_not_birth() -> None:
+    for t in ("사용기한 2025.12.31 까지", "제조일자: 2024.03.15", "유통기한 2026.06.30", "소비기한 2025.06.01"):
+        assert not any(d.label == "DT_BIRTH" for d in detect_all(t)), t
+
+
+def test_korean_barcode_not_rrn() -> None:
+    # GS1 한국(880~) 무구분자 13자리 바코드는 RRN 아님(checksum 실패분).
+    for t in ("바코드 8801011234567", "바코드번호 8801234567890", "8801043001212 (농심 신라면)"):
+        assert not any(d.label == "RRN" for d in detect_all(t)), t
+
+
+def test_section_and_version_numbers_not_ip() -> None:
+    assert not any(d.label == "IP" for d in detect_all("표 3.2.1.4 항목 참조"))
+    assert not any(d.label == "IP" for d in detect_all("이번 업데이트는 2.10.4.5 버전입니다"))
+
+
+def test_real_pii_survives_fp_fixes() -> None:
+    assert any(d.label == "DT_BIRTH" for d in detect_all("제 생일은 1988.03.15 입니다"))
+    assert any(d.label == "RRN" for d in detect_all("주민등록번호 880101-2345678"))
+    assert any(d.label == "IP" for d in detect_all("서버 IP 192.168.0.100"))

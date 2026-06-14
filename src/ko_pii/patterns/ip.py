@@ -70,6 +70,10 @@ _VERSION_CTX = re.compile(
     r"(?:버전|버젼|펌웨어|릴리[스즈]|빌드|패치|"
     r"(?<![A-Za-z])(?:[vV]\.?|ver\.?|version|firmware|release|build|patch))\s*$"
 )
+# 문서 섹션/항목 번호('표 3.2.1.4', '별표 1.2.3.4')도 IPv4 형식이라 좌측 단서로 제외.
+_SECTION_CTX = re.compile(r"(?:표|그림|별표|도표|붙임|항목|조항|조|항|단계|절|장|버전|챕터)\s*$")
+# 우측에 '버전' 단서가 바로 붙는 경우('2.10.4.5 버전입니다')도 버전 문자열로 본다.
+_VERSION_RIGHT = re.compile(r"^\s*(?:버전|버젼|version|빌드|build|릴리[스즈])")
 
 
 def detect(text: str) -> Iterator[DetectionResult]:
@@ -79,7 +83,10 @@ def detect(text: str) -> Iterator[DetectionResult]:
         addr = m.group(1)
         if not _is_valid_ipv4(addr):
             continue
-        if _VERSION_CTX.search(text[max(0, m.start() - 12):m.start()]):
+        left = text[max(0, m.start() - 12):m.start()]
+        if _VERSION_CTX.search(left) or _SECTION_CTX.search(left):
+            continue
+        if _VERSION_RIGHT.search(text[m.end():m.end() + 8]):
             continue
         span = (m.start(), m.end())
         seen.add(span)

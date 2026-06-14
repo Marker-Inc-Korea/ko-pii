@@ -80,6 +80,13 @@ def _emit(m: re.Match, offset: int = 0) -> DetectionResult | None:
     if birth is None:
         return None
 
+    # 미래 생년월일은 실존 인물의 RRN일 수 없음 → 미방출.
+    # 880·881·888 로 시작하는 한국 GS1/EAN-13 바코드(예: 8801234567890)가
+    # 7번째 자리=3/4 일 때 2000년대 century 로 디코딩되어 2088년 등
+    # 미래 일자를 만드는 FP 차단. 실제 RRN(생년 ≤ 현재년)은 영향 없음.
+    if birth > date.today():
+        return None
+
     digits_only = front + back
     checksum_ok = is_valid_checksum(digits_only)
 
@@ -88,6 +95,12 @@ def _emit(m: re.Match, offset: int = 0) -> DetectionResult | None:
     # 성별자리 0 은 법인번호 종류코드의 전형값이자 1800년대 RRN(실질 무의미)이라,
     # 실사용 RRN(성별 1~8)은 법인 체크섬을 우연히 통과해도 그대로 RRN 으로 보호.
     if not checksum_ok and back[0] == "0" and _is_valid_corp_checksum(digits_only):
+        return None
+
+    # GS1 한국 EAN-13 바코드(880~ 시작, 무구분자, 체크섬 불일치)는 RRN 이 아니다.
+    # 진짜 88년생 RRN 은 체크섬을 통과(checksum_ok)하므로 영향 없음(recall-safe).
+    real = m.group(0)[offset:]
+    if not checksum_ok and digits_only.startswith("880") and real == digits_only:
         return None
 
     evidence = ["pattern:rrn", f"date_valid:{birth.isoformat()}"]
