@@ -480,3 +480,30 @@ def test_round6_qualified_reads_still_pass() -> None:
         "SELECT generate_series(1,10)",
     ):
         assert check(sql, policy=POLICY).verdict is not Verdict.BLOCK, sql
+
+
+# --- LATERAL joins: legit correlated lookups must not over-block (false-positive sweep) ---
+
+LATERAL_OK = [
+    "SELECT c.id, c.name, lo.total FROM customers c CROSS JOIN LATERAL "
+    "(SELECT o.total FROM orders o WHERE o.customer_id = c.id ORDER BY o.id DESC LIMIT 1) lo",
+    "SELECT c.name, lo.total FROM customers c LEFT JOIN LATERAL "
+    "(SELECT o.total FROM orders o WHERE o.customer_id = c.id LIMIT 1) lo ON true",
+    "SELECT c.id, recent.total FROM customers c JOIN LATERAL "
+    "(SELECT o.total FROM orders o WHERE o.customer_id = c.id LIMIT 1) recent ON true",
+]
+
+
+@pytest.mark.parametrize("sql", LATERAL_OK, ids=lambda s: s[:40])
+def test_lateral_legit_not_blocked(sql: str) -> None:
+    # LATERAL alias 등록 + ON true / CROSS LATERAL 예외 — 정상 상관 조회는 통과.
+    assert check(sql, policy=POLICY).verdict is not Verdict.BLOCK, sql
+
+
+def test_lateral_disallowed_column_still_blocks() -> None:
+    # LATERAL 안에서 금지 컬럼(ssn)을 노리면 여전히 차단되어야(derived 환원).
+    sql = ("SELECT c.name, bad.ssn FROM customers c LEFT JOIN LATERAL "
+           "(SELECT cu.ssn FROM customers cu WHERE cu.id = c.id LIMIT 1) bad ON true")
+    r = check(sql, policy=POLICY)
+    assert r.verdict is Verdict.BLOCK
+    assert any(v.code == "column_not_allowed" for v in r.violations)

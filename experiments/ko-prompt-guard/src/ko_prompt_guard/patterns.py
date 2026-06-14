@@ -21,8 +21,11 @@ _P1: list[tuple[re.Pattern[str], Severity]] = [
         r"(?:지시|지침|명령|규칙|설정|프롬프트|맥락|대화|내용)"
         r"[^.\n]{0,14}?"
         r"(?:무시|잊어|잊고|잊어버려|버리고|신경\s*쓰지\s*마|신경\s*쓰지\s*말|따르지\s*마)", _I), _H),
+    # bare '지시/지침/명령'은 식약처 도메인에서 일상어('복용 지침 무시', '의사 지시
+    # 무시')라 제거하고 AI-meta(시스템 프롬프트/가이드라인/시스템 규칙)만 bare 로 둔다.
+    # 한정사 붙은 '이전 지침 무시'는 P1[0] 이 잡는다.
     (re.compile(
-        r"(?:지시|지침|명령|시스템\s*프롬프트|가이드라인|제약)"
+        r"(?:시스템\s*프롬프트|시스템\s*지침|시스템\s*규칙|가이드라인)"
         r"[^.\n]{0,6}?"
         r"(?:무시(?:하고|해|해라|하라|하세요|할)?|잊(?:어버려|어|고)|"
         r"신경\s*쓰지\s*마|신경\s*쓰지\s*말|따르지\s*마)", _I), _H),
@@ -46,13 +49,14 @@ _P1: list[tuple[re.Pattern[str], Severity]] = [
                 r"(?:the\s*|your\s*)?(?:previous|prior|above|earlier|preceding)", _I), _H),
     # --- round-2 레드팀: 지시 제거/리셋/초기화/덮어쓰기/무효화 ---
     # '설정'은 일상성이 높아(휴대폰/공장/계정 설정 초기화) 대상어에서 분리 — round-4 과탐.
-    (re.compile(r"(?:이전|기존|앞선|앞의|위(?:의)?|지금까지|처음|초기)?(?:의|\s)*(?:모든\s*)?"
+    (re.compile(r"(?:이전|기존|앞선|앞의|위(?:의)?|지금까지|처음|초기|시스템|네(?:가)?|너의|당신의|원래)\s*"
+                r"(?:받은\s*)?(?:의|\s)*(?:모든\s*)?"
                 r"(?:지시|지침|명령|프롬프트|역할|맥락)"
                 r"[^.\n]{0,12}?(?:지우|지워|리셋|초기화|덮어[써쓰]|무효|폐기|취소|날려|"
                 r"효력(?:이)?\s*없|효력\s*상실)", _I), _H),
     # '설정'·'규칙' 리셋은 LLM 맥락 한정사(시스템/네/원래…)와 결합할 때만 — 기기·계정
     # 설정 초기화, '영양제 복용 규칙 초기화' 같은 일상 리셋 질문 제외(round-4·5 과탐).
-    (re.compile(r"(?:시스템|네|너의|당신의|원래|이전|기존|초기)\s*(?:설정|규칙)"
+    (re.compile(r"(?:시스템|네|너의|당신의|원래)\s*(?:설정|규칙)"
                 r"[^.\n]{0,12}?(?:지우|지워|리셋|초기화|덮어[써쓰]|무효|폐기|취소|날려)", _I), _H),
     (re.compile(r"(?:지시|지침|명령|규칙|프롬프트|설정)"
                 r"[^.\n]{0,8}?(?:따를\s*필요\s*없|안\s*따라도\s*(?:돼|된다)|"
@@ -136,7 +140,11 @@ _P3: list[tuple[re.Pattern[str], Severity]] = [
     # 탈옥 — LLM 대상 결합 또는 요청동사일 때만('게임 탈옥 모드' 등 일상 제외).
     (re.compile(r"(?:AI|인공지능|모델|챗봇|GPT|너|당신|프롬프트)[^.\n]{0,8}?탈옥"
                 r"|탈옥\s*(?:시켜|해줘|당해|시도)|탈옥[^.\n]{0,6}?(?:프롬프트|AI|모델|어시스턴트)", _I), _H),
-    (re.compile(r"[제젤쟤쟈자]\s*일?\s*브레이크|jail\s*?break|언락\s*모드|unlock\s*mode", _I), _H),
+    # 영어 'jailbreak'은 iOS 탈옥/학술('jailbreak 탐지 모델')과 겹쳐 요청·모드 결합 시만.
+    # 한글 음차('제일브레이크')는 공격 고유어라 그대로 둔다.
+    (re.compile(r"[제젤쟤쟈자]\s*일?\s*브레이크"
+                r"|jail\s*?break\s*(?:모드|시켜|해줘|프롬프트|prompt|now|상태로)"
+                r"|언락\s*모드|unlock\s*mode", _I), _H),
     # 안전/보안 규칙·정책 무력화 — 무력화 동사 + 응답 요청(답/말/해줘) 결합 시만. 응답
     # 결합이 '보안 정책 우회 사례 분석 논문'(학술)·'안전 규칙 우회 지름길'(물리)을 배제.
     (re.compile(r"(?:안전|보안)\s*(?:규칙|수칙|정책|설정|가드레?일)"
@@ -187,7 +195,9 @@ _P7: list[tuple[re.Pattern[str], Severity]] = [
     (re.compile(r"[디데]벨[로러롭]\s*퍼\s*모드", _I), _H),
     (re.compile(r"[제젤쟤쟈자]\s*일?\s*브레이크", _I), _H),
     (re.compile(r"바이패스|바이페스", _I), _M),
-    (re.compile(r"두\s*애니씽\s*나우?|디스리가드|디스레가드|오버라이드", _I), _H),
+    # '오버라이드'는 프로그래밍 일상어(메서드 오버라이드)라 제외 — 음차 공격은 P3
+    # '제약 풀어' 등 다른 신호가 잡는다. 디스리가드/두애니씽나우는 탈옥 고유어로 유지.
+    (re.compile(r"두\s*애니씽\s*나우?|디스리가드|디스레가드", _I), _H),
 ]
 
 _REGISTRY: list[tuple[Category, list[tuple[re.Pattern[str], Severity]]]] = [
@@ -199,16 +209,26 @@ _REGISTRY: list[tuple[Category, list[tuple[re.Pattern[str], Severity]]]] = [
 ]
 
 # 인코딩 페이로드(원본 텍스트 대상; normalize 가 디코드하지 않으므로 detector 신호).
+# 주: idx 1(base64 blob)은 scan_encoding 에서 base64-ness 후처리로 걸러진다.
 _ENCODING: list[tuple[re.Pattern[str], Severity]] = [
-    # decode-and-run: 해독/복호/수행/처리/적용 까지 + 어순 여유(25). 단 'how-to' 의문문
-    # ('base64 디코딩 어떻게 실행해요?')은 학습 질문이라 제외(round-5 과탐).
+    # decode-and-run: 해독/복호/수행/처리 까지 + 어순 여유(25). '적용'은 일상 빈도가
+    # 높아('디코딩해서 적용하는 스크립트') 제외. 'how-to' 의문문도 제외(학습 질문).
     (re.compile(r"(?:디코딩|디코드|해독|복호|decode|base64|베이스\s*64)"
                 r"(?:(?!어떻게|어케|방법|하나요|할까요|되나요|쓰나요|싶|궁금)[^.\n]){0,25}?"
-                r"(?:실행|돌려|수행|처리|적용|run|execute)", _I), _M),
+                r"(?:실행|돌려|수행|처리|run|execute)", _I), _M),
     (re.compile(r"(?<![A-Za-z0-9+/])[A-Za-z0-9+/]{16,}={0,2}(?![A-Za-z0-9+/])"), _M),
     (re.compile(r"(?:%[0-9A-Fa-f]{2}){4,}"), _M),
     (re.compile(r"(?:\\x[0-9A-Fa-f]{2}){4,}", _I), _M),
 ]
+
+
+def _looks_base64(s: str) -> bool:
+    """base64 blob 다움 — 약품명(소문자만)·코드(대문자+숫자)·hex(소문자+숫자)·순수
+    숫자열을 제외하기 위해 대소문자 혼합 또는 +/= 같은 base64 고유 문자를 요구한다."""
+    body = s.rstrip("=")
+    has_up = any("A" <= c <= "Z" for c in body)
+    has_lo = any("a" <= c <= "z" for c in body)
+    return (has_up and has_lo) or "+" in body or "/" in body or s.endswith("=")
 
 
 # 번역/인용 프레이밍 — 영어 injection 표면형이 '명령'이 아니라 '인용 대상'일 때의 단서.
@@ -240,10 +260,14 @@ def scan(text: str) -> list[Violation]:
         # 한글 명령이 동반되면 best 가 한글(비ASCII)이라 그대로 잡힌다(우회 방지).
         if (
             best is not None
-            and category is Category.INSTRUCTION_OVERRIDE
-            and best.matched is not None
-            and best.matched.isascii()
             and _TRANSLATION_FRAME.search(text)
+            and (
+                # 영어 표면형 injection 인용("ignore... 번역해줘")
+                (category is Category.INSTRUCTION_OVERRIDE
+                 and best.matched is not None and best.matched.isascii())
+                # 음차 단어 뜻/번역 질문("디스리가드 영어 단어 뜻이 뭐야")
+                or category is Category.TRANSLITERATION
+            )
         ):
             best = None
         if best is not None:
@@ -255,6 +279,11 @@ def scan_encoding(text: str) -> list[Violation]:
     """원본 텍스트의 인코딩 페이로드 탐지(base64/hex/%xx/decode-and-run)."""
     for idx, (pat, sev) in enumerate(_ENCODING):
         m = pat.search(text)
+        if not m:
+            continue
+        # base64 blob 은 base64-ness 가 있을 때만(약품명/코드/해시/숫자열 FP 방지).
+        if idx == 1 and not _looks_base64(m.group(0)):
+            continue
         if m:
             return [Violation(
                 code=f"encoding#{idx}",

@@ -1,8 +1,11 @@
-# ko-sqlguard red-team report
+# ko-sqlguard adversarial validation
 
-This directory holds the diagnostic + adversarial tooling used while building
-ko-sqlguard v1. It documents how the deterministic checks were validated against
-the **actually installed** `sqlglot` (30.10.0) rather than assumed node names.
+This directory holds the diagnostic + adversarial tooling used to harden
+ko-sqlguard against bypasses, validated against the **actually installed**
+`sqlglot` (30.10.0) rather than assumed node names. The guard is exercised by
+repeated multi-agent adversarial sweeps (attack → independent skeptic verify →
+fix → regression test); every confirmed escape becomes a case in
+`tests/test_redteam_regression.py`.
 
 ## Scripts
 
@@ -10,10 +13,10 @@ the **actually installed** `sqlglot` (30.10.0) rather than assumed node names.
 |---|---|
 | `probe_sqlglot.py` | Enumerate real AST node classes per statement type (caught `TruncateTable`, `Transaction`, the `Command` catch-all, `None`/`Semicolon` nodes in stacked parses). |
 | `probe2.py` | Confirm write-via-read shapes: `SELECT INTO` (`into` arg), `FOR UPDATE` (`locks`), data-modifying CTEs, `COPY` → `exp.Copy`. |
-| `probe3.py` | Verify the three structural-bug fixes: paren-wrapped `FOR UPDATE` (`exp.Lock`), `FETCH FIRST` (`exp.Fetch`), and `traverse_scope` table resolution. |
-| `redteam_harness.py` | Feed candidate SQL (stdin, one per line) → print ko-sqlguard's verdict. Used by the workflow agents. |
-| `redteam_workflow.js` | The 8-lens adversarial Workflow (attack → independent skeptic verify). |
-| `reverify.py` | Re-run the workflow's "confirmed" escapes in one clean process (free of the agents' shared-temp-file race), reading base64 payloads to preserve exact bytes. |
+| `probe3.py` | Verify structural-bug fixes: paren-wrapped `FOR UPDATE` (`exp.Lock`), `FETCH FIRST` (`exp.Fetch`), and `traverse_scope` table resolution. |
+| `redteam_harness.py` | Feed candidate SQL (stdin, one per line) → print ko-sqlguard's verdict. Used by the adversarial workflow agents. |
+| `redteam_workflow.js` | The multi-lens adversarial Workflow (attack → independent skeptic verify). |
+| `reverify.py` | Re-run confirmed escapes in one clean process (free of the agents' shared-temp-file race), reading base64 payloads to preserve exact bytes. |
 
 Run the harness:
 
@@ -21,142 +24,62 @@ Run the harness:
 printf '%s\n' 'DROP TABLE x' '(SELECT * FROM orders) FOR UPDATE' | .venv/bin/python dev/redteam_harness.py
 ```
 
-## What the red team found
+## Defenses hardened by adversarial testing
 
-An 8-lens multi-agent workflow (stacked queries, comment/case evasion,
-CTE/subquery allowlist bypass, PG-specific features, dangerous functions,
-identifier/quoting tricks, write-via-read, parser confusion) generated ~119
-candidate escapes; each was independently verified, and 89 unique payloads were
-re-confirmed in a single clean process. They clustered into **4 real bugs**, all
-now fixed with regression tests in `tests/test_redteam_regression.py`:
+The deterministic checks now cover these bypass families, each with regression
+coverage. A least-privilege DB role remains the primary line of defense; this
+guard is defense-in-depth in front of it.
 
-1. **CRITICAL — CTE-alias scope bypass.**
-   `SELECT * FROM secrets WHERE id IN (WITH secrets AS (SELECT 1 id) SELECT id FROM secrets)`
-   read disallowed tables (incl. `pg_shadow` / `pg_authid` — password hashes).
-   The old `cte_aliases()` collected CTE names statement-wide, so the inner CTE
-   wrongly shadowed the *outer* `FROM secrets`. Fixed by resolving physical
-   tables with `sqlglot.optimizer.scope.traverse_scope` (scope-aware), unioned
-   with a fail-closed global fallback. One agent reproduced the read against a
-   live PostgreSQL 16 (seq scan on the physical table).
+**Out-of-allowlist reads via scope tricks.** Data-modifying / aliased CTEs,
+subquery / UNION scope confusion, and CTEs whose name collides with a restricted
+table's name *or* alias. Physical tables are resolved scope-aware with
+`sqlglot.optimizer.scope.traverse_scope`, unioned with a fail-closed global
+fallback; the column check consults the restricted set *before* any CTE skip, so
+a decoy CTE can't shadow a real `FROM customers c` to leak `c.ssn`. A live
+PostgreSQL 16 reproduction confirmed the original leak read password hashes from
+`pg_shadow` / `pg_authid`.
 
-2. **HIGH — locking reads behind a wrapper.**
-   `(SELECT * FROM orders) FOR UPDATE` and all `FOR UPDATE/SHARE/NO KEY/...`
-   variants escaped: the lock attaches to the outer `Subquery`, not the inner
-   `Select`. Fixed by matching any `exp.Lock` node.
+**Column-allowlist bypasses.** Table aliases (`c.ssn` from `customers c`),
+quoted upper-case aliases (`"C"`), derived-table **and** LATERAL aliases
+(resolved back to their real source column so `lo.total`→`orders.total` passes
+while `lo.ssn`→`customers.ssn` blocks), whole-row references
+(`to_jsonb(c)` / `array_agg(customers)` / `row_to_json` serialize every column),
+JOIN `USING (ssn)` columns, and unqualified columns in a mixed
+restricted/unrestricted join. The last is **fail-closed**: an ambiguous
+unqualified column must be qualified (`o.total`), since the parser has no schema
+to prove it belongs to the unrestricted table.
 
-3. **HIGH — incomplete dangerous-function denylist.**
-   `pg_file_write`, `lo_*`, `dblink_*`, `pg_promote`, `current_setting`,
-   `setval`/`nextval`, advisory locks, `query_to_xmlschema`, server-file/WAL
-   listings, etc. The default denylist was expanded ~5×. A denylist is inherently
-   incomplete — this is the second line of defense behind a least-privilege role.
+**Write-via-read.** `SELECT INTO`, locking reads (`FOR UPDATE` / `SHARE` and all
+variants) hidden behind paren / subquery wrappers, `MERGE` (gated per-WHEN
+action — `DELETE` parses to `Var('DELETE')`, not `exp.Delete` — and blocked
+outright under `read_only` since it is write/lock-class), and
+`INSERT ... ON CONFLICT DO UPDATE` (gated by `allow_update`).
 
-4. **MEDIUM — `FETCH FIRST n ROWS` not capped.**
-   It is a `LIMIT` equivalent (parsed as `exp.Fetch`, not `exp.Limit`), so a
-   huge `FETCH FIRST 1000000000` was uncapped. Now capped like `LIMIT`.
+**Dangerous functions & casts.** A denylist of ~170 server-side / file /
+network / replication / WAL / catalog / signaling functions (`pg_read_file`,
+`lo_*`, `dblink_*`, `pg_notify`, `pg_get_keywords`, `pg_config`, replication and
+object-identity introspection, …) — inherently incomplete, so extend it per
+environment — plus `::reg*` casts (`'pg_authid'::regclass`) that probe the
+catalog exactly like the blocked `to_reg*()` functions.
 
-After the fixes: of the 89 payloads, **75 BLOCK and 1 is safely capped**.
+**Limit evasion.** `FETCH FIRST n ROWS` is a `LIMIT` equivalent (`exp.Fetch`, not
+`exp.Limit`) and is capped the same way.
 
-## Rounds 2–4 (continued adversarial passes)
+**Idiom false-positive guards.** LATERAL correlated lookups (`... JOIN LATERAL
+(...) ON true`, `CROSS JOIN LATERAL`) are not treated as tautologies or cartesian
+products; `count(*)` is exempt from the column-star rule.
 
-Each round re-ran the multi-agent attack → independent-verify loop against the
-patched build; every confirmed escape became a regression test. The full
-`tests/test_redteam_regression.py` (278+ cases) is the source of truth.
+The same adversarial sweeps hardened the sibling tools in this repo — **ko-pii**
+(unicode-folding evasions and recall-safe false-positive guards) and
+**ko-prompt-guard** (obfuscation normalization, Korean injection patterns, and
+domain false-positive guards) — each with its own regression suite.
 
-**Round 2 — table-alias column bypass.** `SELECT c.ssn FROM customers c` read a
-disallowed column: the column allowlist keyed only the real table name, so a
-one-token alias slipped past. Fixed by registering each table's alias against its
-restricted column set. (`ALIAS_COLUMN_BYPASS`)
-
-**Round 3 — alias bookkeeping regression + introspection functions.** The alias
-fix had inflated the table count, breaking the *single-table* unqualified-column
-judgement so `SELECT id FROM customers c` was wrongly blocked. Fixed by tracking
-real tables (excluding aliases) separately; `count(*)`'s star was also exempted
-from the column-star rule. Added `to_regclass`, `has_table_privilege`,
-`schema_to_xml`, `currval`, `pg_get_viewdef`, `pg_export_snapshot`, … to the
-denylist. (`ROUND3_*`)
-
-**Round 4 — MERGE privilege escalation, derived-table alias, deeper denylist.**
-1. **CRITICAL — MERGE per-action escalation.** `MERGE … WHEN MATCHED THEN DELETE`
-   escaped under an `allow_update`-only policy: the DELETE action parses to
-   `Var('DELETE')` (not `exp.Delete`), and a single mutation gate covered the
-   whole statement. Now each `WHEN` action is gated by its own `allow_*` flag.
-   A sibling false-positive (MERGE's `THEN UPDATE` is an `exp.Update`, which the
-   missing-WHERE guard flagged) was fixed by exempting nodes inside a MERGE
-   `WHEN` — the `ON` condition already scopes the rows.
-2. **HIGH — derived-table alias column bypass.** `SELECT x.c FROM (SELECT ssn
-   FROM customers) x(c)` re-exposed a disallowed column through a subquery
-   alias. Outer columns are now resolved back to their real source column.
-3. **HIGH — denylist gaps.** Added `pg_relation_filenode/size`,
-   `pg_tablespace_location`, `pg_stat_reset_*`, `pg_stat_get_backend_*`,
-   replication/WAL state (`pg_replication_slot_advance`, `pg_wal_replay_pause`,
-   `pg_control_*`), object identity (`pg_describe_object`, `pg_identify_object`,
-   `pg_get_object_address`, `pg_get_function_arguments`), `row_security_active`,
-   and the `*_shared` advisory-lock variants.
-
-**Round 5 — CTE-alias column bypass, reg* casts, ON CONFLICT / MERGE gaps.** A
-fifth multi-agent pass (16 lenses across all three ko-* tools; attack → independent
-skeptic verify) confirmed five more ko-sqlguard defects:
-1. **HIGH — CTE/alias name-collision column bypass.** `WITH c AS (SELECT 1) SELECT
-   c.ssn FROM customers c` leaked a disallowed column: a CTE named after the
-   restricted table's *alias* poisoned `cte_aliases`, and the column loop's
-   `if qualifier in ctes: continue` ran *before* consulting `restricted_tables`,
-   so the alias (which the scope resolver correctly binds to the physical
-   `customers`) was treated as a CTE column and skipped. Fixed by checking
-   `restricted_tables` first; a qualifier resolving to no in-scope source is now
-   rejected fail-closed (also closes the quoted-upper-case alias
-   `SELECT C.ssn FROM customers "C"`).
-2. **MEDIUM — `::reg*` casts.** `'pg_authid'::regclass` resolves a catalog object
-   by name (equivalent to the blocked `to_regclass()`) with no table ref. Any cast
-   to an OID-registry pseudo-type is now blocked.
-3. **HIGH — INSERT … ON CONFLICT DO UPDATE.** Passed under `allow_insert` alone
-   while performing an UPDATE. Now gated by `allow_update` (DO NOTHING stays ok).
-4. **MEDIUM — MERGE … DO NOTHING under read_only.** The per-WHEN gate saw no DML
-   action and passed; MERGE is write/lock-class, so any MERGE is now blocked under
-   `read_only`.
-5. A `window_agg` false positive (`sum(total) OVER ()` over an unrestricted+
-   restricted join wrongly blocked) was fixed: the single-table column heuristic
-   now applies only when exactly one real table is in scope.
-
-The same round hardened **ko-pii** (conjoining-jamo / middle-dot / circled-digit
-evasions; FRN separator parity; IMEI/barcode and version-string false positives)
-and **ko-prompt-guard** (Latin/IPA confusables, `*|/`-splitting, Hangul fillers,
-leetspeak; 안전·보안 규칙 / "읽어" / romanized-variant patterns; 6 false positives)
-— each covered by its own regression suite.
-
-**Round 6 — unqualified-column fail-open, whole-row refs, indirect reads.** The
-sixth pass (post-round-5 build, 12 deeper lenses) found that the round-5
-`window_agg` false-positive fix had opened a real hole, plus several indirect
-read vectors — all in ko-sqlguard (337 tests):
-1. **HIGH — unqualified column fail-open in mixed joins.** `SELECT ssn FROM
-   customers JOIN orders USING (id)` leaked: round-5's `has_unrestricted` branch
-   waved through any unqualified column whenever an all-columns table was in
-   scope, on the theory it "might" belong to that table. But `ssn` exists only on
-   the restricted `customers`, so it resolved there and leaked. Reverted to
-   **fail-closed**: an unqualified column not in any restricted table's allowlist
-   is blocked (qualify it). The legitimate `total` read must now write `o.total`
-   — the price of fail-closed column enforcement, paid deliberately.
-2. **HIGH — whole-row references.** `to_jsonb(c)` / `array_agg(customers)` /
-   `row_to_json(c)` serialize *every* column of a restricted table. An unqualified
-   identifier equal to a restricted table name/alias is now blocked.
-3. **HIGH/MEDIUM — JOIN USING (ssn)** (the USING column is itself a disallowed
-   column) and catalog/config functions usable as a FROM/LATERAL source
-   (`pg_get_keywords()`, `pg_config()`), plus `pg_notify` — all now blocked.
-
-The same round hardened **ko-pii** (fraction/division-slash separators →
-detected; corp-reg separator parity; international `+82 (0)10` form; ISBN-vs-corp
-false positive) and **ko-prompt-guard** (always-strip combining marks incl.
-precomposed forms via NFD; semicolon splitting; safety-rule pattern now requires
-a response-request to kill academic/physical false positives; developer-mode
-negation). Hanja transliteration, multi-step semantic jailbreaks, and the
-4-4 representative-phone / unseparated-13-digit overlaps are acknowledged Tier-2
-limits (see each tool's README).
-
-## Out of scope by design (the remaining 13)
+## Out of scope by design
 
 `generate_series(1, 1e18)`, `repeat('x', 2e9)`, `array_fill(...)`, and unbounded
 `WITH RECURSIVE` are **resource-exhaustion** payloads. They read no disallowed
 data, mutate nothing, and touch no files/network — they just compute a lot. A
 parser cannot statically bound runtime cost (the argument may be a column).
 The correct controls are the database's `statement_timeout` / `work_mem`, and
-the deferred EXPLAIN cost guard (`ko_sqlguard/cost.py`). This limitation is stated
-in the README.
+the deferred EXPLAIN cost guard (`ko_sqlguard/cost.py`). This limitation is
+stated in the README.

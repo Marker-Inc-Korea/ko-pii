@@ -34,6 +34,10 @@ def _predicate_roots(stmt: exp.Expression) -> list[exp.Expression]:
         if node.this is not None:
             roots.append(node.this)
     for join in stmt.find_all(exp.Join):
+        # LATERAL 조인의 'ON true' 는 PostgreSQL 필수 관용구(상관은 서브쿼리 내부에
+        # 있음)라 행 필터 무력화가 아니다 → tautology 검사 제외.
+        if isinstance(join.this, exp.Lateral):
+            continue
         on = join.args.get("on")
         if on is not None:
             roots.append(on)

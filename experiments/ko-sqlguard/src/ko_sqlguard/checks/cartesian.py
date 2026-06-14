@@ -47,6 +47,10 @@ def check_cartesian(stmt: exp.Expression, policy: GuardPolicy) -> list[Violation
 
         where_linked = _where_links_tables(select)
         for join in joins:
+            # CROSS/JOIN LATERAL (...) 은 상관 서브쿼리(내부 correlation)라 무제약
+            # 데카르트 곱이 아니다 → 제외(ON true / CROSS 표면형에 속지 않음).
+            if isinstance(join.this, exp.Lateral):
+                continue
             has_on = join.args.get("on") is not None
             has_using = join.args.get("using") is not None
             kind = (join.kind or "").upper()

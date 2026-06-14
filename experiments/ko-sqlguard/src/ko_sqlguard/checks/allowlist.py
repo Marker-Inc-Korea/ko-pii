@@ -81,6 +81,15 @@ def check_columns(stmt: exp.Expression, policy: GuardPolicy) -> list[Violation]:
             ta = sub.args.get("alias")
             col_aliases = [c.name for c in ta.columns] if ta else []
             derived[alias] = (sub.this, col_aliases)
+    # JOIN LATERAL (SELECT ...) alias: 별칭이 exp.Lateral 에 붙고 안쪽 Subquery 의
+    # alias 는 비어 있어 위 루프가 못 잡는다 → 별도 등록(없으면 lo.total 이 fail-closed).
+    for lat in stmt.find_all(exp.Lateral):
+        alias = lat.alias
+        inner = lat.this.this if isinstance(lat.this, exp.Subquery) else lat.this
+        if alias and isinstance(inner, exp.Select):
+            ta = lat.args.get("alias")
+            col_aliases = [c.name for c in ta.columns] if ta else []
+            derived[alias] = (inner, col_aliases)
 
     if not restricted_tables:
         return []
@@ -166,24 +175,22 @@ def check_columns(stmt: exp.Expression, policy: GuardPolicy) -> list[Violation]:
                         fix="Select allowlisted columns explicitly, not the whole row.",
                     )
                 )
-            elif single_table is not None:
-                if nlow not in single_table:
-                    violations.append(_col_violation(name, None))
-            elif real_cols:
-                # 제약 테이블이 scope 에 있으면 fail-closed: 비제약 테이블이 함께 있어도
-                # unqualified 컬럼이 어느 제약 allowlist 에도 없으면 모호 → 차단(qualify 요구).
-                # (round-5 의 has_unrestricted fail-open 이 customers.ssn 우회를 허용했다.)
-                if nlow not in union_cols:
-                    violations.append(
-                        Violation(
-                            code="column_not_allowed",
-                            severity=Severity.MEDIUM,
-                            reason=f"unqualified column {name!r} is ambiguous with a "
-                            "column-restricted table in scope; qualify it",
-                            action="block",
-                            fix="Qualify the column with its table name.",
-                        )
+            elif single_table is not None and nlow not in single_table:
+                violations.append(_col_violation(name, None))
+            # 제약 테이블이 scope 에 있으면 fail-closed: 비제약 테이블이 함께 있어도
+            # unqualified 컬럼이 어느 제약 allowlist 에도 없으면 모호 → 차단(qualify 요구).
+            # (이전의 unrestricted fail-open 이 customers.ssn 우회를 허용했었다.)
+            elif real_cols and nlow not in union_cols:
+                violations.append(
+                    Violation(
+                        code="column_not_allowed",
+                        severity=Severity.MEDIUM,
+                        reason=f"unqualified column {name!r} is ambiguous with a "
+                        "column-restricted table in scope; qualify it",
+                        action="block",
+                        fix="Qualify the column with its table name.",
                     )
+                )
     return violations
 
 
