@@ -1,7 +1,7 @@
 """All-detector entry point — 모든 카테고리 검출기를 한 번에 실행."""
 from __future__ import annotations
 
-from typing import Iterable, Iterator, Optional
+from typing import Iterable, Optional
 
 from ko_pii.core.types import DetectionResult
 from ko_pii.core.overlap import resolve_overlaps as _resolve_overlaps
@@ -95,6 +95,8 @@ def detect_all(
     우회를 차단한다. 결과 offset 은 원본 ``text`` 기준으로 역매핑된다.
     ASCII 입력은 우회 벡터가 없어 그대로 통과한다.
     """
+    if not isinstance(text, str):
+        raise TypeError(f"detect_all() expects str, got {type(text).__name__}")
     source = text
     offset_map: Optional[list[int]] = None
     if normalize and needs_normalization(text):
