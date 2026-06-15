@@ -157,8 +157,8 @@ def _split_csv(value: Optional[str]) -> Optional[list[str]]:
     return [t.strip() for t in value.split(",") if t.strip()]
 
 
-def _resolve_vault_password(args) -> Optional[str]:
-    pw = args.vault_password
+def _resolve_vault_password(args: argparse.Namespace) -> Optional[str]:
+    pw: Optional[str] = args.vault_password
     if pw == "__PROMPT__":          # 값 없는 --vault-password → 안전한 프롬프트 입력
         import getpass
         return getpass.getpass("Vault password: ")
@@ -171,7 +171,7 @@ def _resolve_vault_password(args) -> Optional[str]:
     return os.environ.get("KPII_VAULT_PASSWORD")
 
 
-def _load_vault(args) -> Optional[ReversibleVault]:
+def _load_vault(args: argparse.Namespace) -> Optional[ReversibleVault]:
     """Open the vault — auto-detect encrypted format."""
     if not args.vault or not os.path.exists(args.vault):
         return None
@@ -186,7 +186,7 @@ def _load_vault(args) -> Optional[ReversibleVault]:
     return ReversibleVault.load(args.vault)
 
 
-def _save_vault(args, vault: ReversibleVault) -> None:
+def _save_vault(args: argparse.Namespace, vault: ReversibleVault) -> None:
     if not args.vault:
         return
     pw = _resolve_vault_password(args)
@@ -197,7 +197,7 @@ def _save_vault(args, vault: ReversibleVault) -> None:
         vault.save(args.vault)
 
 
-def _run_batch(args) -> int:
+def _run_batch(args: argparse.Namespace) -> int:
     from ko_pii.batch import process_paths
     inputs = [args.input] + (args.extra_inputs or [])
     summary = process_paths(

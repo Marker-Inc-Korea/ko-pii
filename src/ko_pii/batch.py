@@ -26,7 +26,6 @@ import sys
 import time
 from dataclasses import dataclass, field
 from multiprocessing import Pool
-from pathlib import Path
 from typing import Iterable, Optional
 
 from ko_pii.core.modes import ProcessingMode
@@ -114,7 +113,12 @@ def collect_files(
 # 단일 파일 처리 (워커 진입점)
 # ─────────────────────────────────────────────────────────────────────
 
-def _process_single(args: tuple) -> FileResult:
+def _process_single(
+    args: tuple[
+        str, str, str, str,
+        Optional[tuple[str, ...]], Optional[tuple[str, ...]],
+    ],
+) -> FileResult:
     (input_path, output_path, mode, strategy, include, exclude) = args
     t0 = time.time()
     try:

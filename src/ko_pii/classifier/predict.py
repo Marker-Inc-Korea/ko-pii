@@ -8,18 +8,30 @@
 """
 from __future__ import annotations
 
+from collections.abc import Callable, Sequence
 from pathlib import Path
-from typing import Sequence
+from typing import Any, TypeVar, cast
 
-import numpy as np
 import torch
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
+
+_F = TypeVar("_F", bound=Callable[..., Any])
+
+# torch.inference_mode 는 stub 없음(ignore_missing_imports) → Any.
+# 데코레이터로서 시그니처를 보존하도록 명시 타입을 부여한다.
+_inference_mode = cast(Callable[[], Callable[[_F], _F]], torch.inference_mode)
 
 
 class PIIClassifier:
     """문서/청크 수준 has_pii 이진분류."""
 
-    def __init__(self, model, tokenizer, max_length: int = 256, threshold: float = 0.5):
+    def __init__(
+        self,
+        model: Any,
+        tokenizer: Any,
+        max_length: int = 256,
+        threshold: float = 0.5,
+    ) -> None:
         self.model = model.eval()
         self.tokenizer = tokenizer
         self.max_length = max_length
@@ -27,7 +39,7 @@ class PIIClassifier:
         self.device = next(model.parameters()).device
 
     @classmethod
-    def from_pretrained(cls, path: str | Path, **kwargs) -> "PIIClassifier":
+    def from_pretrained(cls, path: str | Path, **kwargs: Any) -> "PIIClassifier":
         try:
             tokenizer = AutoTokenizer.from_pretrained(str(path))
             model = AutoModelForSequenceClassification.from_pretrained(str(path))
@@ -40,12 +52,12 @@ class PIIClassifier:
             ) from e
         return cls(model, tokenizer, **kwargs)
 
-    @torch.inference_mode()
+    @_inference_mode()
     def predict(self, text: str) -> tuple[int, float]:
         """단일 텍스트. 반환: (label 0/1, P(has_pii))."""
         return self.predict_batch([text])[0]
 
-    @torch.inference_mode()
+    @_inference_mode()
     def predict_batch(
         self, texts: Sequence[str], batch_size: int = 32
     ) -> list[tuple[int, float]]:

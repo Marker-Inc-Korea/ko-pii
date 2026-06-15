@@ -115,13 +115,15 @@ def merge_detections(
         # 약한 쪽의 FP 가 강한 쪽의 검출을 오염시키지 않는다.
         delegated = (frozenset(role_split_labels) if role_split_labels is not None
                      else DEFAULT_ROLE_SPLIT_LABELS)
-        out = [p for p in primary_list if p.label not in delegated]
+        out: list[DetectionResult] = [
+            p for p in primary_list if p.label not in delegated
+        ]
         out += [s for s in secondary_list if s.label in delegated]
         return _resolve_overlaps(out)
 
     if mode == MergeMode.INTERSECTION:
         # 양쪽 모두 찾은 것만 인정
-        out: list[DetectionResult] = []
+        out = []
         for p in primary_list:
             for s in secondary_list:
                 if _spans_overlap(p, s) and _same_label(p, s):

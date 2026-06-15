@@ -70,7 +70,7 @@ def redact(
     if style not in {"label", "asterisk", "fixed"}:
         raise ValueError(f"Unknown redact style: {style}")
 
-    def _replace(d):
+    def _replace(d: DetectionResult) -> str:
         if style == "label":
             return f"[{label_to_hangul(d.label)}]"
         if style == "asterisk":

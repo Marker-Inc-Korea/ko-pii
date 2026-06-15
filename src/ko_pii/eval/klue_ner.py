@@ -232,7 +232,7 @@ def sample_errors(
     sentences: Iterable[NerSentence],
     error_type: str = "fn",
     limit: int = 10,
-) -> list[tuple[NerSentence, list]]:
+) -> list[tuple[NerSentence, list[str]]]:
     """오류 사례 샘플 — FN/FP 분석용.
 
     error_type: ``"fn"`` (gold 인데 못 잡음) / ``"fp"`` (잘못 잡음).

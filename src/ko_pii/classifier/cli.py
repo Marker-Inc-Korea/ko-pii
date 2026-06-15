@@ -17,6 +17,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
+from typing import Any
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -68,7 +69,7 @@ def _build_parser() -> argparse.ArgumentParser:
     return p
 
 
-def _process_single(text: str, args) -> dict:
+def _process_single(text: str, args: argparse.Namespace) -> dict[str, Any]:
     from ko_pii.classifier import PIIClassifier
 
     clf = PIIClassifier.from_pretrained(args.model, threshold=args.threshold)
@@ -100,7 +101,7 @@ def _process_single(text: str, args) -> dict:
         return {"classifier_score": score, "has_pii": bool(label)}
 
 
-def main():
+def main() -> None:
     args = _build_parser().parse_args()
 
     try:  # [classifier] extra 미설치 시 친절한 안내 (mcp/presidio 진입점과 동일 패턴)

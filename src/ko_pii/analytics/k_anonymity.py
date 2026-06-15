@@ -25,7 +25,7 @@ class KAnonymityReport:
     k: int                                  # min group size
     group_count: int
     smallest_group_size: int
-    smallest_group_values: tuple
+    smallest_group_values: tuple[object, ...]
     quasi_identifier_keys: list[str]
     record_count: int
     satisfies_threshold: bool
@@ -82,7 +82,7 @@ def k_anonymity(
             rationale=["준식별자가 없어 k-익명성은 무한대"],
         )
 
-    groups: dict[tuple, int] = {}
+    groups: dict[tuple[object, ...], int] = {}
     for rec in record_list:
         key = tuple(rec.get(k) for k in quasi_keys)
         groups[key] = groups.get(key, 0) + 1

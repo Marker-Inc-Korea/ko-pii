@@ -27,10 +27,10 @@ docs/kdpii_session_report.md D-011 참조).
 from __future__ import annotations
 
 import json
-from collections import Counter, defaultdict
+from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Iterable
+from typing import Any, Callable, Iterable
 
 from ko_pii.core.types import DetectionResult
 from ko_pii.detect import detect_all
@@ -132,7 +132,7 @@ class KdpiiReport:
         return 2 * p * r / (p + r) if p + r else 0.0
 
 
-def _from_jsonl_record(d: dict) -> KdpiiDocument:
+def _from_jsonl_record(d: dict[str, Any]) -> KdpiiDocument:
     """Original JSONL schema (cloud session input): {query, answer:[{label,form}]}."""
     doc = KdpiiDocument(query=d["query"])
     for a in d.get("answer", []):
@@ -143,7 +143,7 @@ def _from_jsonl_record(d: dict) -> KdpiiDocument:
     return doc
 
 
-def _from_zenodo_record(d: dict) -> KdpiiDocument:
+def _from_zenodo_record(d: dict[str, Any]) -> KdpiiDocument:
     """Zenodo schema (record 10968609): {sentence, PII_set:[{label,form,begin,end}], ...}."""
     doc = KdpiiDocument(query=d.get("sentence", ""))
     for a in d.get("PII_set", []):

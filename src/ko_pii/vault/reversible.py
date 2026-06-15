@@ -37,7 +37,10 @@ import json
 import os
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    from .audit import AuditLog
 
 SCHEMA_VERSION = 1
 
@@ -57,9 +60,9 @@ class VaultEntry:
     legal_basis: Optional[str] = None
     first_seen_offset: int = -1
     occurrences: list[int] = field(default_factory=list)
-    extra: dict = field(default_factory=dict)
+    extra: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
         d.pop("token")
         return d
@@ -76,10 +79,10 @@ class ReversibleVault:
     def __init__(
         self,
         salt: Optional[str] = None,
-        audit_log=None,
+        audit_log: Optional["AuditLog"] = None,
         secret_key: Optional[str] = None,
         fingerprint_iterations: Optional[int] = None,
-    ):
+    ) -> None:
         """``audit_log``: optional :class:`AuditLog` for compliance tracking.
 
         When provided, every ``store()`` and ``reveal()`` call is appended to
@@ -97,7 +100,7 @@ class ReversibleVault:
         self._entries: dict[str, VaultEntry] = {}
         self._reverse: dict[tuple[str, str], str] = {}  # (label, original) -> token
         self._counters: dict[str, int] = {}             # label -> next id
-        self._audit = audit_log
+        self._audit: Optional["AuditLog"] = audit_log
         self._secret_key: str = (
             secret_key if secret_key is not None
             else os.environ.get("KPII_FINGERPRINT_KEY", "")
@@ -126,13 +129,13 @@ class ReversibleVault:
         risk_level: int,
         legal_basis: Optional[str] = None,
         offset: int = -1,
-        extra: Optional[dict] = None,
+        extra: Optional[dict[str, Any]] = None,
     ) -> str:
         """Insert or update an entry; return the assigned token."""
         token = self.token_for(label, original)
         entry = self._entries.get(token)
         is_new = entry is None
-        if is_new:
+        if entry is None:
             entry = VaultEntry(
                 token=token,
                 label=label,
@@ -177,7 +180,7 @@ class ReversibleVault:
                 pass
         return entry.original if entry is not None else None
 
-    def attach_audit(self, audit_log) -> None:
+    def attach_audit(self, audit_log: "AuditLog") -> None:
         """Attach (or replace) an :class:`AuditLog` after construction."""
         self._audit = audit_log
 
@@ -198,7 +201,7 @@ class ReversibleVault:
 
     # ------------------------------------------------------- persistence
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "schema_version": SCHEMA_VERSION,
             "created_at": self.created_at,
@@ -218,7 +221,7 @@ class ReversibleVault:
             f.write(self.dumps(indent=indent))
 
     @classmethod
-    def from_dict(cls, payload: dict) -> "ReversibleVault":
+    def from_dict(cls, payload: dict[str, Any]) -> "ReversibleVault":
         if payload.get("schema_version") != SCHEMA_VERSION:
             raise ValueError(
                 f"Unsupported vault schema_version: {payload.get('schema_version')}"
@@ -278,8 +281,10 @@ class ReversibleVault:
             return cached
         if self._fp_scheme == _FP_SCHEME_LEGACY:
             h = hashlib.sha256()
-            h.update(self.salt.encode("utf-8")); h.update(b":")
-            h.update(label.encode("utf-8")); h.update(b":")
+            h.update(self.salt.encode("utf-8"))
+            h.update(b":")
+            h.update(label.encode("utf-8"))
+            h.update(b":")
             h.update(original.encode("utf-8"))
             fp = h.hexdigest()
         else:

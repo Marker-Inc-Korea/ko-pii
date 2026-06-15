@@ -29,8 +29,12 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Iterable
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from ko_pii.core.types import DetectionResult
 
 
 PRESIDIO_TO_KPII: dict[str, str] = {
@@ -79,11 +83,11 @@ _KR_PATTERNS: list[tuple[str, str, float]] = [
 ]
 
 
-def _make_kr_recognizers():
+def _make_kr_recognizers() -> list[Any]:
     """Create Presidio PatternRecognizer instances for KR_* labels."""
     from presidio_analyzer import Pattern, PatternRecognizer
 
-    recognizers = []
+    recognizers: list[Any] = []
     for label, regex, score in _KR_PATTERNS:
         rec = PatternRecognizer(
             supported_entity=label,
@@ -167,7 +171,9 @@ class PresidioDetector:
         return deduped
 
 
-def make_presidio_predict(detector: PresidioDetector):
+def make_presidio_predict(
+    detector: PresidioDetector,
+) -> Callable[[str], list[DetectionResult]]:
     """Adapter — Presidio Spans → DetectionResult 리스트 (ko-pii eval 인터페이스).
 
     매핑되지 않는 라벨은 drop.  ko-pii 의 ``RiskLevel.MEDIUM`` / confidence 0.8 로

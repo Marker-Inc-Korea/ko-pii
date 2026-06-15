@@ -11,7 +11,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Iterable, Optional
+from typing import Any, Iterable, Optional
 
 from ko_pii.analytics.combined_risk import (
     CombinedRiskReport,
@@ -37,7 +37,7 @@ class AnonymizationResult:
     text: str
     detections: list[DetectionRecord]
     vault: Optional[ReversibleVault]
-    summary: dict = field(default_factory=dict)
+    summary: dict[str, Any] = field(default_factory=dict)
     combined_risk: Optional[CombinedRiskReport] = None
 
     def review_items(self) -> list[DetectionRecord]:
@@ -71,10 +71,10 @@ class Anonymizer:
         vault: Optional[ReversibleVault] = None,
         include: Optional[Iterable[str]] = None,
         exclude: Optional[Iterable[str]] = None,
-        secondary_detector=None,
+        secondary_detector: Any = None,
         merge_mode: str = "union",
         role_split_labels: Optional[Iterable[str]] = None,
-    ):
+    ) -> None:
         if strategy not in {"tokenize", "redact", "asterisk", "hashed",
                             "partial", "fpe"}:
             raise ValueError(f"Unknown strategy: {strategy}")
@@ -157,14 +157,14 @@ class Anonymizer:
             )
 
         if self.strategy == "redact":
-            def repl(d):
+            def repl(d: DetectionResult) -> str:
                 return f"[{label_to_hangul(d.label)}]"
             return apply_substitutions(
                 text, (r.detection for r in to_block), repl
             )
 
         if self.strategy == "asterisk":
-            def repl(d):
+            def repl(d: DetectionResult) -> str:
                 return "*" * max(1, d.end - d.start)
             return apply_substitutions(
                 text, (r.detection for r in to_block), repl
@@ -194,7 +194,7 @@ class Anonymizer:
 
         # fpe
         from ko_pii.modes.fpe import _FPE_BY_LABEL, _fpe_default
-        def repl(d: DetectionResult) -> str:
+        def repl_fpe(d: DetectionResult) -> str:
             fp = self.vault.fingerprint(d.label, d.text)
             fn = _FPE_BY_LABEL.get(d.label, _fpe_default)
             new_val = fn(d.text, fp)
@@ -211,13 +211,13 @@ class Anonymizer:
                     rec.token = new_val
                     break
             return new_val
-        return apply_substitutions(text, (r.detection for r in to_block), repl)
+        return apply_substitutions(text, (r.detection for r in to_block), repl_fpe)
 
     def _build_summary(
         self,
         decisions: list[DetectionRecord],
         combined: CombinedRiskReport,
-    ) -> dict:
+    ) -> dict[str, Any]:
         by_action: dict[str, int] = {}
         by_risk: dict[str, int] = {}
         by_label: dict[str, int] = {}

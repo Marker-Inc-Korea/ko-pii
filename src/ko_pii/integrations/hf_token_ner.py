@@ -20,7 +20,7 @@
 """
 from __future__ import annotations
 
-from typing import Iterator, Optional
+from typing import Any, Iterator, Optional
 
 from ko_pii.core.types import DetectionResult, RiskLevel
 
@@ -108,8 +108,9 @@ class HFTokenNERAdapter:
         self.model_path = model_path
         self.device = device
         self.max_length = max_length
-        self._model = None
-        self._tokenizer = None
+        # transformers 모델/토크나이저 — lazy 로드 (torch 미설치 환경 고려해 Any).
+        self._model: Any = None
+        self._tokenizer: Any = None
 
     def _ensure_loaded(self) -> None:
         if self._model is not None:
