@@ -535,3 +535,25 @@ def test_star_over_restricted_table_blocks(sql: str) -> None:
     r = check(sql, policy=POLICY)
     assert r.verdict is Verdict.BLOCK, sql
     assert any(v.code == "column_not_allowed" for v in r.violations), [v.code for v in r.violations]
+
+
+# --- Tautology bypass family: non-bare-EQ constant-true predicates ---
+
+TAUTOLOGY_BYPASS = [
+    "SELECT id FROM customers WHERE name='x' OR (1)=(1)",   # Paren-wrapped operands
+    "SELECT id FROM customers WHERE name='x' OR 2>1",       # GT constant
+    "SELECT id FROM customers WHERE name='x' OR 1",         # bare truthy literal
+    "SELECT id FROM customers WHERE name='x' OR NOT 1=2",   # NOT(const-false)
+    "SELECT id FROM customers WHERE name='x' OR 1=1.0",     # int vs float equality
+]
+
+
+@pytest.mark.parametrize("sql", TAUTOLOGY_BYPASS, ids=lambda s: s[-18:])
+def test_tautology_bypass_blocks(sql: str) -> None:
+    assert _verdict(sql) is Verdict.BLOCK, sql
+
+
+def test_non_literal_limit_is_capped() -> None:
+    # 비리터럴 LIMIT(서브쿼리)은 정적으로 상한 보증 불가 → max_limit 강제(무캡 PASS 금지).
+    r = check("SELECT id FROM customers LIMIT (SELECT 1000000)", policy=POLICY)
+    assert any(v.code == "limit_capped" for v in r.violations), r.violations

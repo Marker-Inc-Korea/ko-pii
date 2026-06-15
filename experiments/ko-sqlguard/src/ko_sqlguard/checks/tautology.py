@@ -6,26 +6,90 @@ Scans WHERE / HAVING / QUALIFY and JOIN ON predicates.
 """
 from __future__ import annotations
 
+import operator
+
 from sqlglot import exp
 
 from ..policy import GuardPolicy
 from ..result import Severity, Violation
 
+_CMP = {
+    exp.EQ: operator.eq, exp.NEQ: operator.ne,
+    exp.GT: operator.gt, exp.GTE: operator.ge,
+    exp.LT: operator.lt, exp.LTE: operator.le,
+}
+
+
+def _lit(node: exp.Expression) -> tuple[str, object] | None:
+    """Paren 을 벗기고 리터럴/불리언이면 (kind, value) 로 정규화. 숫자는 float 로(1=1.0 동치)."""
+    while isinstance(node, exp.Paren):
+        node = node.this
+    if isinstance(node, exp.Boolean):
+        return ("b", bool(node.this))
+    if isinstance(node, exp.Literal):
+        if node.is_string:
+            return ("s", node.this)
+        try:
+            return ("n", float(node.this))
+        except ValueError:
+            return ("s", node.this)
+    return None
+
+
+def _const_eval(node: exp.Expression | None) -> bool | None:
+    """상수 술어의 진리값. 컬럼 등 판정 불가면 None — '1=1','2>1','(1)=(1)','OR 1',
+    'NOT 1=2','1=1.0' 같은 상수-참 우회군을 일관되게 평가한다."""
+    if node is None:
+        return None
+    if isinstance(node, exp.Paren):
+        return _const_eval(node.this)
+    if isinstance(node, exp.Not):
+        v = _const_eval(node.this)
+        return None if v is None else (not v)
+    if isinstance(node, exp.Boolean):
+        return bool(node.this)
+    if isinstance(node, exp.Literal):
+        if node.is_string:
+            return None
+        try:
+            return float(node.this) != 0  # bare truthy 리터럴(OR 1)
+        except ValueError:
+            return None
+    if isinstance(node, exp.Or):
+        a, b = _const_eval(node.this), _const_eval(node.expression)
+        if a is True or b is True:
+            return True
+        if a is False and b is False:
+            return False
+        return None
+    if isinstance(node, exp.And):
+        a, b = _const_eval(node.this), _const_eval(node.expression)
+        if a is False or b is False:
+            return False
+        if a is True and b is True:
+            return True
+        return None
+    for cls, op in _CMP.items():
+        if isinstance(node, cls):
+            lv, rv = _lit(node.this), _lit(node.expression)
+            if lv is None or rv is None:
+                return None
+            (lk, lval), (rk, rval) = lv, rv
+            if lk != rk:  # 숫자 vs 문자 등 이종 비교 — EQ=거짓, NEQ=참, 그 외 판정 보류
+                if cls is exp.EQ:
+                    return False
+                if cls is exp.NEQ:
+                    return True
+                return None
+            try:
+                return bool(op(lval, rval))  # type: ignore[arg-type]  # same kind → comparable
+            except TypeError:
+                return None
+    return None
+
 
 def _is_const_true(node: exp.Expression | None) -> bool:
-    if node is None:
-        return False
-    if isinstance(node, exp.Paren):
-        return _is_const_true(node.this)
-    if isinstance(node, exp.Boolean):
-        return bool(node.this) is True
-    if isinstance(node, exp.EQ):
-        left, right = node.this, node.expression
-        if isinstance(left, exp.Literal) and isinstance(right, exp.Literal):
-            return left.this == right.this and left.is_string == right.is_string
-    if isinstance(node, exp.Or):
-        return _is_const_true(node.this) or _is_const_true(node.expression)
-    return False
+    return _const_eval(node) is True
 
 
 def _predicate_roots(stmt: exp.Expression) -> list[exp.Expression]:

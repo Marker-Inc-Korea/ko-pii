@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from . import patterns
 from .normalize import normalize
-from .normalize.leet import deleet
+from .normalize.leet import deleet_variants
 from .policy import GuardPolicy
 from .result import GuardBlocked, GuardResult, Verdict, Violation
 
@@ -32,12 +32,14 @@ class Guard:
         # leetspeak 보강: 숫자→글자 디코드본에서 '추가로' 잡히는 공격만 더한다. 원본
         # FLAG/was_obfuscated 에는 영향 없음(정상 'mp3'/'버전3' 과탐 방지).
         if policy.de_leet:
-            deleeted = deleet(normalized)
-            if deleeted != normalized:
-                seen = {(v.category, v.code) for v in violations}
+            seen = {(v.category, v.code) for v in violations}
+            for deleeted in deleet_variants(normalized):
+                if deleeted == normalized:
+                    continue
                 for v in patterns.scan(deleeted):
                     if (v.category, v.code) not in seen:
                         violations.append(v)
+                        seen.add((v.category, v.code))
 
         blocking = [
             v

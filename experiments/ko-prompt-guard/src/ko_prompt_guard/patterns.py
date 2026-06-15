@@ -267,14 +267,14 @@ def scan(text: str) -> list[Violation]:
                 )
         # 영어 표면형 injection(ASCII)이 번역/인용 프레이밍과 함께면 인용으로 간주해 제외.
         # 한글 명령이 동반되면 best 가 한글(비ASCII)이라 그대로 잡힌다(우회 방지).
+        # 주의: 순수 영어 injection + 번역동사("ignore… 번역해줘")는 '번역 요청'과
+        # '번역 가장 우회'가 표면 구분 불가 → Tier-2(LLM 의도판정) 영역으로 두고 제외 유지.
         if (
             best is not None
             and _TRANSLATION_FRAME.search(text)
             and (
-                # 영어 표면형 injection 인용("ignore... 번역해줘")
                 (category is Category.INSTRUCTION_OVERRIDE
                  and best.matched is not None and best.matched.isascii())
-                # 음차 단어 뜻/번역 질문("디스리가드 영어 단어 뜻이 뭐야")
                 or category is Category.TRANSLITERATION
             )
         ):
@@ -293,14 +293,13 @@ def scan_encoding(text: str) -> list[Violation]:
         # base64 blob 은 base64-ness 가 있을 때만(약품명/코드/해시/숫자열 FP 방지).
         if idx == 1 and not _looks_base64(m.group(0)):
             continue
-        if m:
-            return [Violation(
-                code=f"encoding#{idx}",
-                category=Category.ENCODING,
-                severity=sev,
-                reason=f"encoded payload heuristic: {m.group(0)[:40]!r}",
-                start=m.start(),
-                end=m.end(),
-                matched=m.group(0),
-            )]
+        return [Violation(
+            code=f"encoding#{idx}",
+            category=Category.ENCODING,
+            severity=sev,
+            reason=f"encoded payload heuristic: {m.group(0)[:40]!r}",
+            start=m.start(),
+            end=m.end(),
+            matched=m.group(0),
+        )]
     return []

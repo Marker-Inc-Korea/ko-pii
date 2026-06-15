@@ -64,6 +64,20 @@ def apply_limit(
             )
         ]
 
+    if policy.max_limit is not None and current is None:
+        # 비리터럴 LIMIT(서브쿼리/파라미터/표현식)은 상한을 정적으로 보증할 수 없다 →
+        # fail-closed 로 max_limit 을 강제 주입한다(무캡 통과 차단).
+        new = stmt.limit(policy.max_limit)
+        return new, [
+            Violation(
+                code="limit_capped",
+                severity=Severity.LOW,
+                reason=f"non-literal LIMIT cannot be bounded; forced to {policy.max_limit}",
+                action="transform",
+                fix=None,
+            )
+        ]
+
     if policy.max_limit is not None and current is not None and current > policy.max_limit:
         new = stmt.limit(policy.max_limit)
         return new, [
