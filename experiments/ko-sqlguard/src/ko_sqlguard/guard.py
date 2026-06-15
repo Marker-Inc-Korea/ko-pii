@@ -42,6 +42,8 @@ class Guard:
         self.policy = policy or GuardPolicy()
 
     def check(self, sql: str) -> GuardResult:
+        if not isinstance(sql, str):
+            raise TypeError(f"check() expects str, got {type(sql).__name__}")
         policy = self.policy
         original = sql
 

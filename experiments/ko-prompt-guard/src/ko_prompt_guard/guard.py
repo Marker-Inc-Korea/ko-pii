@@ -21,6 +21,8 @@ class Guard:
         self.policy = policy or GuardPolicy()
 
     def check(self, text: str) -> GuardResult:
+        if not isinstance(text, str):
+            raise TypeError(f"check() expects str, got {type(text).__name__}")
         policy = self.policy
         normalized, changed = normalize(text, policy)
 
