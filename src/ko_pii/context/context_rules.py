@@ -101,18 +101,23 @@ def _has_title_adjacent(text: str, start: int, end: int, window: int = 5) -> tup
     return None, False
 
 
-def _has_agency_in_sentence(text: str, start: int, end: int) -> bool:
+def _has_agency_in_sentence(
+    text: str, start: int, end: int, cache: dict[tuple[int, int], bool] | None = None
+) -> bool:
     # Extract sentence boundaries: . / 다. / 음. / line break
     left = max(text.rfind(".", 0, start), text.rfind("\n", 0, start)) + 1
     right_dot = text.find(".", end)
     right_nl = text.find("\n", end)
     candidates = [r for r in (right_dot, right_nl) if r != -1]
     right = min(candidates) if candidates else len(text)
-    sentence = text[left:right]
-    for tok in _word_iter(sentence):
-        if is_agency(tok):
-            return True
-    return False
+    # 같은 문장의 후보들은 동일한 (left, right) 범위를 공유 → 한 번만 단어 순회하도록
+    # 캐시(없으면 O(후보×단어)=O(n²); 긴 문서·이름 다수에서 quadratic 폭주를 막는다).
+    if cache is not None and (left, right) in cache:
+        return cache[(left, right)]
+    result = any(is_agency(tok) for tok in _word_iter(text[left:right]))
+    if cache is not None:
+        cache[(left, right)] = result
+    return result
 
 
 def _has_particle_attached(text: str, end: int) -> str | None:
@@ -140,6 +145,7 @@ def score_candidate(
     cand: NameCandidate,
     deterministic_nearby: bool = False,
     name_dictionary_boost: float = 0.0,
+    agency_cache: dict[tuple[int, int], bool] | None = None,
 ) -> Score:
     """Compute a 0~1 score for ``cand`` based on surrounding signals."""
     ev: list[str] = []
@@ -197,7 +203,7 @@ def score_candidate(
         ev.append("pos:deterministic_pii_nearby")
 
     # Agency mention in same sentence
-    if _has_agency_in_sentence(text, cand.start, cand.end):
+    if _has_agency_in_sentence(text, cand.start, cand.end, agency_cache):
         score += 0.10
         ev.append("pos:agency_in_sentence")
 
