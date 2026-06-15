@@ -17,13 +17,22 @@ _ORIGINAL_OFFSET = frozenset({Category.SECRET_LEAK, Category.PII_LEAK})
 
 
 def _redact(text: str, violations: tuple[Violation, ...]) -> str:
-    spans = sorted(
-        ((v.start, v.end) for v in violations
-         if v.category in _ORIGINAL_OFFSET and v.start is not None and v.end is not None),
-        reverse=True,
+    raw = sorted(
+        (v.start, v.end) for v in violations
+        if v.category in _ORIGINAL_OFFSET and v.start is not None and v.end is not None
     )
+    if not raw:
+        return text
+    # 겹치거나 인접한 span 을 병합한다 — SECRET·PII 가 독립 검출돼 구간이 겹칠 때
+    # 순차 치환이 서로의 결과를 깨뜨려(후행 바이트 재노출) 마스킹이 손상되는 것을 막는다.
+    merged: list[list[int]] = [list(raw[0])]
+    for s, e in raw[1:]:
+        if s <= merged[-1][1]:
+            merged[-1][1] = max(merged[-1][1], e)
+        else:
+            merged.append([s, e])
     out = text
-    for s, e in spans:
+    for s, e in reversed(merged):
         out = out[:s] + "[REDACTED]" + out[e:]
     return out
 

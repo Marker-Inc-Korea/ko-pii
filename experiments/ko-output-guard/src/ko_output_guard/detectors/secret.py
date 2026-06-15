@@ -94,6 +94,9 @@ def scan_secrets(text: str) -> list[Violation]:
                 val = m.group(1)
                 if _PLACEHOLDER.match(val) or len(set(val)) <= 3:
                     continue
+            # 광범위 매칭 패턴(틸드 포함 Azure AD)은 저-엔트로피(반복/placeholder)면 건너뜀.
+            if code == "azure_ad_secret" and len(set(m.group(0))) <= 6:
+                continue
             seen.add(span)
             out.append(
                 Violation(

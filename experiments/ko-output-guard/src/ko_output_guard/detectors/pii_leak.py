@@ -16,6 +16,9 @@ _RISK_TO_SEV = {"CRITICAL": Severity.CRITICAL, "HIGH": Severity.HIGH,
 # 연결 문자열 user:pw@host — 여기 '@host' 는 이메일이 아니라 DB/서비스 호스트다.
 _CONN_USERINFO = re.compile(r"[a-z][a-z0-9+.\-]*://[^\s/@]*:[^\s/@]*@[^\s/@]+")
 
+# 구분자 우회 회복용 — 사본에서 걷어내는 문자(공백/탭/콤마/세미콜론/언더스코어, 전각 포함).
+_STRIP_CHARS = frozenset(" \t,;_，；＿")
+
 # 출력 가드에서 제외하는 ko-pii 라벨. PERSON/ADDRESS/PERSONAL_ATTR 은 성씨-시작
 # 일반명사 오탐이 잦고, MAJOR(전공)은 '의학/약학/화학', AGE('두 살')는 맥락 의존
 # 일반표현이라 단독으로는 식별이 안 되므로 결정적 PII(RRN/카드/전화/이메일/사업자)만 본다.
@@ -55,8 +58,15 @@ def scan_pii_leak(text: str) -> list[Violation]:
         )
     # 자리/구분자 우회('9 0 0 1…', '900101,1234567', '900101_1234567') 회복 — 공백·콤마·
     # 세미콜론·언더스코어(전각 포함)를 걷어낸 사본에서 재검사한다. checksum·형식 검증이 있어
-    # 임의 숫자 나열은 통과 못 한다. 사본 기준이라 offset(redact)은 없지만 BLOCK 은 유효하다.
-    collapsed = re.sub(r"[ \t,;_，；＿]+", "", text)
+    # 임의 숫자 나열은 통과 못 한다. 사본 인덱스→원본 인덱스 역매핑(idx_map)으로 원본 span 을
+    # 복원해, BLOCK 시 redacted_text 가 PII 를 정확히 마스킹하도록 한다(재누출 방지).
+    collapsed_chars: list[str] = []
+    idx_map: list[int] = []
+    for i, ch in enumerate(text):
+        if ch not in _STRIP_CHARS:
+            collapsed_chars.append(ch)
+            idx_map.append(i)
+    collapsed = "".join(collapsed_chars)
     if collapsed != text:
         for d in detect_all(collapsed, exclude=_EXCLUDE):
             # 전화는 자리별 공백이 정상 표기('010 1234 5678')와 구분되지 않아 사본 회복에서 제외.
@@ -69,8 +79,8 @@ def scan_pii_leak(text: str) -> list[Violation]:
                     category=Category.PII_LEAK,
                     severity=_RISK_TO_SEV.get(risk, Severity.MEDIUM),
                     reason=f"personal data via spacing-evasion: {d.label}",
-                    start=None,
-                    end=None,
+                    start=idx_map[d.start],          # 원본 span 복원
+                    end=idx_map[d.end - 1] + 1,
                     matched=d.text[:40],
                 )
             )

@@ -1,11 +1,20 @@
 """ko-output-guard 카테고리별 동작 + 과탐 방지 + 견고성."""
 from __future__ import annotations
 
+import importlib.util
+
 import pytest
 
 from ko_output_guard import Category, Guard, Verdict
 
 G = Guard()
+
+# ko-pii 는 PII 탐지용 optional 의존성. 미설치 시 PII detector 가 조용히 no-op 되므로,
+# PII BLOCK 을 단언하는 테스트는 FAIL 대신 SKIP 시켜 '조용한 비활성화'가 가려지지 않게 한다.
+needs_kopii = pytest.mark.skipif(
+    importlib.util.find_spec("ko_pii") is None,
+    reason="ko-pii not installed; PII detection is disabled (no-op)",
+)
 
 
 def _v(t: str, ctx: str | None = None) -> Verdict:
@@ -134,6 +143,7 @@ def test_safe_not_blocked(t: str) -> None:
     assert _v(t) is Verdict.SAFE
 
 
+@needs_kopii
 def test_pii_leak_blocks() -> None:
     r = G.check("고객님 주민번호는 900101-1234567 입니다")
     assert r.verdict is Verdict.BLOCK
@@ -247,6 +257,7 @@ def test_toxicity_leet_and_initials(t: str) -> None:
     "카드 결제 4 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 승인",
     "사업자 2 2 0 - 8 1 - 6 2 5 1 7 등록",
 ])
+@needs_kopii
 def test_pii_spacing_evasion_blocks(t: str) -> None:
     assert _v(t) is Verdict.BLOCK
 
@@ -288,6 +299,7 @@ def test_toxicity_separator_no_fp(t: str) -> None:
     "카드 4532,0151,1283,0366 승인",
     "계좌 신한 110_123_456789 입금",
 ])
+@needs_kopii
 def test_pii_delimiter_evasion_blocks(t: str) -> None:
     assert _v(t) is Verdict.BLOCK
 
@@ -339,3 +351,28 @@ def test_normalize_off_passes_obfuscated() -> None:
 def test_empty_and_edge_no_crash() -> None:
     for t in ("", "   ", "\x00", "가" * 10000, "🔥" * 100):
         assert G.check(t).verdict in (Verdict.SAFE, Verdict.FLAG, Verdict.BLOCK)
+
+
+@needs_kopii
+@pytest.mark.parametrize("t", [
+    "주민번호 900101,1234567 노출",
+    "주민번호 9 0 0 1 0 1 - 1 2 3 4 5 6 7 입니다",
+    "카드 4532_0151_1283_0366",
+])
+def test_redaction_no_pii_releak(t: str) -> None:
+    # 구분자 우회 PII 가 BLOCK 시 redacted_text 로 재누출되면 안 된다(보안 계약).
+    r = G.check(t)
+    assert r.verdict is Verdict.BLOCK
+    assert r.redacted_text is not None and "[REDACTED]" in r.redacted_text
+    # 원본의 긴 숫자열(RRN/카드 뒷자리)이 redacted 에 그대로 남지 않아야 함.
+    assert "1234567" not in r.redacted_text and "1283" not in r.redacted_text
+
+
+def test_redact_overlapping_spans_no_corruption() -> None:
+    # secret+pii 가 겹쳐도 [REDACTED] 가 서로를 깨뜨리지 않아야(중첩 span 병합).
+    # JWT 형 토큰은 런타임 조립(정적 secret-스캐너 회피 — 합성 더미).
+    jwt = ("eyJ" + "hbGciOiJIUzI1NiJ9" + "." + "eyJ" + "zdWIiOiIxMjMifQ"
+           + "." + "aGVsbG93b3JsZHNlY3JldA")
+    r = G.check("토큰 " + jwt)
+    if r.verdict is Verdict.BLOCK and r.redacted_text:
+        assert "eyJ" not in r.redacted_text
