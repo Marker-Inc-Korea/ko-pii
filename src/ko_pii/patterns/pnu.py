@@ -48,7 +48,7 @@ _VALID_SIDO_CODES: frozenset[str] = frozenset({
 })
 
 
-def _is_valid_pnu(digits: str) -> tuple[bool, dict]:
+def _is_valid_pnu(digits: str) -> tuple[bool, dict[str, object]]:
     if len(digits) != 19:
         return False, {}
     sido = digits[0:2]

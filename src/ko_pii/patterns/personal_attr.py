@@ -442,9 +442,10 @@ def detect_measurements(text: str) -> Iterator[DetectionResult]:
         if any(span[0] < e and s < span[1] for s, e in seen_age):
             continue
         token = m.group(1).strip()
-        age = _parse_korean_age(token)
-        if age is None or not (0 <= age <= 99):
+        parsed = _parse_korean_age(token)
+        if parsed is None or not (0 <= parsed <= 99):
             continue
+        age = parsed
         seen_age.add(span)
         yield DetectionResult(
             label="AGE", text=m.group(0),

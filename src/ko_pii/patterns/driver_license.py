@@ -57,7 +57,7 @@ def _has_keyword_before(text: str, start: int, window: int = 15) -> str | None:
     return None
 
 
-def _emit(m: re.Match, has_hyphen: bool, kw: str | None) -> DetectionResult:
+def _emit(m: re.Match[str], has_hyphen: bool, kw: str | None) -> DetectionResult:
     region = m.group(1)
     evidence = ["pattern:driver_license", f"region:{region}"]
     if has_hyphen:

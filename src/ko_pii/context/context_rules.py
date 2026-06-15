@@ -18,6 +18,8 @@
 """
 from __future__ import annotations
 
+from collections.abc import Iterator
+
 from dataclasses import dataclass, field
 
 from ko_pii.dictionaries.common_words import is_common_word
@@ -130,7 +132,7 @@ def _has_particle_attached(text: str, end: int) -> str | None:
     return None
 
 
-def _word_iter(text: str):
+def _word_iter(text: str) -> Iterator[str]:
     import re
     for m in re.finditer(r"\S+", text):
         yield m.group(0)

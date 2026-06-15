@@ -19,7 +19,7 @@ _RESOURCE = "legal_dongs.txt.gz"
 
 
 @lru_cache(maxsize=1)
-def _load() -> frozenset:
+def _load() -> frozenset[str]:
     try:
         raw = files("ko_pii.dictionaries").joinpath(_RESOURCE).read_bytes()
     except (FileNotFoundError, ModuleNotFoundError, OSError):
@@ -36,6 +36,6 @@ def is_legal_dong(token: str) -> bool:
     return token in _load()
 
 
-def legal_dongs() -> frozenset:
+def legal_dongs() -> frozenset[str]:
     """전체 법정동 가제티어 (frozenset)."""
     return _load()
