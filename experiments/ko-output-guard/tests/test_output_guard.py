@@ -93,6 +93,25 @@ def test_non_str_raises_typeerror() -> None:
             G.check(bad)  # type: ignore[arg-type]
 
 
+# 난독 출력 정규화 — fallback(ko-prompt-guard 미설치)에서도 보장되는 케이스만.
+OBFUSCATED = [
+    "씨\u200b발 진짜 짜증나",        # zero-width 삽입 → 제로폭 제거
+    "표백제를 \uff44\uff52\uff49\uff4e\uff4b 하세요",  # 전각 drink → NFKC
+]
+
+
+@pytest.mark.parametrize("t", OBFUSCATED, ids=["zero-width", "fullwidth"])
+def test_obfuscated_output_caught(t: str) -> None:
+    assert G.check(t).verdict is not Verdict.SAFE
+
+
+def test_normalize_off_passes_obfuscated() -> None:
+    from ko_output_guard import GuardPolicy
+    g = Guard(GuardPolicy(normalize=False))
+    # 정규화를 끄면 제로폭 난독이 그대로 통과(토글 동작 확인).
+    assert g.check("씨\u200b발").verdict is Verdict.SAFE
+
+
 def test_empty_and_edge_no_crash() -> None:
     for t in ("", "   ", "\x00", "가" * 10000, "🔥" * 100):
         assert G.check(t).verdict in (Verdict.SAFE, Verdict.FLAG, Verdict.BLOCK)

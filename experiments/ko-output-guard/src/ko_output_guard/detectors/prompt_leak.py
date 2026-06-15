@@ -12,7 +12,7 @@ from ..result import Category, Severity, Violation
 _LEAK_MARKERS = re.compile(
     r"(?:나의|내|제)\s*(?:시스템\s*)?(?:프롬프트|지침|규칙|역할)\s*(?:은|는|:)|"
     r"(?:받은|받았던|주어진)\s*(?:지침|지시|규칙|프롬프트|설정)\s*(?:은|는|:|을)|"
-    r"(?:system\s*prompt|my\s*instructions?|i\s*was\s*(?:told|instructed))\s*(?:is|are|:)|"
+    r"(?:system\s*(?:prompt|프롬프트)|시스템\s*prompt|my\s*instructions?|i\s*was\s*(?:told|instructed))\s*(?:is|are|:|을|를|알려|보여)|"
     r"다음\s*(?:지침|규칙)을?\s*따르(?:도록|라고)\s*(?:지시|설정)",
     re.IGNORECASE,
 )

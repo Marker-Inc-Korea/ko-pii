@@ -39,6 +39,6 @@ text = g.enforce(llm_output)        # BLOCK 이면 GuardBlocked 발생
 - `PII_LEAK` 는 ko-pii 의 결정적 PII(RRN/카드/전화/이메일/사업자)만 — PERSON/ADDRESS 는
   오탐이 잦아 기본 제외(이름 누출까지 막으려면 ko-pii 직접 호출).
 - `TOXICITY` 사전은 소규모 시드 — 실사용은 도메인 사전 확장.
-- 난독(초성화·제로폭 등)된 출력은 호출 전 `ko-prompt-guard.normalize` 로 펴서 넣는 것을 권장.
+- 난독(초성화·제로폭·전각·homoglyph·공백분리) 출력은 한국어 detector 검사 전 자동 정규화한다 — `ko-prompt-guard` 설치 시 강력(자모/초성/splitting/leet), 미설치 시 경량 fallback(제로폭 제거+NFKC). `GuardPolicy(normalize=False)` 로 끌 수 있다. SECRET/PII 는 형식 보존 위해 원본에서 검사.
 
 의존성: `pydantic` (+ PII 연동 시 `ko-pii`). MIT.

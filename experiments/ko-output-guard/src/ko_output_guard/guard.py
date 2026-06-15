@@ -7,13 +7,19 @@ detector 를 돌리고 GuardResult 를 반환한다. 네트워크·LLM 호출이
 from __future__ import annotations
 
 from . import detectors
+from .normalize import normalize_for_detection
 from .policy import GuardPolicy
-from .result import GuardBlocked, GuardResult, Verdict, Violation
+from .result import Category, GuardBlocked, GuardResult, Verdict, Violation
+
+# 원본 텍스트 기준 offset 을 갖는(=정규화 안 거친) 카테고리만 redact 대상.
+# toxicity/unsafe/prompt-leak 은 정규화본 offset 이라 원본에 적용하면 어긋난다.
+_ORIGINAL_OFFSET = frozenset({Category.SECRET_LEAK, Category.PII_LEAK})
 
 
 def _redact(text: str, violations: tuple[Violation, ...]) -> str:
     spans = sorted(
-        ((v.start, v.end) for v in violations if v.start is not None and v.end is not None),
+        ((v.start, v.end) for v in violations
+         if v.category in _ORIGINAL_OFFSET and v.start is not None and v.end is not None),
         reverse=True,
     )
     out = text
@@ -32,17 +38,19 @@ class Guard:
         if not isinstance(text, str):
             raise TypeError(f"check() expects str, got {type(text).__name__}")
         p = self.policy
+        # SECRET/PII 는 형식 보존을 위해 원본에서, 한국어 detector 는 난독을 편 정규화본에서.
+        norm = normalize_for_detection(text) if p.normalize else text
         violations: list[Violation] = []
         if p.detect_secret:
             violations += detectors.scan_secrets(text)
         if p.detect_pii:
             violations += detectors.scan_pii_leak(text)
         if p.detect_unsafe_advice:
-            violations += detectors.scan_unsafe_advice(text)
+            violations += detectors.scan_unsafe_advice(norm)
         if p.detect_toxicity:
-            violations += detectors.scan_toxicity(text)
+            violations += detectors.scan_toxicity(norm)
         if p.detect_prompt_leak:
-            violations += detectors.scan_prompt_leak(text, context)
+            violations += detectors.scan_prompt_leak(norm, context)
 
         blocking = [
             v for v in violations

@@ -19,6 +19,10 @@ class GuardPolicy(BaseModel):
     detect_toxicity: bool = True
     detect_prompt_leak: bool = True
 
+    # 한국어 detector(toxicity/unsafe/prompt-leak)에 난독 정규화를 적용할지.
+    # SECRET/PII 는 형식 보존을 위해 항상 원본에서 검사한다(정규화 미적용).
+    normalize: bool = True
+
     # 이 카테고리 위반이 min_block_severity 이상이면 BLOCK, 아니면 FLAG.
     block_categories: frozenset[Category] = frozenset({
         Category.SECRET_LEAK,
