@@ -141,3 +141,11 @@ class TestCorpRegPipeline:
         ds = detect_all("880101-1234568")
         labels = {d.label for d in ds}
         assert "RRN" in labels and "CORP_REG" not in labels
+
+
+def test_zwsp_separated_pii_still_detected() -> None:
+    # 제로폭으로 끼워넣은/쪼갠 PII 도 정규화 + (필요시) 원본 재검사로 검출 유지.
+    from ko_pii import detect_all
+    zw = "​"
+    assert any(d.label == "PHONE" for d in detect_all(f"연락처 010{zw}1234{zw}5678"))
+    assert any(d.label == "RRN" for d in detect_all(f"주민 900101{zw}1234567"))

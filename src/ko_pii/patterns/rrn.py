@@ -72,7 +72,7 @@ def _decode_birth_date(yymmdd: str, gender_digit: int) -> date | None:
         return None
 
 
-def _emit(m: re.Match, offset: int = 0) -> DetectionResult | None:
+def _emit(m: re.Match[str], offset: int = 0) -> DetectionResult | None:
     """공통 RRN 검출 로직. offset = 매치 내에서 front 시작 위치 보정."""
     front, back = m.group(1), m.group(2)
     gender_digit = int(back[0])

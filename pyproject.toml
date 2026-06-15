@@ -103,6 +103,21 @@ testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "-ra"
 
+[tool.mypy]
+python_version = "3.10"
+strict = true
+# 결정론 핫패스(검출 경로)를 strict-clean 게이트로 둔다. integrations/eval/classifier/
+# vault 등 비핫패스는 아직 strict 미적용 — 점진 정리(별도 dev 트랙).
+files = [
+    "src/ko_pii/core",
+    "src/ko_pii/patterns",
+    "src/ko_pii/checksum",
+    "src/ko_pii/context",
+    "src/ko_pii/dictionaries",
+    "src/ko_pii/domain",
+    "src/ko_pii/detect.py",
+]
+
 [tool.coverage.run]
 source = ["src/ko_pii"]
 omit = ["*/integrations/openai_privacy_filter.py", "*/integrations/mcp_server.py"]

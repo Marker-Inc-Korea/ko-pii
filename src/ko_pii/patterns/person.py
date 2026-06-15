@@ -13,7 +13,7 @@ Legal basis: 개인정보보호법 제2조 (성명을 통한 개인 식별).
 from __future__ import annotations
 
 import re
-from typing import Iterable, Iterator
+from typing import Any, Iterable, Iterator
 
 from ko_pii.context.context_rules import NameCandidate, score_candidate
 from ko_pii.context.name_dictionary import NameDictionary
@@ -343,7 +343,7 @@ def _detect_with_dict(
         macro_spans.add((p_start, p_end))
 
     pending: list[tuple[NameCandidate, float, list[str], str | None]] = []
-    emitted: list[tuple] = []  # (cand, particle, score, evidence)
+    emitted: list[tuple[Any, ...]] = []  # (cand, particle, score, evidence)
     # 매크로로 잡은 것은 우선 emit
     for p_start, p_end, agency, person_text, title in _macro_matches(text):
         if is_common_word(person_text):
@@ -505,8 +505,8 @@ def _detect_with_dict(
             sid = _sentence_id(cand.start, sentence_boundaries)
             strong_sentence_ids.add(sid)
 
-    co_boosted: list[tuple] = []
-    still_pending: list[tuple] = []
+    co_boosted: list[tuple[Any, ...]] = []
+    still_pending: list[tuple[Any, ...]] = []
     for cand, score_v, ev, particle in pending:
         sid = _sentence_id(cand.start, sentence_boundaries)
         if sid in strong_sentence_ids:

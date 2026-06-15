@@ -106,7 +106,7 @@ _REPRESENTATIVE = re.compile(
 )
 
 
-def _emit(m: re.Match, phone_type: str, international: bool = False) -> DetectionResult:
+def _emit(m: re.Match[str], phone_type: str, international: bool = False) -> DetectionResult:
     digits = re.sub(r"\D", "", m.group(0))
     ev = ["pattern:phone", f"type:{phone_type}"]
     if international:

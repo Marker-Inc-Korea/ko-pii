@@ -1,6 +1,7 @@
 """All-detector entry point — 모든 카테고리 검출기를 한 번에 실행."""
 from __future__ import annotations
 
+import re
 from typing import Iterable, Optional
 
 from ko_pii.core.types import DetectionResult
@@ -75,6 +76,14 @@ DETECTORS = (
     _dom_hr.detect,
 )
 
+# 영숫자 런(ASCII + 전각). 원본 재검사 필요 여부 판정용 — invisible 제거가 이 '런의 모양'
+# (길이 시퀀스)을 바꿨다면 두 PII 가 경계 융합/분리됐다는 뜻이라 원본도 봐야 한다.
+_PII_RUN = re.compile(r"[0-9A-Za-z０-９Ａ-Ｚａ-ｚ]+")
+
+
+def _run_shape(s: str) -> list[int]:
+    return [m.end() - m.start() for m in _PII_RUN.finditer(s)]
+
 
 def detect_all(
     text: str,
@@ -116,8 +125,12 @@ def detect_all(
         # 가드가 둘 다 거부하던 누출을 막는다 — 원본에서는 그 문자가 경계 역할을
         # 해 둘 다 검출된다. 정상 PII 중복은 아래 겹침 해소가 합쳐준다.
         raw = remap_to_source(raw, offset_map, source)
-        for fn in DETECTORS:
-            raw.extend(fn(source))
+        # 원본 재검사는 invisible 제거가 '영숫자 런 모양'을 바꾼 경우(=PII 경계 융합/분리)만
+        # 한다. 한글/공백/이모지 사이의 제로폭 떡칠은 모양이 그대로라 융합이 없으므로
+        # 더블패스(검출기 28개 2회)를 건너뛴다 — 제로폭 1자로 비용을 2배 만드는 DoS 완화.
+        if _run_shape(source) != _run_shape(text):
+            for fn in DETECTORS:
+                raw.extend(fn(source))
 
     inc = set(include) if include else None
     exc = set(exclude) if exclude else set()

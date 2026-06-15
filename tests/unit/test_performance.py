@@ -33,3 +33,12 @@ def test_scaling_stays_sub_quadratic() -> None:
     large = _elapsed("김철수 " * 16_000)
     if small > 0.005:  # 측정 잡음 회피
         assert large < small * 8, f"super-linear scaling: {small:.3f}s -> {large:.3f}s"
+
+
+def test_double_pass_gated_by_alnum_shape() -> None:
+    # 원본 재검사(더블패스)는 invisible 제거가 '영숫자 런 모양'을 바꾼 경우만 — 한글/공백
+    # 사이 제로폭 떡칠은 모양 불변이라 단일 패스(제로폭 1자 2x DoS 완화).
+    from ko_pii.detect import _run_shape
+    assert _run_shape("900101 1234567") != _run_shape("9001011234567")  # 영숫자 융합 → 더블
+    assert _run_shape("가나다 라마바") == _run_shape("가나다라마바")      # 한글 → 단일
+    assert _run_shape("안녕 하세요 반갑") == _run_shape("안녕하세요반갑")
