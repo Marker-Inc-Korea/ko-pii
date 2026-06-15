@@ -15,11 +15,15 @@ from ..result import Category, Severity, Violation
 _PROFANITY = re.compile(
     r"씨발|시발|씨바|개새끼|개색기|좆|병신|븅신|지랄|꺼져|엿\s*먹|닥쳐|"
     r"새끼야|개자식|미친놈|미친년|호로|쌍놈|썅|뒤져|디져|씨불|개색|"
-    # 초성/분리 변형(공백 삽입 우회 포함) — ㅅㅂ/ㅅ ㅂ, ㅈㄹ, ㄲㅈ(꺼져), ㅄ
-    r"ㅅ\s*ㅂ|ㅄ|ㅈ\s*ㄹ|ㄲ\s*ㅈ"
+    # 초성/분리 변형(공백 삽입 우회 포함) — ㅅㅂ/ㅂㅅ, ㅈㄹ, ㄲㅈ(꺼져), ㅄ
+    r"ㅅ\s*ㅂ|ㅂ\s*ㅅ|ㅄ|ㅈ\s*ㄹ|ㄲ\s*ㅈ|"
+    # 받침 분리 우회(완성음절+단독 종성) 대표형 — 정규화로 안 펴지는 흔한 변형
+    r"시바\s*ㄹ|지라\s*ㄹ|병시\s*ㄴ|조\s*ㅈ\s*같"
 )
-# 전각/로마자 우회(ｓｉｂａｌ→정규화→sibal, 영타 tlqkf 등). 대소문자 무시.
-_ROMAN_PROFANITY = re.compile(r"(?:ssi|shi|si)bal|tlqkf|qudtls|wlfkf", re.IGNORECASE)
+# 전각/로마자/leet 우회(ｓｉｂａｌ→정규화→sibal, 영타 tlqkf, si8al/t1qkf 등). 대소문자 무시.
+# leet 치환(i→1, b→8, a→4/@, l→1)을 문자클래스로 흡수한다.
+_ROMAN_PROFANITY = re.compile(
+    r"(?:ss|sh|s)[i1][b8][a4@][l1]|t[l1]qkf|qudt[l1]s|w[l1]fkf", re.IGNORECASE)
 # 혐오/차별 표현 시드(매우 보수적 — 명백한 비하만).
 _HATE = re.compile(r"틀딱|급식충|맘충|한남충|김치녀|짱깨|쪽바리|흑형|상폐녀")
 
