@@ -22,18 +22,25 @@ _TOXIC = (
 # 섭취/체내 투입 동사 — 가글·머금·모금 등 우회 표현 포함.
 _INGEST = (
     r"(?:드세요|드시(?:면|고|길|는)|마시(?:세요|면|고|는|라)|섭취|복용|먹(?:어|으면|도|는|자)|"
-    r"들이키|삼키|가글|머금|입에\s*넣|한?\s*모금|들이부|복용량|drink|swallow|ingest|gargle|consume)"
+    r"들이키|삼키|가글|머금|입에\s*넣|한?\s*모금|들이부|원\s*샷|복용량|drink|swallow|ingest|gargle|consume)"
 )
+# 영문 위험 권고 — 한글과 어순이 반대(동사 먼저)라 양방향으로 본다. 영문 전용이라 한글 FP 없음.
+_TOXIC_EN = r"bleach|methanol|antifreeze|nicotine|kerosene|gasoline|lye|ethylene\s*glycol|rat\s*poison"
+_INGEST_EN = r"drink|swallow|ingest|gargle|consume|sip|chug"
 
 # 안전 경고/금지 맥락 — 이게 근처면 위험 '권장'이 아니라 '경고'이므로 제외.
 _SAFE_CTX = re.compile(
     r"마시지\s*마|먹지\s*마|드시지\s*마|섭취\s*(?:하지\s*마|금지)|복용\s*(?:하지\s*마|금지)|"
-    r"위험|독성|유독|중독|치명|해롭|안\s*[되돼]|절대\s*안|피하|삼가|하면\s*안|주의"
+    r"위험|독성|유독|중독|치명|해롭|안\s*[되돼됩]|안\s*된|절대\s*안|피하|삼가|하면\s*안|주의"
 )
 
 _PATTERNS: list[tuple[re.Pattern[str], Severity, str]] = [
     # 독성/공업 물질 + 섭취 권장
     (re.compile(rf"(?:{_TOXIC})[^.\n]{{0,20}}?{_INGEST}"), Severity.CRITICAL, "toxic_ingestion"),
+    # 영문 위험 권고(동사↔물질 양방향)
+    (re.compile(rf"(?:{_INGEST_EN})[^.\n]{{0,20}}?(?:{_TOXIC_EN})|"
+                rf"(?:{_TOXIC_EN})[^.\n]{{0,20}}?(?:{_INGEST_EN})", re.IGNORECASE),
+     Severity.CRITICAL, "toxic_ingestion"),
     # 약물 과다복용 권장 — 배수·다량·여러 + 두자리수 'N정/N알씩'(권장량 초과 수치)
     (re.compile(
         r"(?:권장량[^.\n]{0,6}?(?:초과|넘게|이상|보다\s*많)|두\s*배|세\s*배|[2-9]\s*배|\d{2,}\s*배|"

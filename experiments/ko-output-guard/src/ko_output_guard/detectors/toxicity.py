@@ -14,8 +14,12 @@ from ..result import Category, Severity, Violation
 # 일상어(예: '병신' vs 의학용어)는 향후 화이트리스트로 분리.
 _PROFANITY = re.compile(
     r"씨발|시발|씨바|개새끼|개색기|좆|병신|븅신|지랄|꺼져|엿\s*먹|닥쳐|"
-    r"새끼야|개자식|미친놈|미친년|호로|쌍놈|썅|뒤져|디져|ㅅㅂ|ㅄ|ㅈㄹ|씨불|개색"
+    r"새끼야|개자식|미친놈|미친년|호로|쌍놈|썅|뒤져|디져|씨불|개색|"
+    # 초성/분리 변형(공백 삽입 우회 포함) — ㅅㅂ/ㅅ ㅂ, ㅈㄹ, ㄲㅈ(꺼져), ㅄ
+    r"ㅅ\s*ㅂ|ㅄ|ㅈ\s*ㄹ|ㄲ\s*ㅈ"
 )
+# 전각/로마자 우회(ｓｉｂａｌ→정규화→sibal, 영타 tlqkf 등). 대소문자 무시.
+_ROMAN_PROFANITY = re.compile(r"(?:ssi|shi|si)bal|tlqkf|qudtls|wlfkf", re.IGNORECASE)
 # 혐오/차별 표현 시드(매우 보수적 — 명백한 비하만).
 _HATE = re.compile(r"틀딱|급식충|맘충|한남충|김치녀|짱깨|쪽바리|흑형|상폐녀")
 
@@ -24,6 +28,7 @@ def scan_toxicity(text: str) -> list[Violation]:
     out: list[Violation] = []
     for code, pat, sev in (
         ("profanity", _PROFANITY, Severity.MEDIUM),
+        ("profanity", _ROMAN_PROFANITY, Severity.MEDIUM),
         ("hate_speech", _HATE, Severity.HIGH),
     ):
         m = pat.search(text)

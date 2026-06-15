@@ -26,8 +26,8 @@ def _light_fallback(text: str) -> str:
 
 def normalize_for_detection(text: str) -> str:
     try:
-        from ko_prompt_guard import GuardPolicy  # type: ignore[import-not-found]
-        from ko_prompt_guard.normalize import normalize  # type: ignore[import-not-found]
+        from ko_prompt_guard import GuardPolicy
+        from ko_prompt_guard.normalize import normalize
 
         return str(normalize(text, GuardPolicy())[0])
     except ImportError:

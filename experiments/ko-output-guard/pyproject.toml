@@ -52,7 +52,7 @@ python_version = "3.10"
 strict = true
 files = ["src"]
 
-# ko-pii 는 PII 연동용 optional 의존성 — 미설치 환경에서도 타입체크가 통과해야.
+# ko-pii / ko-prompt-guard 는 optional 의존성 — 미설치 환경에서도 타입체크가 통과해야.
 [[tool.mypy.overrides]]
-module = ["ko_pii", "ko_pii.*"]
+module = ["ko_pii", "ko_pii.*", "ko_prompt_guard", "ko_prompt_guard.*"]
 ignore_missing_imports = true

@@ -36,12 +36,35 @@ _PATTERNS: list[tuple[str, re.Pattern[str], Severity]] = [
          r"\s*[:=]\s*['\"]?([A-Za-z0-9_\-]{16,})"
      ),
      Severity.MEDIUM),
+    # --- 연결 문자열 / 추가 서비스 토큰 형식(red-team 발견) ---
+    # scheme://user:PASSWORD@host — postgres/mysql/mongodb/redis/amqp 등. group(1)=password.
+    ("db_connection_string",
+     re.compile(r"(?i)\b[a-z][a-z0-9+.\-]*://[^/\s:@]*:([^/\s:@]{6,})@"), Severity.HIGH),
+    ("npm_token", re.compile(r"\bnpm_[A-Za-z0-9]{36}\b"), Severity.CRITICAL),
+    ("azure_storage_key",
+     re.compile(r"AccountKey=([A-Za-z0-9+/]{40,}={0,2})"), Severity.CRITICAL),
+    ("azure_ad_secret", re.compile(r"\b[A-Za-z0-9~._-]{2,4}~[A-Za-z0-9~._-]{30,}\b"), Severity.HIGH),
+    ("sendgrid_key",
+     re.compile(r"\bSG\.[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}\b"), Severity.CRITICAL),
+    ("discord_token",
+     re.compile(r"\b[MNO][A-Za-z0-9_-]{23,}\.[A-Za-z0-9_-]{6}\.[A-Za-z0-9_-]{27,}\b"),
+     Severity.HIGH),
+    ("slack_webhook",
+     re.compile(r"https://hooks\.slack\.com/services/[A-Za-z0-9/]{20,}"), Severity.HIGH),
+    # base64 로 감싼 키 누출 유도 — '디코드하면 키/토큰' 프레이밍 + base64 blob.
+    ("base64_wrapped_secret",
+     re.compile(r"(?i)base64[^.\n]{0,18}?(?:디코드|디코딩|decode)"
+                r"[^.\n]{0,18}?(?:키|토큰|비밀|시크릿|secret|key|password)|"
+                r"(?:키|토큰|비밀번호|시크릿)\s*:?\s*[A-Za-z0-9+/]{20,}={0,2}"),
+     Severity.MEDIUM),
 ]
 
-# 명백한 placeholder/예시는 generic 오탐에서 제외.
+# 명백한 placeholder/예시는 generic 오탐에서 제외. 'my'는 단독이 진짜 비번('MyP4ss')을
+# 가리지 않도록 'my_key' 류로만, 'password/passwd'(문서용 값)는 추가.
 _PLACEHOLDER = re.compile(
-    r"(?i)^(?:your|my|the|example|placeholder|xxx+|<.*>|\.\.\.|insert|todo|changeme|"
-    r"abc123|0+|1+|test|dummy|sample|redacted|\*+)",
+    r"(?i)^(?:your|the|example|placeholder|xxx+|<.*>|\.\.\.|insert|todo|changeme|"
+    r"abc123|0+|1+|test|dummy|sample|redacted|password|passwd|"
+    r"my[_-](?:key|token|secret|pass)|\*+)",
 )
 
 
@@ -53,8 +76,9 @@ def scan_secrets(text: str) -> list[Violation]:
             span = (m.start(), m.end())
             if span in seen:
                 continue
-            # generic 할당은 placeholder 값이면 건너뜀(과탐 방지).
-            if code == "generic_secret_assignment":
+            # 캡처 그룹(값)이 있는 패턴은 placeholder 값이면 건너뜀(과탐 방지).
+            if code in ("generic_secret_assignment", "db_connection_string",
+                        "azure_storage_key") and m.groups():
                 val = m.group(1)
                 if _PLACEHOLDER.match(val) or len(set(val)) <= 3:
                     continue
