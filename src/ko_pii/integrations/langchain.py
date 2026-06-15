@@ -20,12 +20,12 @@
 """
 from __future__ import annotations
 
-from typing import Iterable, Optional, Union
+from typing import Any, Iterable, Optional, Tuple, Union
 
 from ko_pii import Anonymizer, ProcessingMode
 
 
-def _require():
+def _require() -> Tuple[Any, Any]:
     try:
         from langchain_core.documents import Document
         from langchain_core.runnables import Runnable
@@ -42,8 +42,8 @@ def KoPiiRedactor(
     strategy: str = "tokenize",
     include: Optional[Iterable[str]] = None,
     exclude: Optional[Iterable[str]] = None,
-    vault=None,
-):
+    vault: Any = None,
+) -> Any:
     """검색 문서의 PII 를 마스킹하는 LangChain ``Runnable``.
 
     Parameters
@@ -66,14 +66,15 @@ def KoPiiRedactor(
     _inc = list(include) if include else None
     _exc = list(exclude) if exclude else None
 
-    class _KoPiiRedactor(Runnable):
-        def _new_anon(self):
+    # Runnable 은 런타임에 결정되는 외부 클래스 — 동적 서브클래싱.
+    class _KoPiiRedactor(Runnable):  # type: ignore[valid-type, misc]
+        def _new_anon(self) -> Anonymizer:
             return Anonymizer(
                 mode=mode_enum, strategy=strategy,
                 include=_inc, exclude=_exc, vault=vault,
             )
 
-        def _redact(self, obj, anon):
+        def _redact(self, obj: Any, anon: Anonymizer) -> Any:
             if isinstance(obj, str):
                 return anon.process(obj).text
             if isinstance(obj, Document):
@@ -85,7 +86,9 @@ def KoPiiRedactor(
                 return type(obj)(self._redact(o, anon) for o in obj)
             return obj
 
-        def invoke(self, input, config=None, **kwargs):
+        def invoke(
+            self, input: Any, config: Any = None, **kwargs: Any
+        ) -> Any:
             # 한 invoke 내 문서들이 vault 공유 → 같은 인물 같은 토큰
             return self._redact(input, self._new_anon())
 

@@ -12,10 +12,8 @@
 from __future__ import annotations
 
 import html
-import json
-from typing import Optional
 
-from ko_pii.anonymizer import AnonymizationResult
+from ko_pii.anonymizer import AnonymizationResult, DetectionRecord
 from ko_pii.core.modes import Action
 from ko_pii.core.types import RiskLevel
 
@@ -53,7 +51,11 @@ def _color_for(label: str) -> str:
     return _CATEGORY_COLORS.get(label, "#616161")
 
 
-def _annotate_html(text: str, detections, with_marking: bool = False) -> str:
+def _annotate_html(
+    text: str,
+    detections: list[DetectionRecord],
+    with_marking: bool = False,
+) -> str:
     """텍스트에 검출 span 을 <span class="pii"> 로 감싸 HTML 생성."""
     # detections: list[DetectionRecord]
     sorted_d = sorted(detections, key=lambda r: (r.detection.start, -r.detection.end))
@@ -70,10 +72,10 @@ def _annotate_html(text: str, detections, with_marking: bool = False) -> str:
         mark_btns = ""
         if with_marking and r.action == Action.REVIEW:
             mark_btns = (
-                f' <span class="mark-buttons">'
-                f'<button class="ok" onclick="mark(this,\'OK\')">✓</button>'
-                f'<button class="fp" onclick="mark(this,\'FP\')">✗</button>'
-                f'</span>'
+                ' <span class="mark-buttons">'
+                '<button class="ok" onclick="mark(this,\'OK\')">✓</button>'
+                '<button class="fp" onclick="mark(this,\'FP\')">✗</button>'
+                '</span>'
             )
         out.append(
             f'<span class="pii pii-{html.escape(d.label)}" '

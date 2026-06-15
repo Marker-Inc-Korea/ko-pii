@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import torch
@@ -35,12 +36,12 @@ from transformers import (
 )
 
 
-def load_jsonl(path: Path) -> list[dict]:
+def load_jsonl(path: Path) -> list[dict[str, Any]]:
     with path.open() as f:
         return [json.loads(line) for line in f]
 
 
-def compute_metrics(eval_pred):
+def compute_metrics(eval_pred: Any) -> dict[str, float]:
     logits, labels = eval_pred
     preds = np.argmax(logits, axis=-1)
     probs = torch.softmax(torch.from_numpy(logits), dim=-1)[:, 1].numpy()
@@ -54,7 +55,7 @@ def compute_metrics(eval_pred):
     return {"accuracy": acc, "f1": f1, "precision": p, "recall": r, "auc": auc}
 
 
-def main():
+def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--data-dir", type=Path, default=Path("data/classifier"))
     ap.add_argument("--output-dir", type=Path, default=Path("models/pii_classifier_v1"))
@@ -84,7 +85,7 @@ def main():
     tokenizer = AutoTokenizer.from_pretrained(args.model)
     model = AutoModelForSequenceClassification.from_pretrained(args.model, num_labels=2)
 
-    def tokenize(batch):
+    def tokenize(batch: dict[str, Any]) -> Any:
         return tokenizer(
             batch["text"],
             truncation=True,
@@ -102,7 +103,7 @@ def main():
 
     collator = DataCollatorWithPadding(tokenizer=tokenizer)
 
-    print(f"\n=== Training ===")
+    print("\n=== Training ===")
     training_args = TrainingArguments(
         output_dir=str(args.output_dir),
         num_train_epochs=args.epochs,

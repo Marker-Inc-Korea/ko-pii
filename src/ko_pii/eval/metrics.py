@@ -9,6 +9,7 @@
 """
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Iterable
 
@@ -103,7 +104,7 @@ def score_document(
 
 def score_corpus(
     gold_docs: Iterable[GoldDocument],
-    predict_fn,
+    predict_fn: Callable[[str], list[DetectionResult]],
     mode: str = "partial",
 ) -> BenchmarkReport:
     """Score a list of gold docs.

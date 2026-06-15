@@ -34,7 +34,7 @@ Presidio 가 한국어 nlp_engine 미설정이어도 본 recognizer 는 *룰 기
 """
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, List, Optional
 
 
 # ko-pii → Presidio 표준 엔티티 라벨 매핑
@@ -75,7 +75,7 @@ def _get_supported_entities() -> list[str]:
 
 
 try:
-    from presidio_analyzer import EntityRecognizer, RecognizerResult  # type: ignore
+    from presidio_analyzer import EntityRecognizer, RecognizerResult
     _HAS_PRESIDIO = True
 except ImportError:
     _HAS_PRESIDIO = False
@@ -92,7 +92,8 @@ def _ensure_presidio() -> None:
 
 if _HAS_PRESIDIO:
 
-    class KPiiRecognizer(EntityRecognizer):
+    # EntityRecognizer 는 stub 없는 외부 패키지라 Any — 의도된 서브클래싱.
+    class KPiiRecognizer(EntityRecognizer):  # type: ignore[misc]
         """Presidio EntityRecognizer 어댑터 — ko-pii 검출 결과를 Presidio 포맷으로.
 
         Parameters
@@ -124,7 +125,12 @@ if _HAS_PRESIDIO:
             """No-op — ko-pii 는 정적 룰 기반이라 로드 작업 없음."""
             return None
 
-        def analyze(self, text: str, entities, nlp_artifacts=None):
+        def analyze(
+            self,
+            text: str,
+            entities: Optional[List[str]],
+            nlp_artifacts: Any = None,
+        ) -> List[Any]:
             """Presidio 가 호출하는 분석 함수.
 
             ``entities`` 는 요청된 엔티티 라벨 리스트 (예: ["KR_RRN"]). 본
@@ -132,7 +138,7 @@ if _HAS_PRESIDIO:
             """
             from ko_pii.detect import detect_all
 
-            results = []
+            results: List[Any] = []
             wanted = set(entities) if entities else None
 
             for det in detect_all(
@@ -166,5 +172,5 @@ if _HAS_PRESIDIO:
 else:
     # Stub for environments without presidio — call raises clear ImportError
     class KPiiRecognizer:  # type: ignore[no-redef]
-        def __init__(self, *args, **kwargs):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
             _ensure_presidio()

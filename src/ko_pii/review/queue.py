@@ -17,7 +17,11 @@ import uuid
 from dataclasses import dataclass, asdict, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Iterable, Optional
+from typing import TYPE_CHECKING, Any, Iterable, Optional
+
+if TYPE_CHECKING:
+    from ko_pii.anonymizer import DetectionRecord
+    from ko_pii.core.types import DetectionResult
 
 
 class Verdict(str, Enum):
@@ -41,11 +45,11 @@ class ReviewItem:
     verdict_by: Optional[str] = None
     verdict_note: str = ""
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, object]:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, d: dict) -> "ReviewItem":
+    def from_dict(cls, d: dict[str, Any]) -> "ReviewItem":
         return cls(
             id=d["id"], doc=d.get("doc", ""), label=d["label"],
             text=d["text"], span=list(d["span"]),
@@ -93,7 +97,9 @@ class ReviewQueue:
 
     # ─────────────────────── 큐 조작
 
-    def enqueue_detection(self, detection, document: str = "") -> ReviewItem:
+    def enqueue_detection(
+        self, detection: DetectionResult, document: str = ""
+    ) -> ReviewItem:
         """``DetectionResult`` 를 검토 큐에 추가."""
         self._load()
         item = ReviewItem(
@@ -114,7 +120,9 @@ class ReviewQueue:
             f.write("\n")
         return item
 
-    def enqueue_review_records(self, records, document: str = "") -> list[ReviewItem]:
+    def enqueue_review_records(
+        self, records: Iterable["DetectionRecord"], document: str = ""
+    ) -> list[ReviewItem]:
         """``AnonymizationResult.review_items()`` 결과를 일괄 추가."""
         self._load()
         items: list[ReviewItem] = []

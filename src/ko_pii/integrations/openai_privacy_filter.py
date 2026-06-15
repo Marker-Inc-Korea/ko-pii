@@ -24,7 +24,7 @@ Source: https://huggingface.co/openai/privacy-filter
 """
 from __future__ import annotations
 
-from typing import Iterator, Optional
+from typing import Any, Iterator, Optional
 
 from ko_pii.core.types import DetectionResult, RiskLevel
 
@@ -131,18 +131,19 @@ class OpenAIPrivacyFilterAdapter:
         self.threshold = threshold
         self.max_length = max_length
         self.label_map = label_map or _LABEL_MAP
-        self._model = None
-        self._tokenizer = None
+        # transformers 모델/토크나이저 — lazy 로드 (torch 미설치 환경 고려해 Any).
+        self._model: Any = None
+        self._tokenizer: Any = None
 
     def _ensure_loaded(self) -> None:
         if self._model is not None:
             return
         try:
-            from transformers import (  # type: ignore
+            from transformers import (
                 AutoModelForTokenClassification,
                 AutoTokenizer,
             )
-            import torch  # type: ignore  # noqa: F401
+            import torch  # noqa: F401
         except ImportError as e:
             raise ImportError(
                 "OpenAI Privacy Filter 어댑터는 transformers + torch 가 필요합니다.\n"

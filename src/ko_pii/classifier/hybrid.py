@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
+from typing import Any
 
 from ko_pii.anonymizer import Anonymizer, AnonymizationResult
 from ko_pii.classifier.predict import PIIClassifier
@@ -37,14 +37,14 @@ class HybridResult:
     classifier_score: float
     agreement: str  # 'agree_pii' / 'agree_no_pii' / 'rule_only' / 'classifier_only'
     review_recommended: bool = False
-    metadata: dict = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
     def has_pii(self) -> bool:
         return bool(self.rule_result.detections) or self.review_recommended
 
     @property
-    def summary(self) -> dict:
+    def summary(self) -> dict[str, Any]:
         s = dict(self.rule_result.summary)
         s["classifier_score"] = self.classifier_score
         s["agreement"] = self.agreement
@@ -119,7 +119,7 @@ class HybridAnonymizer:
             agreement = "classifier_only"
 
         review_recommended = False
-        meta: dict = {}
+        meta: dict[str, Any] = {}
 
         if self.mode == HybridMode.REVIEW_FLAG:
             # ko-pii 가 0인데 classifier 높음 → 사람 검토 권고

@@ -1,13 +1,13 @@
 """처리 결과 요약 — by_risk / by_action / by_legal_basis."""
 from __future__ import annotations
 
-from typing import Iterable
+from typing import Any, Iterable
 
 from ko_pii.anonymizer import AnonymizationResult, DetectionRecord
 from ko_pii.core.types import RiskLevel
 
 
-def summarize(result: AnonymizationResult) -> dict:
+def summarize(result: AnonymizationResult) -> dict[str, Any]:
     """Return the structured summary attached to *result*.
 
     The summary is built by :class:`Anonymizer`; this function is a thin
@@ -56,9 +56,9 @@ def format_summary_text(result: AnonymizationResult) -> str:
     return "\n".join(lines)
 
 
-def review_queue(records: Iterable[DetectionRecord]) -> list[dict]:
+def review_queue(records: Iterable[DetectionRecord]) -> list[dict[str, object]]:
     """Items that the policy marked for REVIEW — for human inspection."""
-    out = []
+    out: list[dict[str, object]] = []
     for r in records:
         if r.action.value != "REVIEW":
             continue

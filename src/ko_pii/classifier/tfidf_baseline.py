@@ -10,6 +10,7 @@ import json
 import pickle
 import time
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -32,7 +33,7 @@ def load_jsonl(path: Path) -> tuple[list[str], np.ndarray]:
     return texts, np.array(labels)
 
 
-def main():
+def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--data-dir", type=Path, default=Path("data/classifier"))
     ap.add_argument("--output", type=Path, default=Path("models/pii_tfidf_v1.pkl"))
@@ -70,7 +71,7 @@ def main():
     clf.fit(Xtr_v, ytr)
     print(f"  fit: {time.time()-t:.1f}s")
 
-    def evaluate(name, X, y):
+    def evaluate(name: str, X: Any, y: "np.ndarray[Any, Any]") -> Any:
         probs = clf.predict_proba(X)[:, 1]
         pred = (probs >= 0.5).astype(int)
         acc = accuracy_score(y, pred)
@@ -84,7 +85,7 @@ def main():
     test_probs = evaluate("test", Xte_v, yte)
 
     # threshold sweep on test (필터 모드 운영점)
-    print(f"\n=== threshold sweep (test) ===")
+    print("\n=== threshold sweep (test) ===")
     print(f"{'thr':>5} | {'prec':>5} | {'recall':>6} | {'f1':>5} | {'skip%':>5}")
     print("-" * 40)
     for thr in [0.20, 0.30, 0.40, 0.50, 0.60, 0.70]:
@@ -99,7 +100,7 @@ def main():
         print(f"{thr:>5.2f} | {p_:>5.3f} | {r_:>6.3f} | {f1_:>5.3f} | {skip:>4.1f}%")
 
     # 필터 운영점 찾기 (recall 목표)
-    print(f"\n=== filter operating points ===")
+    print("\n=== filter operating points ===")
     for target in [0.99, 0.97, 0.95]:
         best = None
         for thr in np.arange(0.001, 0.95, 0.005):
@@ -116,7 +117,7 @@ def main():
             print(f"  target={target}: thr={thr:.3f} | precision={p_:.3f} | actual recall={r_:.3f} | skip={skip*100:.1f}%")
 
     # latency
-    print(f"\n=== CPU latency ===")
+    print("\n=== CPU latency ===")
     sample = Xte[0]
     # warmup
     for _ in range(5):

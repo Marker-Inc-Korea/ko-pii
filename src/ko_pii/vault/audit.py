@@ -20,7 +20,8 @@ import os
 import socket
 import threading
 from datetime import datetime, timezone
-from typing import Optional
+from types import TracebackType
+from typing import Any, Optional, TextIO
 
 
 class AuditLog:
@@ -34,10 +35,10 @@ class AuditLog:
 
     _LOCK = threading.Lock()
 
-    def __init__(self, path: str, default_actor: Optional[str] = None):
+    def __init__(self, path: str, default_actor: Optional[str] = None) -> None:
         self.path = path
         self.default_actor = default_actor or self._detect_actor()
-        self._fh = None
+        self._fh: Optional[TextIO] = None
 
     @staticmethod
     def _detect_actor() -> str:
@@ -56,14 +57,20 @@ class AuditLog:
         self._fh = open(self.path, "a", encoding="utf-8", buffering=1)
         return self
 
-    def __exit__(self, *exc) -> None:
+    def __exit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> None:
         if self._fh:
             self._fh.close()
             self._fh = None
 
-    def _open_if_needed(self):
+    def _open_if_needed(self) -> TextIO:
         if self._fh is None:
             self._fh = open(self.path, "a", encoding="utf-8", buffering=1)
+        return self._fh
 
     # ------------------------------------------------------------ public
 
@@ -75,9 +82,9 @@ class AuditLog:
         label: Optional[str] = None,
         actor: Optional[str] = None,
         context: Optional[str] = None,
-        extra: Optional[dict] = None,
+        extra: Optional[dict[str, Any]] = None,
     ) -> None:
-        entry = {
+        entry: dict[str, Any] = {
             "ts": datetime.now(timezone.utc).isoformat(),
             "action": action,
             "token": token,
@@ -89,27 +96,29 @@ class AuditLog:
             entry["extra"] = extra
         line = json.dumps(entry, ensure_ascii=False)
         with self._LOCK:
-            self._open_if_needed()
-            self._fh.write(line + "\n")
+            fh = self._open_if_needed()
+            fh.write(line + "\n")
             try:
-                self._fh.flush()
+                fh.flush()
             except Exception:
                 pass
 
     # 의미 있는 헬퍼들
-    def record_store(self, token: str, label: str, **kw) -> None:
+    def record_store(self, token: str, label: str, **kw: Any) -> None:
         self.record("store", token=token, label=label, **kw)
 
-    def record_reveal(self, token: str, label: Optional[str] = None, **kw) -> None:
+    def record_reveal(
+        self, token: str, label: Optional[str] = None, **kw: Any
+    ) -> None:
         self.record("reveal", token=token, label=label, **kw)
 
-    def record_anonymize(self, count: int, mode: str, **kw) -> None:
+    def record_anonymize(self, count: int, mode: str, **kw: Any) -> None:
         self.record("anonymize", extra={"count": count, "mode": mode}, **kw)
 
 
-def replay(path: str) -> list[dict]:
+def replay(path: str) -> list[dict[str, Any]]:
     """JSONL 로그를 dict 리스트로 로드 (분석·감사용)."""
-    out: list[dict] = []
+    out: list[dict[str, Any]] = []
     if not os.path.exists(path):
         return out
     with open(path, "r", encoding="utf-8") as f:

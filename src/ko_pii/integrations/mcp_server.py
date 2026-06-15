@@ -34,10 +34,12 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 import sys
 import uuid
-from typing import Optional
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from ko_pii.vault.reversible import ReversibleVault
 
 try:
     from mcp.server import Server  # type: ignore
@@ -58,12 +60,12 @@ def _ensure_mcp() -> None:
 
 
 # 세션별 vault 관리 (in-memory)
-_VAULTS: dict[str, "object"] = {}
+_VAULTS: dict[str, "ReversibleVault"] = {}
 
 
-def _register_tools(server):
-    @server.list_tools()
-    async def list_tools():
+def _register_tools(server: Any) -> None:
+    @server.list_tools()  # type: ignore[untyped-decorator]
+    async def list_tools() -> "list[Any]":
         return [
             types.Tool(
                 name="detect_pii",
@@ -140,8 +142,8 @@ def _register_tools(server):
             ),
         ]
 
-    @server.call_tool()
-    async def call_tool(name: str, arguments: dict):
+    @server.call_tool()  # type: ignore[untyped-decorator]
+    async def call_tool(name: str, arguments: dict[str, Any]) -> "list[Any]":
         from ko_pii import Anonymizer, ProcessingMode
         from ko_pii.detect import detect_all
         from ko_pii.analytics import score_combined_risk
@@ -189,6 +191,8 @@ def _register_tools(server):
             anon = Anonymizer(mode=mode, strategy=strategy, vault=vault)
             result = anon.process(text)
 
+            # process() 는 항상 combined_risk 를 채움 (Optional 은 dataclass 기본값용).
+            assert result.combined_risk is not None
             payload = {
                 "text": result.text,
                 "vault_id": vault_id,
@@ -203,14 +207,14 @@ def _register_tools(server):
         if name == "reveal":
             token = arguments["token"]
             vault_id = arguments["vault_id"]
-            vault = _VAULTS.get(vault_id)
-            if vault is None:
+            reveal_vault = _VAULTS.get(vault_id)
+            if reveal_vault is None:
                 return [types.TextContent(
                     type="text",
                     text=json.dumps({"error": f"unknown vault_id: {vault_id}"},
                                     ensure_ascii=False),
                 )]
-            original = vault.reveal(token, context="MCP reveal")
+            original = reveal_vault.reveal(token, context="MCP reveal")
             payload = {
                 "token": token,
                 "original": original,
@@ -243,14 +247,14 @@ def _register_tools(server):
         )]
 
 
-def build_server():
+def build_server() -> Any:
     _ensure_mcp()
     server = Server("ko-pii")
     _register_tools(server)
     return server
 
 
-async def _run():
+async def _run() -> None:
     server = build_server()
     async with stdio_server() as (read_stream, write_stream):
         await server.run(

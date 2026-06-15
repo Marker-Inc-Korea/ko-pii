@@ -26,7 +26,7 @@ import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable
 
 # Only import torch/transformers when actually running (keeps ko-pii core ML-free)
 
@@ -59,7 +59,7 @@ OPENAI_TO_KPII: dict[str, str] = {
 #   VRM/VIN      → VEHICLE
 #   JOBTITLE     → POSITION
 #
-OPENMED_TO_KPII: dict[str, str] = {
+OPENMED_TO_KPII: dict[str, str | None] = {
     # 이름 (composite — ko-pii PERSON 으로 통합)
     "FIRSTNAME": "PERSON",
     "LASTNAME": "PERSON",
@@ -374,7 +374,7 @@ class HFPrivacyDetector:
             chunk_ids = ids[i:j]
             chunk_offsets = offsets[i:j]
             input_ids = np.array([chunk_ids], dtype=np.int64)
-            feed: dict = {self._input_names[0]: input_ids}
+            feed: dict[str, Any] = {self._input_names[0]: input_ids}
             if "attention_mask" in self._input_names:
                 feed["attention_mask"] = np.ones_like(input_ids)
             if "position_ids" in self._input_names:
@@ -647,6 +647,7 @@ def run_kdpii_three_way(
 
         # Presidio predictions (adapter already maps to ko-pii labels)
         if presidio_rep is not None:
+            assert presidio_predict is not None  # set together with presidio_rep
             presidio_pred: dict[str, set[str]] = defaultdict(set)
             for r in presidio_predict(text):
                 if r.label == "PERSON" and len(r.text) < person_min_length:
@@ -683,9 +684,11 @@ def format_kdpii_threeway(reports: dict[str, ComparisonReport]) -> str:
     n_docs = systems[0][1].n_documents
     lines: list[str] = []
     lines.append(f"KDPII 평가 ({n_docs} 문서) — gold = 실제 인간 라벨")
-    lines.append(f"채점: kdpii.match_forms_overlap (단일 canonical 매처, person_min_length=3)")
+    lines.append("채점: kdpii.match_forms_overlap (단일 canonical 매처, person_min_length=3)")
     lines.append("")
-    cell = lambda m: f"{m.tp:>4}/{m.fp:>4}/{m.fn:>4} F1={m.f1:>5.3f}"
+    def cell(m: LabelMetrics) -> str:
+        return f"{m.tp:>4}/{m.fp:>4}/{m.fn:>4} F1={m.f1:>5.3f}"
+
     header = f"{'라벨':<15}  " + "  ".join(f"{disp+'(TP/FP/FN/F1)':<28}" for disp, _ in systems)
     lines.append(header)
     lines.append("-" * len(header))
@@ -696,7 +699,9 @@ def format_kdpii_threeway(reports: dict[str, ComparisonReport]) -> str:
         )
         lines.append(row)
     lines.append("-" * len(header))
-    micro = lambda r: f"{r.micro_tp:>4}/{r.micro_fp:>4}/{r.micro_fn:>4} F1={r.micro_f1:>5.3f}"
+    def micro(r: ComparisonReport) -> str:
+        return f"{r.micro_tp:>4}/{r.micro_fp:>4}/{r.micro_fn:>4} F1={r.micro_f1:>5.3f}"
+
     lines.append(f"{'(micro)':<15}  " + "  ".join(micro(r) for _, r in systems))
     return "\n".join(lines)
 

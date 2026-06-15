@@ -22,8 +22,13 @@ RAG 연동 (검색 결과 PII 마스킹 — 검색 → 마스킹 → LLM):
 - **Enrich (C)**: 보조 검출 결과에 ko-pii 한국 도메인 컨텍스트 부착
 - **Fallback (D)**: ko-pii 의 REVIEW 큐만 보조 검출기로 보냄
 """
+from typing import TYPE_CHECKING, Any
+
 from ko_pii.integrations.base import SecondaryDetector, MockSecondaryDetector
 from ko_pii.integrations.hybrid import merge_detections, MergeMode
+
+if TYPE_CHECKING:
+    from ko_pii.integrations.openai_privacy_filter import OpenAIPrivacyFilterAdapter
 
 __all__ = [
     "SecondaryDetector",
@@ -33,7 +38,7 @@ __all__ = [
 ]
 
 
-def get_privacy_filter_adapter(**kwargs):
+def get_privacy_filter_adapter(**kwargs: Any) -> "OpenAIPrivacyFilterAdapter":
     """Lazy import of the OpenAI Privacy Filter adapter.
 
     Avoids loading torch/transformers at package import time.
