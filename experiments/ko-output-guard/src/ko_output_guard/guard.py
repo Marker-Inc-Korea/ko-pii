@@ -6,10 +6,12 @@ detector 를 돌리고 GuardResult 를 반환한다. 네트워크·LLM 호출이
 """
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from . import detectors
 from .normalize import normalize_for_detection
 from .policy import GuardPolicy
-from .result import Category, GuardBlocked, GuardResult, Verdict, Violation
+from .result import Category, GuardBlocked, GuardResult, Severity, Verdict, Violation
 
 # 원본 텍스트 기준 offset 을 갖는(=정규화 안 거친) 카테고리만 redact 대상.
 # toxicity/unsafe/prompt-leak 은 정규화본 offset 이라 원본에 적용하면 어긋난다.
@@ -40,8 +42,17 @@ def _redact(text: str, violations: tuple[Violation, ...]) -> str:
 class Guard:
     """정책에 묶인 재사용 가능한 출력 가드. check() 호출 간 상태 없음."""
 
-    def __init__(self, policy: GuardPolicy | None = None) -> None:
+    def __init__(
+        self,
+        policy: GuardPolicy | None = None,
+        *,
+        tier2: dict[Category, Callable[[str], bool]] | None = None,
+    ) -> None:
         self.policy = policy or GuardPolicy()
+        # Tier-2 cascade — 카테고리별 분류기(LLM-judge/ML). 결정론이 *못 잡은* 카테고리만
+        # 호출해 의미적 회색지대의 recall 을 보강한다(결정론이 잡으면 분류기 생략 → fast-path
+        # 유지). 미설정({}) 이면 순수 결정론. 외부 검증에서 드러난 결정론 recall 격차용.
+        self.tier2: dict[Category, Callable[[str], bool]] = tier2 or {}
 
     def check(self, text: str, context: str | None = None) -> GuardResult:
         if not isinstance(text, str):
@@ -60,6 +71,21 @@ class Guard:
             violations += detectors.scan_toxicity(norm)
         if p.detect_prompt_leak:
             violations += detectors.scan_prompt_leak(norm, context)
+
+        # Tier-2 cascade: 결정론이 비운 카테고리만 분류기로 보강(fast-path 유지).
+        if self.tier2:
+            covered = {v.category for v in violations}
+            for cat, clf in self.tier2.items():
+                if cat in covered:
+                    continue  # 이미 결정론이 잡음 → 분류기 호출 생략(비용 절감)
+                probe = text if cat in (Category.SECRET_LEAK, Category.PII_LEAK) else norm
+                if clf(probe):
+                    violations.append(Violation(
+                        code=f"{cat.value}:tier2",
+                        category=cat,
+                        severity=Severity.MEDIUM,
+                        reason="Tier-2 classifier flagged (deterministic was SAFE)",
+                    ))
 
         blocking = [
             v for v in violations

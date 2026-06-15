@@ -51,4 +51,34 @@ text = g.enforce(llm_output)        # BLOCK 이면 GuardBlocked 발생
   문서와 구분이 안 돼(과탐) 의도적으로 보지 않는다 — 그런 형식 변형은 **Tier-2** 영역.
 - 난독(초성화·제로폭·전각·homoglyph·공백분리) 출력은 한국어 detector 검사 전 자동 정규화한다 — `ko-prompt-guard` 설치 시 강력(자모/초성/splitting/leet), 미설치 시 경량 fallback(제로폭 제거+NFKC). `GuardPolicy(normalize=False)` 로 끌 수 있다. SECRET/PII 는 형식 보존 위해 원본에서 검사.
 
+## 외부 검증 (정직)
+
+자체 코퍼스(`eval/blueteam.py`)의 F1 1.0 은 룰 저자가 만든 자기참조 수치라 **일반화
+지표가 아니다("회귀 스위트 통과"로 읽어야 한다)**. 제3자 라벨로 측정한 결과:
+
+- **TOXICITY × smilegate unsmile**(N=3,737, CC-BY-SA): FPR **4.8%** / Recall 전체
+  **32%**(악플·욕설 29%, 혐오 8종 34%). 결정론 시드는 외부 욕설/혐오의 ⅓만 잡는다 —
+  의미적·신조어 toxicity 는 **Tier-2(분류기)** 로 보강해야 한다는 것을 실데이터로 보여준다.
+  재현: `eval/external_toxicity.py`.
+
+→ 결정론 가드는 high-precision **fast-path(Tier-1)** 로 두고, recall 은 분류기 cascade
+(Tier-2)로 채우는 것이 옳다. SECRET/구조화 PII/SQL 은 룰이 정석이라 이 격차가 작고,
+TOXICITY/의미적 위험에서 격차가 크다.
+
+## Tier-2 cascade
+
+`Guard(tier2={Category.TOXICITY: classifier_fn})` — **결정론이 비운 카테고리만** 분류기로
+보강한다(결정론이 잡으면 분류기 호출 생략 → fast-path 유지). `classifier_fn: (str) -> bool`.
+
+데모(`eval/tier2_cascade_demo.py`, unsmile train 으로 char-ngram TF-IDF 학습):
+
+| | 결정론(Tier-1) | + Tier-2 cascade |
+|---|---|---|
+| Recall(unsmile valid) | 32.2% | **84.4%** |
+| FPR | 4.8% | 24.0% |
+
+분류기가 recall 격차를 메운다. 데모 분류기는 FPR 도 함께 오르므로(간단 TF-IDF), production
+은 더 정밀한 judge(bge-m3/Solar judge, unsmile-tuned BERT)와 threshold 로 균형을 잡고,
+toxicity cascade 는 BLOCK 이 아니라 **FLAG(human review)** 로 둔다.
+
 의존성: `pydantic` (+ PII 연동 시 `ko-pii`). MIT.

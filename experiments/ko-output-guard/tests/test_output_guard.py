@@ -376,3 +376,15 @@ def test_redact_overlapping_spans_no_corruption() -> None:
     r = G.check("토큰 " + jwt)
     if r.verdict is Verdict.BLOCK and r.redacted_text:
         assert "eyJ" not in r.redacted_text
+
+
+def test_tier2_cascade_supplements_and_fast_paths() -> None:
+    # Tier-2 분류기는 결정론이 비운 카테고리만 보강(신조어 등), 깨끗한 입력은 그대로.
+    g = Guard(tier2={Category.TOXICITY: lambda t: "한남" in t})
+    assert g.check("한남 진짜 별로").verdict is not Verdict.SAFE   # 결정론 SAFE → cascade 보강
+    assert g.check("안녕하세요 정상 문장입니다").verdict is Verdict.SAFE
+    # fast-path: 결정론이 이미 toxicity 를 잡으면 분류기 호출 생략
+    called: list[str] = []
+    g2 = Guard(tier2={Category.TOXICITY: lambda t: bool(called.append(t))})
+    g2.check("씨발 짜증나")          # 결정론이 toxicity 검출
+    assert called == []              # 분류기 미호출(covered)
