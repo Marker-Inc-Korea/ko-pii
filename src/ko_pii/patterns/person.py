@@ -41,10 +41,13 @@ CATEGORY = "일반개인정보"
 _CANDIDATE = re.compile(r"(?<![가-힣])([가-힣]{2,6})(?![가-힣])")
 
 # 결정적 PII 의 *위치 마커* 만 빠르게 찾기 위한 보조 패턴 (성능)
+# 주: 길이 상한({1,64}/{1,255})과 lookaround 경계는 ReDoS/quadratic 방지용 — 이메일
+# local-part 의 무제한 `+` 는 긴 영숫자열에서 매 시작 위치마다 백트래킹해 O(n²)가 된다
+# (RFC 5321 제한이라 recall 손실 없음). RRN 도 \b 대신 digit lookaround 로 경계를 둔다.
 _DETERMINISTIC_HINTS = re.compile(
-    r"\b\d{6}-?\d{7}\b"            # RRN/FRN
-    r"|01[01679][-\.\s]?\d{3,4}[-\.\s]?\d{4}"  # mobile
-    r"|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"  # email
+    r"(?<![0-9])\d{6}-?\d{7}(?![0-9])"            # RRN/FRN
+    r"|01[01679][-\.\s]?\d{3,4}[-\.\s]?\d{4}"     # mobile
+    r"|[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,255}\.[A-Za-z]{2,}"  # email
 )
 
 # 한국어 동사/형용사·계사(이다) 활용형. 이름은 거의 이 형태로 끝나지 않음.
@@ -312,6 +315,9 @@ def _detect_with_dict(
         (m.start(), m.end()) for m in _DETERMINISTIC_HINTS.finditer(text)
     ]
     threshold = 0.50
+    # 문장별 '기관 포함 여부' 캐시 — 같은 문장의 후보들이 단어 순회를 반복하지 않도록
+    # score_candidate 에 공유(이게 없으면 person 검출이 O(n²)).
+    _agency_cache: dict[tuple[int, int], bool] = {}
 
     # ------ Pass 0: 3중 매크로 패턴 — <AGENCY> <PERSON> <TITLE>
     # 고신뢰 인명 추출 + 누적 사전에 *즉시 등록* → 같은 문서 내 다른 등장도
@@ -461,6 +467,7 @@ def _detect_with_dict(
             text, cand,
             deterministic_nearby=det_nearby,
             name_dictionary_boost=name_dict.boost_for(stem),
+            agency_cache=_agency_cache,
         )
         # 추가 신호 합산
         total_value = min(1.0, score.value + extra_score)
@@ -527,6 +534,7 @@ def _detect_with_dict(
                 deterministic_spans, cand.start, window=25
             ),
             name_dictionary_boost=boost,
+            agency_cache=_agency_cache,
         )
         if rescored.value >= threshold:
             yield _emit(cand, particle, rescored.value, rescored.evidence)
