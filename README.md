@@ -232,7 +232,7 @@ logging.info("신청인 홍길동 (880101-1234568) 처리 완료")
 
 ### 알려진 한계
 
-- **PERSON 오탐 (FP)** — 룰 기반 PERSON 검출의 가장 큰 약점. 도메인 어휘 (의약품 성분명 등) 가 사람 이름으로 잡힐 수 있음. → `common_words.py` 에 도메인 사전 주입 또는 `exclude={"PERSON"}` 으로 끄기
+- **PERSON 오탐 (FP) + 도메인 의존성** — 룰 기반 PERSON 검출의 가장 큰 약점. 성씨 글자로 시작하는 일반명사·생약명·외래어가 사람 이름으로 잡힐 수 있음. **공공문서 도메인 특화**라, 공공문서 gold 에선 F1 0.97 이지만 외부 신문 NER(KLUE-NER PS, 5K 문장) 대비로는 **F1 0.38**(P 0.36 / R 0.41) — 신문체 인명(역사·외국인·공인)과 일반명사 과탐이 크다. 일반 도메인 NER 용도라면 `common_words.py` 도메인 사전 주입, `exclude={"PERSON"}`, 또는 하이브리드 분류기(`dev/classifier`)를 권한다. (재현: `python -c "from ko_pii.eval.klue_ner import load_klue_ner, evaluate_person; print(evaluate_person(load_klue_ner('data/klue_ner/klue-ner-v1.1_dev.tsv')).format())"`)
 - **ADDRESS 비정형** — "강남 쪽에 살아" 같은 비정형 주소는 약함 (anchor 필요). 정형 주소 ("서울특별시 강남구 테헤란로 152") 는 OK
 - **형식이 겹치는 비-PII** — 대표번호 4-4(`1588-2024`)는 제품·연식 번호와, 무구분자 13~19자리는 바코드·IMEI와 형식이 같다. 길이-브랜드 일관성·단어경계 문맥으로 상당수 거르지만, recall 우선이라 형식만으로 완전 구분은 불가 — 최종 정밀 판단은 주변 문맥(검토 큐) 또는 하이브리드 분류기(`dev/classifier`)의 몫
 - 결정적 PII (RRN·PHONE·EMAIL·카드·사업자) 는 체크섬/형식 검증이라 오탐 거의 없음
