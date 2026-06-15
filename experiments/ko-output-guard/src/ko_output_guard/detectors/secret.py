@@ -51,10 +51,22 @@ _PATTERNS: list[tuple[str, re.Pattern[str], Severity]] = [
      Severity.HIGH),
     ("slack_webhook",
      re.compile(r"https://hooks\.slack\.com/services/[A-Za-z0-9/]{20,}"), Severity.HIGH),
-    # base64 로 감싼 키 누출 유도 — '디코드하면 키/토큰' 프레이밍 + base64 blob.
+    # prefix 가 고유한 서비스 토큰 형식(gitleaks/detect-secrets 계열) — 저-FP.
+    ("huggingface_token", re.compile(r"\bhf_[A-Za-z0-9]{34,}\b"), Severity.HIGH),
+    ("gitlab_pat", re.compile(r"\bglpat-[A-Za-z0-9_-]{20,}\b"), Severity.HIGH),
+    ("digitalocean_pat", re.compile(r"\bdop_v1_[a-f0-9]{64}\b"), Severity.HIGH),
+    ("shopify_token", re.compile(r"\bshpat_[a-fA-F0-9]{32}\b"), Severity.HIGH),
+    ("pypi_token", re.compile(r"\bpypi-AgEI[A-Za-z0-9_-]{50,}"), Severity.CRITICAL),
+    ("telegram_bot_token", re.compile(r"\b\d{8,10}:AA[A-Za-z0-9_-]{33,}\b"), Severity.HIGH),
+    ("mailgun_key", re.compile(r"\bkey-[0-9a-zA-Z]{32}\b"), Severity.HIGH),
+    ("square_token", re.compile(r"\bsq0(?:atp|csp)-[A-Za-z0-9_-]{22,}\b"), Severity.HIGH),
+    # JDBC/쿼리형 비밀번호(scheme://user:pass@ 의 sibling) — group(1)=password.
+    ("jdbc_password",
+     re.compile(r"(?i)jdbc:[^\s]*[?;&]password=([^\s&;]{6,})"), Severity.HIGH),
+    # base64 로 감싼 키 누출 유도 — '디코드하면 키/토큰' 프레이밍 + 실제 base64 blob 필수.
     ("base64_wrapped_secret",
-     re.compile(r"(?i)base64[^.\n]{0,18}?(?:디코드|디코딩|decode)"
-                r"[^.\n]{0,18}?(?:키|토큰|비밀|시크릿|secret|key|password)|"
+     re.compile(r"(?i)(?:base64[^.\n]{0,18}?(?:디코드|디코딩|decode)[^.\n]{0,18}?"
+                r"(?:키|토큰|비밀|시크릿|secret|key|password)[^.\n]{0,20}?[A-Za-z0-9+/]{24,}={0,2})|"
                 r"(?:키|토큰|비밀번호|시크릿)\s*:?\s*[A-Za-z0-9+/]{20,}={0,2}"),
      Severity.MEDIUM),
 ]
@@ -63,7 +75,7 @@ _PATTERNS: list[tuple[str, re.Pattern[str], Severity]] = [
 # 가리지 않도록 'my_key' 류로만, 'password/passwd'(문서용 값)는 추가.
 _PLACEHOLDER = re.compile(
     r"(?i)^(?:your|the|example|placeholder|xxx+|<.*>|\.\.\.|insert|todo|changeme|"
-    r"abc123|0+|1+|test|dummy|sample|redacted|password|passwd|"
+    r"abc123|0+|1+|test|dummy|sample|redacted|password|passwd|replace|change_?me|"
     r"my[_-](?:key|token|secret|pass)|\*+)",
 )
 
@@ -78,7 +90,7 @@ def scan_secrets(text: str) -> list[Violation]:
                 continue
             # 캡처 그룹(값)이 있는 패턴은 placeholder 값이면 건너뜀(과탐 방지).
             if code in ("generic_secret_assignment", "db_connection_string",
-                        "azure_storage_key") and m.groups():
+                        "azure_storage_key", "jdbc_password") and m.groups():
                 val = m.group(1)
                 if _PLACEHOLDER.match(val) or len(set(val)) <= 3:
                     continue

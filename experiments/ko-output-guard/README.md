@@ -43,8 +43,11 @@ text = g.enforce(llm_output)        # BLOCK 이면 GuardBlocked 발생
   MAJOR(전공명) 는 오탐이 잦아 기본 제외(이름 누출까지 막으려면 ko-pii 직접 호출).
   자리별 공백 우회("9 0 0 1 0 1 …")는 공백 제거 사본 재검사로 회복하지만, 숫자의
   한글 음차("구공공일")·분할 서술("앞 6자리 …")은 Tier-2 영역.
-- `TOXICITY` 사전은 소규모 시드(+초성/전각/leet/대표 받침분리 변형) — 실사용은 도메인
-  사전 확장. 임의 받침분리·신조어는 정규화/사전 한계.
+- `TOXICITY` 사전은 소규모 시드(+초성/전각/leet/기호·이모지·숫자 삽입/대표 받침분리/
+  평문 영어 욕설) — 실사용은 도메인 사전 확장. 임의 와일드카드(씨X발)·신조어는 한계.
+- `PROMPT_LEAK` 는 1인칭 지침 마커·동의어·구조화 덤프(`<system>`/`system_prompt`)·
+  다국어 일부를 잡고 context 동봉 시 30자+ echo 를 본다. 임의 형식/언어로 지침을
+  바꿔 노출하는 변형은 무한해 **Tier-2(LLM 심사)** 영역으로 둔다.
 - 난독(초성화·제로폭·전각·homoglyph·공백분리) 출력은 한국어 detector 검사 전 자동 정규화한다 — `ko-prompt-guard` 설치 시 강력(자모/초성/splitting/leet), 미설치 시 경량 fallback(제로폭 제거+NFKC). `GuardPolicy(normalize=False)` 로 끌 수 있다. SECRET/PII 는 형식 보존 위해 원본에서 검사.
 
 의존성: `pydantic` (+ PII 연동 시 `ko-pii`). MIT.
