@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ko-output-guard"
+version = "0.1.0"
+description = "Deterministic Korean LLM output safety guard — secret/PII leak, unsafe-advice (MFDS), toxicity, prompt-leak"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "mk04" }]
+keywords = ["korean", "llm", "output-guard", "safety", "pii", "secret", "guardrail", "mfds"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Natural Language :: Korean",
+    "Programming Language :: Python :: 3",
+    "Topic :: Security",
+]
+dependencies = ["pydantic>=2.0"]
+
+[project.optional-dependencies]
+pii = ["ko-pii>=1.15"]
+dev = ["pytest>=8.0", "ruff>=0.4", "mypy>=1.10"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+ko_output_guard = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/ko_output_guard/detectors/secret.py" = ["E501"]
+"src/ko_output_guard/detectors/unsafe_advice.py" = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+files = ["src"]
+
+# ko-pii 는 PII 연동용 optional 의존성 — 미설치 환경에서도 타입체크가 통과해야.
+[[tool.mypy.overrides]]
+module = ["ko_pii", "ko_pii.*"]
+ignore_missing_imports = true
