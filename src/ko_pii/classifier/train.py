@@ -8,7 +8,7 @@
         --epochs 3 --batch-size 32
 
 Slurm:
-    sbatch scripts/train_classifier.sbatch
+    an internal batch script (not shipped)
 """
 from __future__ import annotations
 

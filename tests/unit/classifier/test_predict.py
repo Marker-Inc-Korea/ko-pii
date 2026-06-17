@@ -1,7 +1,7 @@
 """PIIClassifier 추론 smoke test.
 
 학습된 모델 디렉토리가 없으면 module 전체 skip.
-모델 학습: `sbatch scripts/train_classifier_v6.sbatch`
+모델 학습: `an internal batch script (not shipped)`
 """
 from pathlib import Path
 
@@ -10,7 +10,7 @@ import pytest
 MODEL_PATH = Path("models/pii_classifier_v6/final")
 if not MODEL_PATH.exists():
     pytest.skip(
-        f"학습된 모델 없음: {MODEL_PATH}. sbatch scripts/train_classifier_v6.sbatch 먼저.",
+        f"학습된 모델 없음: {MODEL_PATH}. an internal batch script (not shipped) 먼저.",
         allow_module_level=True,
     )
 
