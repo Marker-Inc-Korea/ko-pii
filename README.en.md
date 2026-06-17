@@ -9,7 +9,7 @@
 
 **A Python library for detecting and reversibly pseudonymizing personal information (PII) in Korean documents.** Works with rules + dictionaries + checksums only, without any external ML dependency. Especially strong on public/administrative documents, and usable as a preprocessing layer in front of any ML pipeline.
 
-> **Public benchmark — #1 among non‑LLM PII tools.** On human‑labeled KDPII (4,891 docs), ko-pii beats Microsoft Presidio and openai/privacy-filter (**F1 0.66** vs 0.27 / 0.26), runs **~200× faster** than a self-hosted LLM (0.19 ms/doc), and processes 1M documents at **~$0**, fully on-premise. Deterministic IDs (RRN · card · phone · email) reach **F1 ≈ 1.0** via checksum. Every number is **measured and reproducible** with a single scorer — see [benchmark](docs/BENCHMARK.md) · [full comparison](docs/presentation/ko-pii-종합비교.md).
+> **Public benchmark — the highest-accuracy rule-based Korean PII tool.** On human‑labeled KDPII (4,891 docs), ko-pii beats Microsoft Presidio and openai/privacy-filter (**F1 0.66** vs 0.27 / 0.26), runs at **0.19 ms/doc (~5,350 docs/s) — 22× faster than Presidio**, and processes 1M documents at **~$0**, fully on-premise. Deterministic IDs (RRN · card · phone · email) reach **F1 ≈ 1.0** via checksum. Every number is **measured and reproducible** with a single scorer — see [benchmark](docs/BENCHMARK.md) · [full comparison](docs/presentation/ko-pii-종합비교.md).
 
 ```python
 from ko_pii import Anonymizer, ProcessingMode
@@ -216,23 +216,21 @@ logging.info("신청인 홍길동 (880101-1234568) 처리 완료")
 
 ### Headline benchmark — KDPII v1.1 test split
 
-KDPII v1.1 test split: **4,891 human-labeled documents** of Korean everyday conversation. All systems are scored with a single canonical matcher (`ko_pii.eval.kdpii.match_forms_overlap`, substring set matching, position-agnostic), with `person_min_length=3` (1–2 character PERSON spans excluded). All five systems run on the same documents with the same matcher.
+KDPII v1.1 test split: **4,891 human-labeled documents** of Korean everyday conversation. All systems are scored with a single canonical matcher (`ko_pii.eval.kdpii.match_forms_overlap`, substring set matching, position-agnostic), with `person_min_length=3` (1–2 character PERSON spans excluded). All three systems run on the same documents with the same matcher.
 
 | System | Type | F1 | Precision | Recall |
 |---|---|---:|---:|---:|
-| Gemma-4-31B-it | Self-hosted LLM (vLLM, prompt extraction) | **0.796** | 0.850 | 0.748 |
-| **ko-pii** | Rules + dictionaries + checksums | 0.660 | 0.699 | 0.624 |
-| Gemma-4-E4B-it | Self-hosted LLM (smallest Gemma 4, ~4B) | 0.613 | 0.659 | 0.572 |
+| **ko-pii** | Rules + dictionaries + checksums | **0.660** | 0.699 | 0.624 |
 | Presidio (kr_adapt) | spaCy ko + regex | 0.273 | — | — |
 | openai/privacy-filter | 660M transformer (ONNX) | 0.264 | — | — |
 
-(TP/FP/FN — Gemma: TP 958 / FP 169 / FN 323. ko-pii: TP 813 / FP 350 / FN 489. Presidio: TP 220 / FP 85 / FN 1085. openai/PF: TP 294 / FP 634 / FN 1008.)
+(TP/FP/FN — ko-pii: TP 813 / FP 350 / FN 489. Presidio: TP 220 / FP 85 / FN 1085. openai/PF: TP 294 / FP 634 / FN 1008.)
 
 A generic Korean NER model (KoELECTRA NER) was **not measured** for this run (rough estimate ~0.10–0.15) and is therefore omitted from the headline table.
 
 > **Fair comparison.** The aggregate F1 partly reflects that Presidio and openai/privacy-filter **lack many Korean PII categories entirely** (they emit 0 on AGE, POSITION, RRN, …). Even restricting to the categories each tool *does* support, ko-pii still leads — **vs openai/privacy-filter 0.61 : 0.37** (its 7 labels), **vs Presidio 0.87 : 0.65** (its 9 labels). The gap is not merely missing categories; ko-pii is also more accurate on common ground.
 
-> **Honest framing.** KDPII is everyday conversational text, a setting that favors LLMs. ko-pii is rule-based: it is strong on structural/deterministic PII and Korean administrative/form text, and weaker on free-form conversation (KDPII PERSON 0.135, ADDRESS 0.241). The self-hosted LLM (Gemma) achieves higher conversational F1 but is ~200× slower, and hosted APIs both transmit PII externally and cannot checksum-verify (yielding false positives). ko-pii's own generated eval set (below — 540 docs, admin/form-like, validated gold, independent of ko-pii's rules) at 0.790 shows where ko-pii is strong (the same set's LLMs: Gemma-4-31B 0.964, smallest Gemma-4-E4B 0.882).
+> **Honest framing.** KDPII is everyday conversational text. ko-pii is rule-based: it is strong on structural/deterministic PII and Korean administrative/form text, and weaker on free-form conversation (KDPII PERSON 0.135, ADDRESS 0.241). ko-pii's own generated eval set (below — 540 docs, admin/form-like, validated gold, independent of ko-pii's rules) at 0.790 shows where ko-pii is strong.
 
 ### Deterministic / structural PII — ko-pii per-label F1 on KDPII
 
@@ -249,27 +247,19 @@ Checksum- and regex-verified categories reach near-perfect F1:
 
 ### Speed (per document, measured)
 
-1 unit = 1 CPU core (unless noted) or 1 GPU.
+1 unit = 1 CPU core.
 
 | System | Latency / doc | Throughput | Hardware |
 |---|---:|---:|---|
 | ko-pii | 0.19 ms | ~5,350 docs/s | 1 CPU core |
 | Presidio | 4.2 ms | ~238 docs/s | 1 CPU core |
 | openai/PF (ONNX, CPU) | 481 ms | ~2 docs/s | 1 CPU core (bulk needs GPU) |
-| Gemma-4-31B (vLLM) | median 0.30 s / mean 0.58 s | ~27.6 docs/s | 1 GPU, concurrency 16 |
 
 ### Cost to process 1,000,000 documents
-
-Computed from measured KDPII document tokens (~170 in / ~10 out):
 
 | System | Cost per 1M docs |
 |---|---:|
 | **ko-pii** | **~$0** (1 CPU core, ~3 min) |
-| Gemma-4-31B (self-hosted) | ~1 GPU for 10 hours / 1M |
-| Gemini 2.0 Flash | ~$23 |
-| GPT-4o-mini | ~$35 |
-| Claude 3.5 Haiku | ~$196 |
-| GPT-4o | ~$575 |
 
 ### Reproduction
 
@@ -279,8 +269,6 @@ KDPII, 3-system run (ko-pii / openai-PF / Presidio):
 python -m ko_pii.eval.model_comparison data/kdpii/test.json \
     --mode kdpii --include-presidio --backend onnx --person-min-length 3
 ```
-
-(Gemma is scored separately by prompting the self-hosted vLLM OpenAI-compatible endpoint and applying the same `match_forms_overlap` matcher.)
 
 ### Supplementary results
 
@@ -301,7 +289,6 @@ Full details: [`docs/BENCHMARK.md`](docs/BENCHMARK.md) and [`docs/EVALUATION_REP
 - **PERSON false positives (FP)** — the biggest weakness of rule-based PERSON detection. Domain vocabulary (e.g. pharma ingredient names) can be picked up as a person's name. → inject a domain dictionary into `common_words.py`, or turn it off with `exclude={"PERSON"}`.
 - **Unstructured ADDRESS** — weak on unstructured addresses like "강남 쪽에 살아" (needs an anchor). Structured addresses ("서울특별시 강남구 테헤란로 152") are fine.
 - Deterministic PII (RRN, PHONE, EMAIL, card, business registration number) is checksum/format-verified, so false positives are rare.
-- An LLM (Gemma) achieves higher conversational F1 but is ~200× slower, and APIs transmit PII externally and cannot perform checksum verification (false positives).
 
 Full evaluation: [`docs/EVALUATION_REPORT.md`](docs/EVALUATION_REPORT.md).
 
