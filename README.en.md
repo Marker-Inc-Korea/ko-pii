@@ -9,6 +9,8 @@
 
 **A Python library for detecting and reversibly pseudonymizing personal information (PII) in Korean documents.** Works with rules + dictionaries + checksums only, without any external ML dependency. Especially strong on public/administrative documents, and usable as a preprocessing layer in front of any ML pipeline.
 
+> **Public benchmark — #1 among non‑LLM PII tools.** On human‑labeled KDPII (4,891 docs), ko-pii beats Microsoft Presidio and openai/privacy-filter (**F1 0.66** vs 0.27 / 0.26), runs **~200× faster** than a self-hosted LLM (0.19 ms/doc), and processes 1M documents at **~$0**, fully on-premise. Deterministic IDs (RRN · card · phone · email) reach **F1 ≈ 1.0** via checksum. Every number is **measured and reproducible** with a single scorer — see [benchmark](docs/BENCHMARK.md) · [full comparison](docs/presentation/ko-pii-종합비교.md).
+
 ```python
 from ko_pii import Anonymizer, ProcessingMode
 
