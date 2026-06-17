@@ -59,3 +59,6 @@ data/generated_eval.raw.jsonl
 experiments/ko-sqlguard/
 experiments/ko-prompt-guard/
 experiments/ko-output-guard/
+
+# 내부 실험(비공개)
+experiments/

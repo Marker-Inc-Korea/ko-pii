@@ -74,7 +74,7 @@ ko-pii는 **결정적 ID(주민·카드·사업자·전화·이메일 등)를 �
 
 "퍼지만 학습"이라는 설계 가정과 "하이브리드"라는 결합 방식 자체를 ablation 했다.
 **학습 범위** = 퍼지 20종(설계 기본) vs **전체 36종**(결정적 ID 16종 포함), **채점** = 4모드
-(룰단독 / ML단독 / 하이브리드 / 유니온). 원시 코드·로그·결과: [`experiments/ner/`](../experiments/ner/).
+(룰단독 / ML단독 / 하이브리드 / 유니온). 원시 코드·로그·결과: (내부 NER 실험 아카이브 — 비공개).
 
 **단독 seqeval — 학습 범위 효과:**
 
@@ -150,7 +150,7 @@ Luhn+BIN 화이트리스트, 사업자·법인 = 검증자리)을 후처리 필�
 실데이터(유효 체크섬)에선 룰·하이브리드·3안의 상대 위치가 올라갈 것이다. 도메인 일반화 평가
 (모델 공개 선행 조건)가 필요한 또 하나의 이유.
 
-**체크섬 프로브 (정성, [`experiments/ner/`](../experiments/ner/) 수록):** 무효 카드(BIN 1xxx)는
+**체크섬 프로브 (정성, (내부 NER 실험 아카이브 — 비공개) 수록):** 무효 카드(BIN 1xxx)는
 룰이 거부·ML 은 검출(진위 검증 불가) ↔ RRN 공백 변형(`850101 - 1234566`)은 룰이 놓치고 ML 이
 검출(포맷 일반화) — 두 검출기의 실패 모드가 상보적이다. 같은 디렉토리의 마스킹 시연
 (`mask-demo.log`)은 룰/ML 검출 span 에 동일한 tokenize·redact 후처리가 꽂힘을 보여준다
@@ -254,7 +254,7 @@ result = anonymizer.process(text)   # tokenize/partial/redact 등 전 전략·Va
 > 그대로 따르면 본 문서의 단독/하이브리드 수치가 재현된다(±0.003 무작위성).
 
 실제 사용한 학습·평가 코드와 **전체 실행 로그(에폭별 loss·F1, 카테고리별 리포트)·원시 결과 JSON** 은
-[`experiments/ner/`](../experiments/ner/) 에 아카이브돼 있다 — `--all-labels`(전체 36종 학습) 변형 포함.
+(내부 NER 실험 아카이브 — 비공개) 에 아카이브돼 있다 — `--all-labels`(전체 36종 학습) 변형 포함.
 
 ## 모델 공개 (예정)
 
@@ -270,7 +270,7 @@ result = anonymizer.process(text)   # tokenize/partial/redact 등 전 전략·Va
 | klue/roberta-large (베이스) | HF 무표기·KLUE 프로젝트 **CC-BY-SA-4.0** | **가중치를 CC-BY-SA-4.0 으로 공개** + KLUE 출처표시 (보수적 해석 기준) |
 
 → 공개 자체에 라이선스 장애는 없으며, 공개 시 **모델 라이선스 = CC-BY-SA-4.0**(레포 코드 MIT 와 분리),
-모델카드에 KLUE·KDPII attribution. 모델카드 초안: [`experiments/ner/MODEL_CARD.md`](../experiments/ner/MODEL_CARD.md).
+모델카드에 KLUE·KDPII attribution. 모델카드 초안: (내부 NER 실험 아카이브 — 비공개).
 
 **남은 선행 조건은 하나 — 도메인 일반화 평가**(실제 공공문서 인간 라벨셋). 라벨링 키트가
 [`data/labeling/`](../data/labeling/) 에 준비되어 있습니다 (샘플 100문서 + 가이드, 예상 반나절).
