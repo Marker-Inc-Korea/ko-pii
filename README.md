@@ -9,7 +9,7 @@
 
 **한국어 문서의 개인정보를 검출하고 가역적으로 가명화하는 Python 라이브러리.** 외부 ML 의존성 없이 룰 + 사전 + 체크섬만으로 동작. 공공 문서에서 특히 강하며, 어떤 ML 파이프라인의 전처리 레이어로도 활용 가능.
 
-> **공개 벤치마크 — 비‑LLM PII 도구 중 1위.** 인간 라벨 KDPII(4,891건)에서 Microsoft Presidio · openai/privacy-filter를 앞서고(**F1 0.66** vs 0.27 / 0.26), 자체호스팅 LLM 대비 **~200배 빠르며**(0.19 ms/문서) 100만 문서를 **~$0** · 완전 온프레미스로 처리합니다. 결정적 ID(주민번호 · 카드 · 전화 · 이메일)는 체크섬 검증으로 **F1 ≈ 1.0**. 모든 수치는 단일 채점기로 **측정 · 재현 가능** — [벤치마크 상세](docs/BENCHMARK.md) · [종합 비교표](docs/presentation/ko-pii-종합비교.md).
+> **공개 벤치마크 — 비‑LLM PII 도구 중 1위.** 인간 라벨 KDPII(4,891건)에서 Microsoft Presidio · openai/privacy-filter를 앞서고(**F1 0.66** vs 0.27 / 0.26), 자체호스팅 LLM 대비 **~200배 빠르며**(0.19 ms/문서) 100만 문서를 **~$0** · 완전 온프레미스로 처리합니다. 결정적 ID(주민번호 · 카드 · 전화 · 이메일)는 체크섬 검증으로 **F1 ≈ 1.0**. 모든 수치는 단일 채점기로 **측정 · 재현 가능** — [종합 비교표(한글)](docs/presentation/ko-pii-종합비교.md) · [벤치마크 상세(영문)](docs/BENCHMARK.md).
 
 ```python
 from ko_pii import Anonymizer, ProcessingMode
@@ -230,7 +230,7 @@ logging.info("신청인 홍길동 (880101-1234568) 처리 완료")
 | 자체호스팅 LLM (Gemma-4-31B) | 0.30 s | 27.6/s | GPU 1장 × ~10h | 비결정적 · 자체호스팅 시 온프레미스 |
 | GPT-4o (API) | — | — | ~$575 | 비결정적 · PII 외부 전송 |
 
-→ 자체호스팅 LLM 대비 **~200배 빠르고**, 결정적이라 같은 입력에 항상 같은 결과 · 검출마다 근거 조항/evidence 부착. 속도·비용·정성 전체 비교: [종합 비교표](docs/presentation/ko-pii-종합비교.md).
+→ 자체호스팅 LLM 대비 **~200배 빠르고**, 결정적이라 같은 입력에 항상 같은 결과 · 검출마다 근거 조항/evidence 부착. 속도·비용·정성 전체 비교: [종합 비교표(한글)](docs/presentation/ko-pii-종합비교.md).
 
 - KDPII는 단일 매처(`match_forms_overlap`, `person_min_length=3`)로 전체 4,891문서 재측정 — [openai/privacy-filter](https://huggingface.co/openai/privacy-filter) (660M ML) · [Microsoft Presidio](https://github.com/microsoft/presidio) 등 룰·NER 도구 대비 우위.
 - **공정 비교:** 위 전체 점수는 해외 도구가 *라벨 자체가 없는* 항목(AGE·POSITION·RRN 등)에서 0점이라 격차가 커진다. 각 도구가 **실제 지원하는 카테고리만**으로 좁혀도 ko-pii가 앞선다 — vs openai/PF **0.61 : 0.37**(그쪽 7라벨), vs Presidio **0.87 : 0.65**(그쪽 9라벨).
