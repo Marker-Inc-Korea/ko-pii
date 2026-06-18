@@ -81,3 +81,13 @@ class TestPhoneNegative:
 
     def test_only_prefix(self):
         assert _detect_list("010") == []
+
+
+def test_phone_spaced_hyphen_separator():
+    """' - '(공백+하이픈+공백) 구분자 표기 변형 검출."""
+    from ko_pii.patterns.phone import detect
+    for text in ["010 - 1234 - 5678", "연 락 처 : 010 - 1234 - 5678",
+                 "02 - 123 - 4567", "031 - 123 - 4567"]:
+        assert any(d.label == "PHONE" for d in detect(text)), f"미검출: {text!r}"
+    for text in ["버전 1.5 - 2024 - 모델", "범위 100 - 200 - 300"]:
+        assert not any(d.label == "PHONE" for d in detect(text)), f"오탐: {text!r}"
