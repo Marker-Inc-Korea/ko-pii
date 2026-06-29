@@ -92,6 +92,22 @@ _REGIONAL = re.compile(
     r"(?![0-9])"
 )
 
+# 괄호 지역번호 (GAP 4): "(010) 9876-5432", "(02) 1234-5678", "(031) 123-4567".
+# 지역번호를 괄호로 감싼 표기 — 기존 패턴은 여는 괄호 '(' 를 흡수 못 해 미검출하거나
+# 닫는 괄호만 ')' 를 잘못 포함했다. 유효 한국 prefix(휴대/서울/지역/VoIP)만 허용해
+# '(2024) 발표'·'(주) 회사' 같은 괄호 텍스트 FP 를 차단. span 은 여는 괄호부터 덮는다.
+_PAREN_AREA = re.compile(
+    r"(?<![0-9A-Za-z])"
+    r"\("
+    r"(01[01679]|02|03[1-3]|04[1-4]|05[1-5]|06[1-4]|070)"
+    r"\)"
+    r"[-.\s]{0,3}"
+    r"(\d{3,4})"
+    r"[-.\s]{0,3}"
+    r"(\d{4})"
+    r"(?![0-9])"
+)
+
 # 대표번호 (15xx/16xx/17xx/18xx) — 8자리, 사업장/콜센터
 # KISA 번호자원관리 가이드: 1500-1899 대역
 # 주: 4-4 형식은 제품/규격/연식 번호('1588-2024 모델')와 형식이 같아 단독으론 구분
@@ -141,8 +157,24 @@ def _overlaps(span: tuple[int, int], seen: set[tuple[int, int]]) -> bool:
     return False
 
 
+def _phone_type_for_prefix(prefix: str) -> str:
+    if prefix.startswith("01"):
+        return "mobile"
+    if prefix == "070":
+        return "voip"
+    return "landline"
+
+
 def detect(text: str) -> Iterator[DetectionResult]:
     seen: set[tuple[int, int]] = set()
+
+    # 괄호 지역번호 표기 먼저 — 여는 괄호까지 포함한 전체 span 을 선점.
+    for m in _PAREN_AREA.finditer(text):
+        span = (m.start(), m.end())
+        if _overlaps(span, seen):
+            continue
+        seen.add(span)
+        yield _emit(m, _phone_type_for_prefix(m.group(1)))
 
     # International forms first — they cover their domestic-looking core.
     for m in _MOBILE_INTL.finditer(text):

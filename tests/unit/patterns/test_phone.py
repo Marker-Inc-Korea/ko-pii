@@ -68,6 +68,42 @@ class TestPhoneVoIP:
         assert results[0].extra["prefix"] == "070"
 
 
+class TestPhoneParenArea:
+    """GAP 4 — 괄호로 감싼 지역번호 표기 '(0NN) ...'."""
+
+    def test_paren_mobile(self):
+        results = _detect_list("(010) 9876-5432")
+        assert len(results) == 1
+        assert results[0].extra["type"] == "mobile"
+        assert results[0].text == "(010) 9876-5432"
+
+    def test_paren_seoul(self):
+        results = _detect_list("(02) 1234-5678")
+        assert len(results) == 1
+        assert results[0].extra["type"] == "landline"
+        assert results[0].text == "(02) 1234-5678"
+
+    def test_paren_regional(self):
+        results = _detect_list("(031) 123-4567")
+        assert len(results) == 1
+        assert results[0].extra["prefix"] == "031"
+
+    def test_paren_voip(self):
+        results = _detect_list("(070) 1234-5678")
+        assert len(results) == 1
+        assert results[0].extra["type"] == "voip"
+
+    def test_paren_no_space(self):
+        results = _detect_list("연락처 (010)9876-5432 입니다")
+        assert len(results) == 1
+        assert results[0].text == "(010)9876-5432"
+
+    def test_paren_non_phone_not_fp(self):
+        # 유효 prefix 가 아니면 미검출 — '(2024) 발표' 등.
+        assert _detect_list("(2024) 발표자료") == []
+        assert _detect_list("(123) 항목 참조") == []
+
+
 class TestPhoneNegative:
     def test_unknown_prefix(self):
         # 099 not a valid Korean phone prefix

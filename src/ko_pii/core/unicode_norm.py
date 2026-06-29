@@ -89,6 +89,47 @@ _FOLD_DIGIT = re.compile("[" + "".join(re.escape(c) for c in _CHAR_FOLD) + "]")
 # fast-path 가 그냥 통과시키므로, 클러스터 루프를 타도록 fast-path 에서 별도 검사한다.
 _CONJOINING_JAMO_RE = re.compile(r"[ᄀ-ᇿꥠ-꥿ힰ-퟿]")
 
+# 자릿수 사이 ASCII 공백 주입 우회('8 8 0 1 0 1-1234568', '0 1 0 1 2 3 4 5 6 7 8').
+# 서식 칸별 입력(PDF)이나 적대적 마스킹 회피로 한 자리씩 공백을 끼워 넣으면 RRN/전화
+# 패턴이 통째로 미검출 → 원본 PII 가 LLM 에 평문 유출된다. 정규화 단계에서 '수상한
+# 공백 런'의 공백만 제거하되 offset_map 은 보존 → redact/partial span 이 원본(공백 포함)
+# 전체를 덮는다.
+#
+# recall-safe 설계 — 일반 산문 공백은 절대 건드리지 않는다:
+#   1. _SPACED_NUM_REGION: 숫자 + 단일공백/하이픈/점(각 1~3자)로만 이루어진 연속 구간.
+#      한글/영문이 끼면 끊긴다('좌표 37 126' 처럼 단어 경계가 보존).
+#   2. candidate(): (a) 공백 제거 후 10~16자리(전화10/11·주민13·사업자10·카드16 대역)이고
+#      (b) '단일공백에 둘러싸인 한 자리 숫자'가 4회 이상 — 즉 자릿수 분할 시그니처가
+#      뚜렷할 때만 붕괴. '37 126 875'(좌표)·'1234 5678 9012'(그룹)·'버전 1 5 2 0 2 4'
+#      (6자리, 대역 밖)는 모두 미해당 → FP 0.
+_SPACED_NUM_REGION = re.compile(
+    r"(?<![0-9A-Za-z])[0-9](?:[ .\-]{0,3}[0-9]){8,}(?![0-9A-Za-z])"
+)
+_SINGLE_SPACED_DIGIT = re.compile(r"(?<=[ ])[0-9](?=[ ])")
+
+
+def _spaced_collapse_positions(text: str) -> set[int]:
+    """자릿수 분할 우회 구간 안의 '제거 대상 ASCII 공백' 원본 위치 집합 반환.
+
+    제거 대상은 PII 후보로 판정된 숫자 구간 내부의 단일 ASCII 공백뿐이다(하이픈/점 등
+    구분자는 그대로 둠 — 패턴 검출기가 처리). 비후보 구간이나 산문 공백은 미포함.
+    """
+    drop: set[int] = set()
+    for m in _SPACED_NUM_REGION.finditer(text):
+        region = m.group(0)
+        digits = sum(c.isdigit() for c in region)
+        if not (10 <= digits <= 16):
+            continue
+        # 단일공백에 둘러싸인 한 자리 숫자 카운트 — 자릿수 분할 시그니처.
+        padded = " " + region + " "
+        if len(_SINGLE_SPACED_DIGIT.findall(padded)) < 4:
+            continue
+        base = m.start()
+        for i, ch in enumerate(region):
+            if ch == " ":
+                drop.add(base + i)
+    return drop
+
 # \uB77C\uD2F4 \uAE00\uB9AC\uD504\uB85C \uC704\uC7A5\uD55C \uC22B\uC790(O\u21920, l\u21921 \u2026). \uC815\uC0C1 \uC601\uBB38(NO/ID/SOS)\uC744 \uAE68\uC9C0 \uC54A\uB3C4\uB85D
 # '\uC22B\uC790 2\uAC1C \uC774\uC0C1 + \uD638\uBAB0\uB85C\uADF8 1\uAC1C \uC774\uC0C1'\uC73C\uB85C \uC774\uB904\uC9C4 \uC22B\uC790\uC5F4 \uD1A0\uD070\uC5D0\uC11C\uB9CC \uD3F4\uB529\uD55C\uB2E4.
 # \uC8FC\uBBFC/\uCE74\uB4DC/\uC0AC\uC5C5\uC790\uBC88\uD638\uB97C 'l234567' \uCC98\uB7FC \uC801\uC740 \uAC80\uCD9C \uC6B0\uD68C\uB97C \uCC28\uB2E8. 1:1 \uCE58\uD658(\uAE38\uC774 \uBD88\uBCC0)
@@ -120,8 +161,14 @@ def needs_normalization(text: str) -> bool:
 
     ``detect_all`` \uC758 \uC9C4\uC785 \uAC00\uB4DC\uC6A9. ASCII \uC81C\uC5B4\uBB38\uC790(DEL\u00B7C0)\uB3C4 PII \uB97C \uCABC\uAC1C\uB294 \uC6B0\uD68C\uB77C
     ``text.isascii()`` \uB9CC\uC73C\uB860 \uBD80\uC871 \u2014 ``_INVISIBLE`` \uB85C \uC7A1\uB294\uB2E4. \uACB0\uD569\uD45C\uC2DC\uB294 \uBE44ASCII.
+    \uC790\uB9BF\uC218 \uC0AC\uC774 ASCII \uACF5\uBC31 \uC8FC\uC785('8 8 0 1 0 1-1234568')\uC740 \uC21C\uC218 ASCII \uB77C \uC704 \uB450 \uAC80\uC0AC\uB85C
+    \uC548 \uC7A1\uD600 \uBCC4\uB3C4\uB85C \uD6C4\uBCF4 \uACF5\uBC31 \uB7F0\uC774 \uC788\uB294\uC9C0 \uBCF8\uB2E4.
     """
-    return (not text.isascii()) or bool(_INVISIBLE.search(text))
+    return (
+        (not text.isascii())
+        or bool(_INVISIBLE.search(text))
+        or bool(_spaced_collapse_positions(text))
+    )
 
 
 def _is_conjoining_jamo(ch: str) -> bool:
@@ -143,11 +190,15 @@ def normalize_unicode(text: str) -> tuple[str, list[int]]:
     # 라틴 호몰로그 숫자 폴딩(1:1, 길이 불변 → offset 보존). 빠른 경로 전에 적용해야
     # 'l234567' 같은 ASCII-호몰로그 우회도 펴진다.
     text = _fold_digit_homoglyphs(text)
+    # 자릿수 분할 공백 제거 대상 위치(원본 기준). 이 공백들은 invisible 처럼 스킵하되
+    # offset_map 은 보존해 redact span 이 원본 전체(공백 포함)를 덮게 한다.
+    drop_spaces = _spaced_collapse_positions(text)
     # 빠른 경로: 이미 NFKC 이고 보이지 않는/결합 문자도 없으면 그대로 (no-op).
     # 결합표시는 이미 NFKC 일 수 있어(1+◌́ 는 합성형 없음) 별도 검사 — 빠진 채
     # 건너뛰면 숫자에 붙은 결합표시가 PII 를 쪼개 누출된다.
     if (
-        not _INVISIBLE.search(text)
+        not drop_spaces
+        and not _INVISIBLE.search(text)
         and not _COMBINING.search(text)
         and not _FOLD_DIGIT.search(text)
         and not _CONJOINING_JAMO_RE.search(text)
@@ -162,6 +213,11 @@ def normalize_unicode(text: str) -> tuple[str, list[int]]:
     while i < n:
         ch = text[i]
         if _INVISIBLE.match(ch):
+            i += 1
+            continue
+        # 자릿수 분할 우회 구간 안의 ASCII 공백 — invisible 처럼 스킵(omap 미추가).
+        # 다음 글자가 자기 원본 위치로 매핑되므로 redact span 이 원본 공백까지 덮는다.
+        if ch == " " and i in drop_spaces:
             i += 1
             continue
         # 기본 문자 + 뒤따르는 결합표시/한글 자모를 한 클러스터로 묶어 NFKC.

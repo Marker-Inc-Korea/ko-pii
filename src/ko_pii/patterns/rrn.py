@@ -51,6 +51,31 @@ _PATTERN_PREFIXED = re.compile(
     r"(?![0-9])"
 )
 
+# 분할 재조합(GAP 2): 6자리 + 짧은 *단어* 필러 + 7자리.
+# "앞자리 880101 뒷자리 1234567", "880101 다시 1234567" 처럼 한 문장 안에서 구분자
+# 대신 한국어 필러(앞자리/뒷자리/다시/그리고)로 쪼갠 RRN 을 잡는다.
+# 필러는 숫자·줄바꿈 없이 1~8자이되 *문자/단어 한 글자 이상*을 포함해야 한다
+# (``(?=[^0-9\n]*[^\s\d])``). 순수 공백("880101   1234568" 표 칼럼)·순수 구분자
+# (하이픈/점)는 기존 ``_PATTERN`` 의 cap 규칙이 처리하므로 분할 패턴에서 제외 — 표
+# 칼럼 나열 FP(test_three_pure_spaces_not_matched)를 깨지 않는다. 6자리는 유효 날짜,
+# 7자리 첫 자리는 한국인 성별코드여야 하며, 체크섬 불일치 시 주민 맥락/재조합 필러가
+# 있을 때만 방출(recall-safe: 무맥락 무작위 6자리 단독은 절대 미방출).
+_PATTERN_SPLIT = re.compile(
+    r"(?<![0-9])"
+    r"([0-9]{6})"
+    r"((?=[^0-9\n]*[^\s\d])[^0-9\n]{1,8}?)"   # 단어 한 글자 이상 포함하는 짧은 필러
+    r"([0-9]{7})"
+    r"(?![0-9])"
+)
+
+# RRN 맥락 마커 — 분할 재조합의 체크섬 불일치 케이스를 방출할 근거.
+_RRN_MARKERS = ("주민등록번호", "주민번호", "주민 번호", "앞자리", "뒷자리", "주민")
+
+# 재조합 연결 필러 — 두 숫자 조각을 잇는 한국어 표현. 필러 자체가 분할 시그니처라
+# 전역 마커가 없어도 방출 근거가 된다('880101 다시 1234567'). 유효 날짜 + 성별코드
+# 제약과 함께라 산문 FP 위험은 무시할 수준.
+_SPLIT_FILLER_MARKERS = ("뒷자리", "앞자리", "다시", "그리고", "이고", "하고", "뒤", "이어서")
+
 _CENTURY_BY_GENDER_DIGIT: dict[int, int] = {
     1: 1900, 2: 1900,
     3: 2000, 4: 2000,
@@ -133,9 +158,68 @@ def _emit(m: re.Match[str], offset: int = 0) -> DetectionResult | None:
     )
 
 
+def _emit_split(m: re.Match[str], marker_present: bool) -> DetectionResult | None:
+    """분할 재조합 RRN 검출(6자리 + 필러 + 7자리).
+
+    span 은 필러를 포함한 원본 전체(front 시작 ~ back 끝)를 덮어, 마스킹 시 두 조각이
+    모두 제거된다. 체크섬 불일치면 주민 맥락 마커가 있을 때만 방출.
+    """
+    front, filler, back = m.group(1), m.group(2), m.group(3)
+    gender_digit = int(back[0])
+    birth = _decode_birth_date(front, gender_digit)
+    if birth is None:
+        return None
+    if birth > date.today():
+        return None
+
+    digits_only = front + back
+    checksum_ok = is_valid_checksum(digits_only)
+
+    # 법인등록번호(성별자리 0 + 법인 체크섬 통과)는 RRN 으로 보지 않음 — 단일 패턴과 동일.
+    if not checksum_ok and back[0] == "0" and _is_valid_corp_checksum(digits_only):
+        return None
+
+    # 필러 자체가 재조합 연결 표현이면 그것도 방출 근거(전역 마커 불필요).
+    has_context = marker_present or any(fm in filler for fm in _SPLIT_FILLER_MARKERS)
+
+    # recall-safe: 체크섬 불일치 + 무맥락 → 미방출(무작위 6+7 숫자쌍 FP 차단).
+    if not checksum_ok and not has_context:
+        return None
+
+    evidence = ["pattern:rrn_split", f"date_valid:{birth.isoformat()}"]
+    if checksum_ok:
+        evidence.append("checksum:valid")
+        confidence = 1.0
+    else:
+        evidence.append("checksum:invalid_or_post_2020")
+        evidence.append("context:rrn_marker")
+        confidence = 0.7
+
+    return DetectionResult(
+        label=LABEL,
+        text=m.group(0),
+        start=m.start(),
+        end=m.end(),
+        risk_level=RiskLevel.CRITICAL,
+        confidence=confidence,
+        evidence=evidence,
+        legal_basis=LEGAL_BASIS,
+        extra={
+            "front": front,
+            "back": back,
+            "birth_date": birth.isoformat(),
+            "gender_digit": gender_digit,
+            "checksum_valid": checksum_ok,
+            "category": CATEGORY,
+            "reassembled": True,
+        },
+    )
+
+
 def detect(text: str) -> Iterator[DetectionResult]:
     """Yield a DetectionResult for each plausible RRN found in *text*."""
     seen: set[tuple[int, int]] = set()
+    marker_present = any(mk in text for mk in _RRN_MARKERS)
 
     # 기본 패턴
     for m in _PATTERN.finditer(text):
@@ -149,4 +233,15 @@ def detect(text: str) -> Iterator[DetectionResult]:
         result = _emit(m, offset=1)
         if result is not None and (result.start, result.end) not in seen:
             seen.add((result.start, result.end))
+            yield result
+
+    # 분할 재조합 패턴 (GAP 2): 6자리 + 한국어 필러 + 7자리.
+    # 이미 잡힌 RRN(단일/prefix)과 겹치는 매치는 건너뛴다.
+    for m in _PATTERN_SPLIT.finditer(text):
+        span = (m.start(), m.end())
+        if any(s < span[1] and span[0] < e for s, e in seen):
+            continue
+        result = _emit_split(m, marker_present)
+        if result is not None:
+            seen.add(span)
             yield result

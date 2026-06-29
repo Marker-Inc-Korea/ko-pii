@@ -123,6 +123,44 @@ class TestRRNNegative:
         assert _detect_list("880101-12345689") == []
 
 
+class TestRRNSplitReassembly:
+    """GAP 2 — 문장 분할 + 한국어 필러로 쪼갠 RRN 의 관용 재조합."""
+
+    def test_marker_앞자리_뒷자리(self):
+        results = _detect_list("앞자리 880101 뒷자리 1234567")
+        assert len(results) == 1
+        assert results[0].label == "RRN"
+        assert results[0].extra["front"] == "880101"
+        assert results[0].extra["back"] == "1234567"
+        assert results[0].extra.get("reassembled") is True
+
+    def test_filler_다시(self):
+        # 재조합 연결 필러('다시')만으로도 방출(전역 마커 불필요).
+        results = _detect_list("880101 다시 1234567")
+        assert len(results) == 1
+        assert results[0].label == "RRN"
+
+    def test_marker_주민번호_checksum_valid(self):
+        results = _detect_list("주민등록번호 880101 그리고 1234568")
+        assert len(results) == 1
+        assert results[0].extra["checksum_valid"] is True
+        assert results[0].confidence == 1.0
+
+    def test_bare_six_digits_not_flagged(self):
+        # recall-safe: 6자리 단독은 RRN 아님.
+        assert _detect_list("880101") == []
+        assert _detect_list("회의 880101 일정") == []
+
+    def test_uncontexted_pair_checksum_fail_not_flagged(self):
+        # 무마커 + 무재조합필러 + 체크섬불일치 6+7 쌍은 미방출.
+        assert _detect_list("버전 880101 릴리스 1234567 패치") == []
+
+    def test_contiguous_rrn_not_double_counted(self):
+        # 단일 패턴이 잡은 연속 RRN 을 분할 패턴이 중복 방출하지 않음.
+        results = _detect_list("주민번호 880101-1234568")
+        assert len(results) == 1
+
+
 class TestRRNStructure:
     def test_span_indices_correct(self):
         text = "신청인의 주민등록번호는 880101-1234568 입니다."

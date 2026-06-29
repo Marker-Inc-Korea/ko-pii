@@ -28,3 +28,20 @@ class TestPhoneDomestic:
         results = _d("010-1234-5678")
         assert len(results) == 1
         assert results[0].extra["international"] is False
+
+
+def test_phone_spaced_hyphen_separator():
+    """' - '(공백+하이픈+공백, 3글자) 구분자 표기 변형 — 민원 서식에서 발견된 갭 회귀."""
+    from ko_pii.patterns.phone import detect
+    for text in [
+        "010 - 1234 - 5678",
+        "연 락 처 : 010 - 1234 - 5678",
+        "02 - 123 - 4567",
+        "031 - 123 - 4567",
+    ]:
+        dets = detect(text)
+        assert any(d.label == "PHONE" for d in dets), f"미검출: {text!r}"
+    # 비-전화 오탐 방지
+    for text in ["버전 1.5 - 2024 - 모델", "범위 100 - 200 - 300"]:
+        dets = detect(text)
+        assert not any(d.label == "PHONE" for d in dets), f"오탐: {text!r}"
