@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import zipfile
 
-import pytest
 
 from ko_pii.io_ import read_text, read_records
 

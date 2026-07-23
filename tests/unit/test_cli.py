@@ -1,7 +1,6 @@
 import json
 import os
 
-import pytest
 
 from ko_pii.cli import main
 from ko_pii.vault.reversible import ReversibleVault

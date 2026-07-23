@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import hashlib
 import os
-import struct
 
 from ko_pii.vault.reversible import ReversibleVault
 
@@ -90,8 +89,10 @@ def load_encrypted(path: str, password: str) -> ReversibleVault:
     if data[:len(MAGIC)] != MAGIC:
         raise ValueError("not a ko-pii encrypted vault (magic mismatch)")
     pos = len(MAGIC)
-    salt = data[pos:pos + KDF_SALT_LEN]; pos += KDF_SALT_LEN
-    nonce = data[pos:pos + NONCE_LEN]; pos += NONCE_LEN
+    salt = data[pos:pos + KDF_SALT_LEN]
+    pos += KDF_SALT_LEN
+    nonce = data[pos:pos + NONCE_LEN]
+    pos += NONCE_LEN
     ciphertext = data[pos:]
     key = _derive_key(password, salt)
     aead = AESGCM(key)

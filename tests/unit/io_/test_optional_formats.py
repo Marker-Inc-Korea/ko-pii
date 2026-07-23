@@ -4,7 +4,6 @@ import pytest
 
 class TestHwpOptional:
     def test_missing_olefile_raises_clear(self, tmp_path, monkeypatch):
-        import sys
         # olefile import 가 안 된 상태 시뮬레이션
         from ko_pii.io_ import hwp as hwp_mod
         monkeypatch.setattr(hwp_mod, "_HAS_OLEFILE", False)

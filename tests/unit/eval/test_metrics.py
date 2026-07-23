@@ -1,6 +1,5 @@
 from ko_pii.core.types import DetectionResult, RiskLevel
 from ko_pii.eval.metrics import (
-    PerLabelMetrics,
     score_document,
     score_corpus,
     format_report,

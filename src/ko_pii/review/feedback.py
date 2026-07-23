@@ -21,7 +21,6 @@ import json
 import os
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import Optional
 
 
 @dataclass

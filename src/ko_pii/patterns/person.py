@@ -28,7 +28,7 @@ from ko_pii.dictionaries.common_words import is_common_word
 from ko_pii.dictionaries.districts import (
     is_country, is_common_dong, is_district, is_extra_city, is_province,
 )
-from ko_pii.dictionaries.field_labels import is_field_label
+from ko_pii.dictionaries.field_labels import FIELD_LABELS_NAME, is_field_label
 from ko_pii.dictionaries.universities import is_university
 from ko_pii.dictionaries.surnames import surname_prefix_len
 from ko_pii.dictionaries.titles import is_title
@@ -425,7 +425,6 @@ def _detect_with_dict(
         # Embedded title — "강회장이" 같이 토큰 안에 직책이 들어있으면
         # 직책 부분 떼고 앞부분 (성+이름 후보) 만 사용
         embedded_title: str | None = None
-        original_stem = stem
         front, title_suffix = _split_embedded_title(stem)
         if title_suffix and len(front) >= 2:
             stem = front
@@ -538,9 +537,6 @@ def _detect_with_dict(
         )
         if rescored.value >= threshold:
             yield _emit(cand, particle, rescored.value, rescored.evidence)
-
-
-from ko_pii.dictionaries.field_labels import FIELD_LABELS_NAME
 
 
 def _label_before(text: str, start: int) -> bool:

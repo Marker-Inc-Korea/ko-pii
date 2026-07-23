@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 
 from ko_pii.anonymizer import AnonymizationResult
 from ko_pii.core.types import RiskLevel
-from ko_pii.reporting.summary import format_summary_text, review_queue
+from ko_pii.reporting.summary import format_summary_text
 
 
 def generate_certificate(

@@ -58,12 +58,12 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.show_errors > 0:
         print()
-        print(f"=== FN 샘플 (ko-pii 가 놓친 이름) ===")
+        print("=== FN 샘플 (ko-pii 가 놓친 이름) ===")
         for sent, names in sample_errors(sentences, "fn", args.show_errors):
             ctx = sent.text[:100]
             print(f"  - {names[0]:<10} ... {ctx}")
         print()
-        print(f"=== FP 샘플 (ko-pii 가 잘못 잡은 토큰) ===")
+        print("=== FP 샘플 (ko-pii 가 잘못 잡은 토큰) ===")
         for sent, names in sample_errors(sentences, "fp", args.show_errors):
             ctx = sent.text[:100]
             print(f"  - {names[0]:<10} ... {ctx}")

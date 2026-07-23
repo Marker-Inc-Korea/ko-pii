@@ -19,7 +19,6 @@ from typing import Iterable, Optional
 
 from ko_pii.anonymizer import Anonymizer
 from ko_pii.core.modes import ProcessingMode
-from ko_pii.core.types import DetectionResult
 from ko_pii.vault.reversible import ReversibleVault
 
 

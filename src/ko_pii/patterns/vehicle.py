@@ -52,11 +52,16 @@ _VEHICLE_HANGUL: frozenset[str] = frozenset({
 
 def _vehicle_purpose(hangul: str) -> str:
     """Classify the 1-char purpose code."""
-    if hangul in {"바", "사", "아", "자"}: return "commercial"
-    if hangul == "배": return "delivery"
-    if hangul in {"하", "허", "호"}: return "rental"
-    if hangul in {"외", "영", "준", "협", "대"}: return "diplomatic"
-    if hangul in {"국", "합", "육", "해", "공"}: return "military"
+    if hangul in {"바", "사", "아", "자"}:
+        return "commercial"
+    if hangul == "배":
+        return "delivery"
+    if hangul in {"하", "허", "호"}:
+        return "rental"
+    if hangul in {"외", "영", "준", "협", "대"}:
+        return "diplomatic"
+    if hangul in {"국", "합", "육", "해", "공"}:
+        return "military"
     return "private"
 
 

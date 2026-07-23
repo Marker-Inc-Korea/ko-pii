@@ -5,7 +5,6 @@
 """
 import re
 import time
-import unicodedata
 
 import pytest
 

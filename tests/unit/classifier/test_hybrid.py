@@ -7,8 +7,8 @@ MODEL_PATH = Path("models/pii_classifier_v6/final")
 if not MODEL_PATH.exists():
     pytest.skip(f"학습된 모델 없음: {MODEL_PATH}", allow_module_level=True)
 
-from ko_pii import Anonymizer, ProcessingMode
-from ko_pii.classifier import (
+from ko_pii import Anonymizer, ProcessingMode  # noqa: E402
+from ko_pii.classifier import (  # noqa: E402
     HybridAnonymizer,
     HybridMode,
     PIIClassifier,

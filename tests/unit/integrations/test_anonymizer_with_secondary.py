@@ -6,7 +6,7 @@ def _det(label, start, end, text):
     return DetectionResult(
         label=label, text=text, start=start, end=end,
         risk_level=RiskLevel.HIGH, confidence=0.85,
-        evidence=[f"source:mock"],
+        evidence=["source:mock"],
     )
 
 

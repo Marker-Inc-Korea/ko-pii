@@ -12,9 +12,11 @@ from ko_pii import detect_all
 
 
 def _elapsed(text: str) -> float:
-    start = time.perf_counter()
+    # Measure algorithmic CPU cost rather than scheduler wait. Wall-clock
+    # thresholds produce false failures in CPU-quota CI/shared environments.
+    start = time.process_time()
     detect_all(text)
-    return time.perf_counter() - start
+    return time.process_time() - start
 
 
 def test_long_digit_string_is_linear() -> None:

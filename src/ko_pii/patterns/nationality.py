@@ -11,7 +11,7 @@ import re
 from typing import Iterator
 
 from ko_pii.core.types import DetectionResult, RiskLevel
-from ko_pii.dictionaries.districts import COUNTRIES, is_country
+from ko_pii.dictionaries.districts import is_country
 
 LABEL = "NATIONALITY"
 LEGAL_BASIS = "개인정보보호법 제2조"
@@ -51,7 +51,7 @@ def detect(text: str) -> Iterator[DetectionResult]:
             end=actual_end,
             risk_level=RiskLevel.LOW,
             confidence=0.7,
-            evidence=["pattern:nationality", f"dict:country"],
+            evidence=["pattern:nationality", "dict:country"],
             legal_basis=LEGAL_BASIS,
             extra={
                 "country": token,

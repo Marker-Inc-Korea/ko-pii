@@ -14,7 +14,7 @@ if not MODEL_PATH.exists():
         allow_module_level=True,
     )
 
-from ko_pii.classifier import PIIClassifier
+from ko_pii.classifier import PIIClassifier  # noqa: E402
 
 
 @pytest.fixture(scope="module")

@@ -171,9 +171,11 @@ def _fpe_default(original: str, fp: str) -> str:
     di = ai = hi = 0
     for ch in original:
         if ch.isdigit():
-            chars.append(digit_pool[di]); di += 1
+            chars.append(digit_pool[di])
+            di += 1
         elif "가" <= ch <= "힣":  # 한글 음절 → 한글로 치환 (형식 유지; isalpha 가 한글도 True 라 먼저 처리)
-            chars.append(hangul_pool[hi]); hi += 1
+            chars.append(hangul_pool[hi])
+            hi += 1
         elif ch.isascii() and ch.isalpha():
             chars.append(alpha_pool[ai] if ch.isupper() else alpha_pool[ai].lower())
             ai += 1

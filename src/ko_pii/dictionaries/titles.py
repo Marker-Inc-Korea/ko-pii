@@ -304,12 +304,20 @@ def is_judge_title(token: str) -> bool:
 
 def title_domain(token: str) -> str | None:
     """Return one of 'general'/'gov'/'police'/'fire'/'military'/'diplomat'/'prosecutor'/'judge'."""
-    if token in TITLES_POLICE: return "police"
-    if token in TITLES_FIRE: return "fire"
-    if token in TITLES_MILITARY: return "military"
-    if token in TITLES_DIPLOMAT: return "diplomat"
-    if token in TITLES_PROSECUTOR: return "prosecutor"
-    if token in TITLES_JUDGE: return "judge"
-    if token in TITLES_GOV or token in TITLES_OTHER_SPECIAL: return "gov"
-    if token in TITLES: return "general"
+    if token in TITLES_POLICE:
+        return "police"
+    if token in TITLES_FIRE:
+        return "fire"
+    if token in TITLES_MILITARY:
+        return "military"
+    if token in TITLES_DIPLOMAT:
+        return "diplomat"
+    if token in TITLES_PROSECUTOR:
+        return "prosecutor"
+    if token in TITLES_JUDGE:
+        return "judge"
+    if token in TITLES_GOV or token in TITLES_OTHER_SPECIAL:
+        return "gov"
+    if token in TITLES:
+        return "general"
     return None

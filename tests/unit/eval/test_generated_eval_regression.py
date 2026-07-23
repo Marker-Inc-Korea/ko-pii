@@ -23,7 +23,11 @@ PML = 3  # person_min_length
 def _load():
     if not DATA.exists():
         pytest.fail(f"평가셋 누락: {DATA} (레포에 커밋되어 있어야 함)")
-    return [json.loads(l) for l in DATA.read_text(encoding="utf-8").splitlines() if l.strip()]
+    return [
+        json.loads(line)
+        for line in DATA.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
 
 
 def _score():
@@ -43,8 +47,12 @@ def _score():
             pred[r.label].add(r.text)
         for lab in set(gold) | set(pred):
             mp, mg = match_forms_overlap(pred.get(lab, set()), gold.get(lab, set()))
-            tp += len(mp); fp += len(pred.get(lab, set()) - mp); fn += len(gold.get(lab, set()) - mg)
-            per[lab][0] += len(mp); per[lab][1] += len(pred.get(lab, set()) - mp); per[lab][2] += len(gold.get(lab, set()) - mg)
+            tp += len(mp)
+            fp += len(pred.get(lab, set()) - mp)
+            fn += len(gold.get(lab, set()) - mg)
+            per[lab][0] += len(mp)
+            per[lab][1] += len(pred.get(lab, set()) - mp)
+            per[lab][2] += len(gold.get(lab, set()) - mg)
     return tp, fp, fn, per
 
 

@@ -1206,7 +1206,7 @@ def _contract(rnd: random.Random) -> GoldDocument:
         (addr_b, "ADDRESS"),
         ("\n\n", None),
         ("□ 계약 목적\n", None),
-        (f"  갑은 을에게 IT 시스템 구축 용역을 의뢰하며, ", None),
+        ("  갑은 을에게 IT 시스템 구축 용역을 의뢰하며, ", None),
         ("을은 계약 조건에 따라 이를 성실히 수행한다.\n\n", None),
         ("□ 용역 대금\n", None),
         ("  - 총 금액: 금 일억오천만원정 (\\150,000,000)\n", None),

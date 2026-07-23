@@ -91,7 +91,6 @@ def alternative_romanizations(hangul: str) -> list[str]:
     given_syllables = [_capitalize(_romanize_syllable(c)) for c in hangul[sp:]]
     given_hyphen = "-".join(given_syllables)        # Gil-dong
     given_space = " ".join(given_syllables)         # Gil dong
-    given_lower_hyphen = given_hyphen.lower()       # gil-dong
     alts: list[str] = []
     seen: set[str] = set()
     def _add(s: str) -> None:

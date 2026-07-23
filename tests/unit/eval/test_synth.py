@@ -1,4 +1,4 @@
-from ko_pii.eval.synth import GoldDocument, generate_document, generate_corpus
+from ko_pii.eval.synth import generate_document, generate_corpus
 
 
 def test_generate_document_is_deterministic_with_seed():

@@ -1,7 +1,6 @@
 from ko_pii.dictionaries.districts import (
-    PROVINCES, ALL_DISTRICTS, ALL_CITIES_GUNS,
-    SEOUL_DISTRICTS, METRO_DISTRICTS,
-    is_province, is_district, is_admin_unit, normalize_province,
+    PROVINCES, ALL_CITIES_GUNS,
+    SEOUL_DISTRICTS, is_province, is_district, is_admin_unit, normalize_province,
 )
 
 

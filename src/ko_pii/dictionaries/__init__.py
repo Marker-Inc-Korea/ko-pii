@@ -52,8 +52,10 @@ __all__ = [
     # districts (조합 사전 포함)
     "PROVINCES", "PROVINCE_ABBREV", "PROVINCE_DISTRICTS",
     "SEOUL_DISTRICTS", "METRO_DISTRICTS", "ALL_CITIES_GUNS", "ALL_DISTRICTS",
+    "COUNTRIES", "EXTRA_CITY_ABBREV", "COMMON_DONGS",
     "is_province", "is_district", "is_admin_unit", "normalize_province",
     "is_valid_province_district", "districts_of",
+    "is_country", "is_common_dong", "is_extra_city",
     # 부처×직급 조합
     "valid_titles_for", "is_valid_agency_title", "specialized_agencies_for",
     # other

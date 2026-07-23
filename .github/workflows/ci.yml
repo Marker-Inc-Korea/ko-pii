@@ -44,7 +44,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install ruff
-        run: pip install ruff
+      - name: Install static analysis tools
+        run: pip install "ruff==0.12.1" "mypy==1.17.1"
       - name: Lint
-        run: ruff check src/ tests/ || true   # 경고 표시만, 실패 X
+        run: ruff check src/ tests/
+      - name: Type check
+        run: mypy

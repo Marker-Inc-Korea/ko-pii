@@ -53,7 +53,7 @@ class TestReviewQueueBasics:
         q = ReviewQueue(str(tmp_path / "q.jsonl"))
         a = q.enqueue_detection(_det(text="A"))
         b = q.enqueue_detection(_det(text="B"))
-        c = q.enqueue_detection(_det(text="C"))
+        q.enqueue_detection(_det(text="C"))
         q.mark(a.id, Verdict.OK)
         q.mark(b.id, Verdict.FP)
         s = q.stats()

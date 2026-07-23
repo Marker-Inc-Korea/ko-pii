@@ -42,9 +42,9 @@ if TYPE_CHECKING:
     from ko_pii.vault.reversible import ReversibleVault
 
 try:
-    from mcp.server import Server  # type: ignore
-    from mcp.server.stdio import stdio_server  # type: ignore
-    import mcp.types as types  # type: ignore
+    from mcp.server import Server
+    from mcp.server.stdio import stdio_server
+    import mcp.types as types
     _HAS_MCP = True
 except ImportError:
     _HAS_MCP = False
@@ -64,7 +64,7 @@ _VAULTS: dict[str, "ReversibleVault"] = {}
 
 
 def _register_tools(server: Any) -> None:
-    @server.list_tools()  # type: ignore[untyped-decorator]
+    @server.list_tools()  # type: ignore[misc]
     async def list_tools() -> "list[Any]":
         return [
             types.Tool(
@@ -142,7 +142,7 @@ def _register_tools(server: Any) -> None:
             ),
         ]
 
-    @server.call_tool()  # type: ignore[untyped-decorator]
+    @server.call_tool()  # type: ignore[misc]
     async def call_tool(name: str, arguments: dict[str, Any]) -> "list[Any]":
         from ko_pii import Anonymizer, ProcessingMode
         from ko_pii.detect import detect_all
