@@ -6,6 +6,7 @@ degrade detection performance on realistic documents.
 from __future__ import annotations
 
 from ko_pii.detect import detect_all
+from ko_pii.eval import benchmark
 from ko_pii.eval.metrics import score_corpus
 from ko_pii.eval.synth import generate_corpus
 
@@ -32,3 +33,8 @@ def test_critical_labels_full_recall():
         if label in report.per_label:
             m = report.per_label[label]
             assert m.recall >= 0.95, f"{label} recall = {m.recall:.3f}"
+
+
+def test_benchmark_cli_enforces_requested_floor():
+    assert benchmark.main(["-n", "30", "--seed", "0", "--min-micro-f1", "0.78"]) == 0
+    assert benchmark.main(["-n", "30", "--seed", "0", "--min-micro-f1", "0.99"]) == 1
