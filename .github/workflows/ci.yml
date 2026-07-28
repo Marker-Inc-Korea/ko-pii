@@ -86,7 +86,10 @@ jobs:
         run: python -m pip install .
       - name: Enforce measured synthetic floor
         run: |
-          python -m ko_pii.eval.benchmark -n 60 --seed 0 --min-micro-f1 0.78
-          python -m ko_pii.eval.benchmark -n 60 --seed 1 --min-micro-f1 0.78
-          python -m ko_pii.eval.benchmark -n 60 --seed 2 --min-micro-f1 0.78
-          python -m ko_pii.eval.benchmark -n 60 --seed 3 --min-micro-f1 0.78
+          for seed in 0 1 2 3; do
+            python -m ko_pii.eval.benchmark -n 60 --seed "$seed" \
+              --min-micro-precision 0.68 \
+              --min-micro-recall 0.95 \
+              --min-micro-f1 0.80 \
+              --min-macro-f1 0.60
+          done

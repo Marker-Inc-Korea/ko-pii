@@ -5,6 +5,12 @@
 
 ## [Unreleased]
 
+## [1.15.4] - 2026-07-28
+
+### Added
+- 합성 회귀 gate를 micro precision/recall/F1과 macro-F1 독립 하한으로 확장하고,
+  실패한 지표의 실측값과 기준값을 CI 로그에 출력.
+
 ## [1.15.3] - 2026-07-28
 
 ### Added

@@ -5,9 +5,11 @@ degrade detection performance on realistic documents.
 """
 from __future__ import annotations
 
+import pytest
+
 from ko_pii.detect import detect_all
 from ko_pii.eval import benchmark
-from ko_pii.eval.metrics import score_corpus
+from ko_pii.eval.metrics import BenchmarkReport, PerLabelMetrics, score_corpus
 from ko_pii.eval.synth import generate_corpus
 
 
@@ -38,3 +40,67 @@ def test_critical_labels_full_recall():
 def test_benchmark_cli_enforces_requested_floor():
     assert benchmark.main(["-n", "30", "--seed", "0", "--min-micro-f1", "0.78"]) == 0
     assert benchmark.main(["-n", "30", "--seed", "0", "--min-micro-f1", "0.99"]) == 1
+
+
+def _fixed_report() -> BenchmarkReport:
+    return BenchmarkReport(
+        per_label={
+            "PERSON": PerLabelMetrics(label="PERSON", tp=8, fp=2, fn=1),
+        },
+        document_count=1,
+    )
+
+
+def test_benchmark_cli_enforces_all_requested_floors(monkeypatch):
+    monkeypatch.setattr(benchmark, "score_corpus", lambda *args, **kwargs: _fixed_report())
+
+    assert (
+        benchmark.main(
+            [
+                "-n",
+                "1",
+                "--min-micro-precision",
+                "0.79",
+                "--min-micro-recall",
+                "0.88",
+                "--min-micro-f1",
+                "0.84",
+                "--min-macro-f1",
+                "0.84",
+            ]
+        )
+        == 0
+    )
+
+
+@pytest.mark.parametrize(
+    ("option", "metric_name"),
+    [
+        ("--min-micro-precision", "micro precision"),
+        ("--min-micro-recall", "micro recall"),
+        ("--min-micro-f1", "micro F1"),
+        ("--min-macro-f1", "macro F1"),
+    ],
+)
+def test_benchmark_cli_reports_each_failed_floor(
+    monkeypatch, capsys, option, metric_name
+):
+    monkeypatch.setattr(benchmark, "score_corpus", lambda *args, **kwargs: _fixed_report())
+
+    assert benchmark.main(["-n", "1", option, "0.90"]) == 1
+    assert metric_name in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "option",
+    [
+        "--min-micro-precision",
+        "--min-micro-recall",
+        "--min-micro-f1",
+        "--min-macro-f1",
+    ],
+)
+def test_benchmark_cli_rejects_invalid_floor(option):
+    with pytest.raises(SystemExit) as exc_info:
+        benchmark.main(["-n", "1", option, "1.01"])
+    assert exc_info.value.code == 2
