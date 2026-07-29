@@ -6,10 +6,29 @@
 [![PyPI](https://img.shields.io/pypi/v/ko-pii.svg)](https://pypi.org/project/ko-pii/)
 [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Demo](https://img.shields.io/badge/demo-HuggingFace-yellow.svg)](https://huggingface.co/spaces/modak000/ko-pii-demo)
+[![Software: Stable](https://img.shields.io/badge/software-stable-1f6f43)](CHANGELOG.md)
 
 **한국어 문서의 개인정보를 검출하고 가역적으로 가명화하는 Python 라이브러리.** 외부 ML 의존성 없이 룰 + 사전 + 체크섬만으로 동작. 공공 문서에서 특히 강하며, 어떤 ML 파이프라인의 전처리 레이어로도 활용 가능.
 
-> **공개 벤치마크 — 룰 기반 한국어 PII 도구 중 정확도 1위.** 인간 라벨 KDPII(4,891건)에서 Microsoft Presidio · openai/privacy-filter를 앞서고(**F1 0.66** vs 0.27 / 0.26), **0.19 ms/문서(~5,350 문서/s) — Presidio(4.2ms)보다 22배 빠름**, 100만 문서를 **~$0** · 완전 온프레미스로 처리합니다. 결정적 ID(주민번호 · 카드 · 전화 · 이메일)는 체크섬 검증으로 **F1 ≈ 1.0**. 모든 수치는 단일 채점기로 **측정 · 재현 가능** — [종합 비교표(한글)](docs/presentation/ko-pii-종합비교.md) · [벤치마크 상세(영문)](docs/BENCHMARK.md).
+> **공개 측정값은 제품 자격증명이 아니라 분포별 참고 근거입니다.** KDPII 대화체
+> 4,891건에서 F1 0.66, 행정·서식형 생성 평가셋 540건에서 F1 0.79를 기록했습니다.
+> 데이터셋, 라벨 정의와 채점 조건이 달라지면 결과도 달라지므로 보편적 순위나 고객 환경의
+> 정확도로 해석하지 않습니다. 상세 조건은 [벤치마크 문서](docs/BENCHMARK.md)를 따릅니다.
+
+## 제품 계약
+
+| 항목 | 운영 정의 |
+|---|---|
+| 주 고객 | 공공·규제 산업의 문서 RAG, 데이터 전처리, 개인정보보호 팀 |
+| 고객 과업 | 외부 전송·인덱싱 전에 한국형 구조적 PII를 가명화하고 복원 이력을 통제 |
+| 보장 범위 | 형식·사전·체크섬 기반의 재현 가능한 검출, 가명화와 Vault 감사 |
+| 비보장 범위 | 일반 NER, 자유 대화·SNS 전반, 법적 익명성 판정, 모든 도메인의 동일 정확도 |
+| 운영 조건 | 고객 문서의 라벨 분포와 confusion count를 별도 측정하고 PERSON·ADDRESS 처리 정책 승인 |
+| 상태 해석 | `Software: Stable`은 패키지 안정성이다. 고객 환경은 도메인 qualification 전까지 미승격 |
+
+결정적 식별자와 PERSON·ADDRESS 같은 문맥형 라벨을 하나의 전체 F1으로 합쳐 운영 결정을
+내리지 않습니다. 고객별 승격에서는 critical identifier, 문맥형 라벨, Vault 운영을 따로
+검증해야 합니다.
 
 ```python
 from ko_pii import Anonymizer, ProcessingMode
@@ -85,7 +104,8 @@ RAG·LLM 파이프라인은 미정제 비정형 데이터를 그대로 인덱싱
 - **법적 의무** — 개인정보보호법(PIPA): 주민등록번호·건강정보 등 민감정보 처리 제한 (해외 GDPR·HIPAA 대응)
 - **주권·폐쇄망** — 공공기관 망분리 환경은 외부 API 로 PII 를 보낼 수 없음 → **오프라인 결정적 검출**이 필수
 - **신뢰·평판** — 유출 1건이 서비스 신뢰를 무너뜨림
-- **ML 보완** — NER·LLM 검출은 할루시네이션·재현 불가. 체크섬으로 검증되는 PII(RRN·카드·사업자)는 ko-pii 가 F1 ≈ 1.0 으로 확정 검출해 ML 의 빈틈을 메움
+- **ML 보완** — NER·LLM과 달리 형식·체크섬이 유효한 PII를 결정론적으로 검증해 구조적
+  식별자의 정밀도 기반을 제공함. 실제 F1은 입력 형식과 데이터셋별로 별도 측정
 
 ko-pii 는 RAG 의 **인제스트(벡터 DB 진입 전)와 검색(LLM 전달 전) 양단**에서 PII 를 차단합니다. 같은 인물은 같은 토큰으로 치환해 문맥을 보존하고(LlamaIndex·LangChain 연동 제공), Vault 로 권한 기반 복원과 감사 추적을 지원합니다.
 
@@ -94,7 +114,8 @@ ko-pii 는 RAG 의 **인제스트(벡터 DB 진입 전)와 검색(LLM 전달 전
 ## 주요 특징
 
 - **한국 특화** — 한국어 PII 33 카테고리 (RRN · FRN · 여권 · 사업자 · 카드 · 계좌 · 전화 · 이메일 · 주소 · 차량 · 인명 · 직책 · 국적 등). 공공 문서에서 특히 강함
-- **결정적 검출** — 룰 + 사전 + 체크섬. 주민등록번호·카드·사업자번호 등은 체크섬 검증으로 F1 ≈ 1.000
+- **결정적 검출** — 룰 + 사전 + 체크섬. 주민등록번호·카드·사업자번호 등 형식 유효
+  식별자를 같은 정책으로 재현 가능하게 검증
 - **우회 차단** — 전각 숫자(`０１０`)·제로폭 문자 삽입 등 유니코드 우회를 정규화로 무력화 (검출 offset 은 원본 보존)
 - **외부 의존성 없음** — Python 표준 라이브러리만 사용. 오프라인/폐쇄망 동작, GPU 불필요
 - **전처리 레이어** — `DetectionResult` (label/start/end/text/confidence) 표준 객체 출력. ML 파이프라인 앞단에 끼워넣기 편함
@@ -220,7 +241,8 @@ logging.info("신청인 홍길동 (880101-1234568) 처리 완료")
 | KDPII (한국어 일상 대화) | 4,891 | **0.660** | 0.264 | 0.273 |
 | KLUE-NER (신문기사 풀네임) | 5,000 | **0.419** | 0.155 | 0.000 |
 
-룰 기반 한국어 PII 도구 중 정확도 1위. ko-pii는 속도·비용·결정성에서도 뚜렷한 운영점을 점합니다:
+아래 결과는 명시한 데이터셋과 단일 채점 조건의 측정값입니다. 보편적 정확도 순위나
+고객 환경의 운영 적합성을 자동으로 의미하지 않습니다:
 
 | 시스템 | 지연/문서 | 처리량 | 100만 문서 비용 | 특성 |
 |---|---:|---:|---:|---|
@@ -232,7 +254,8 @@ logging.info("신청인 홍길동 (880101-1234568) 처리 완료")
 
 - KDPII는 단일 매처(`match_forms_overlap`, `person_min_length=3`)로 전체 4,891문서 재측정 — [openai/privacy-filter](https://huggingface.co/openai/privacy-filter) (660M ML) · [Microsoft Presidio](https://github.com/microsoft/presidio) 등 룰·NER 도구 대비 우위.
 - **공정 비교:** 위 전체 점수는 해외 도구가 *라벨 자체가 없는* 항목(AGE·POSITION·RRN 등)에서 0점이라 격차가 커진다. 각 도구가 **실제 지원하는 카테고리만**으로 좁혀도 ko-pii가 앞선다 — vs openai/PF **0.61 : 0.37**(그쪽 7라벨), vs Presidio **0.87 : 0.65**(그쪽 9라벨).
-- 결정적 PII (RRN·PHONE·EMAIL·카드·사업자) 는 체크섬 검증 → F1 ≈ 1.000.
+- 생성 평가셋의 구조적 라벨은 EMAIL 0.998, PHONE 0.989, CARD 0.988, RRN 0.955로
+  측정됐다. 이 값은 해당 gold·matcher 조건이며 보편적 보장이 아니다.
 - **생성 평가셋(540)**은 ko-pii 룰을 참조하지 않고 생성한 독립 데이터(행정/서식체,
   26라벨)이며 gold를 2단계 검증(98.8% 정확, `data/generated_eval.jsonl`)했다 — 자기 주입이
   아니라 *과적합 우려가 없다* (상세 [BENCHMARK §3b](docs/BENCHMARK.md)).
@@ -588,7 +611,10 @@ python -m ko_pii.classifier.train ...   # 모델은 직접 학습
 ## FAQ
 
 **Q1. ML 없이 룰만으로 정말 잘 되나요?**
-한국 핵심 PII (주민번호·여권·카드·사업자 등) 는 체크섬 검증으로 F1 ≈ 1.000 — ML 로 대체 불가능한 영역. PERSON 같은 맥락 의존적 PII 는 ML 이 더 나을 수 있지만, 공공/행정 문서에서는 F1 0.790 로 실용적 (생성 평가셋 540문서·검증 gold, [docs/BENCHMARK.md](docs/BENCHMARK.md) §3b 참조).
+한국 핵심 구조적 PII는 형식·체크섬으로 결정론 검증할 수 있어 ML과 상보적이다. PERSON 같은
+맥락 의존적 PII는 ML이 더 나을 수 있고, 생성 행정·서식형 평가셋 540문서의 전체 F1
+0.790은 고객 운영 보장이 아니라 도메인 qualification의 참고값이다
+([docs/BENCHMARK.md](docs/BENCHMARK.md) §3b).
 
 **Q2. 오탐이 많으면?**
 `common_words.py` 에 도메인 사전 주입, `exclude={"PERSON"}` 으로 특정 카테고리 끄기, 모드 변경 (`STRICT` → `BALANCED`).

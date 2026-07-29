@@ -61,11 +61,11 @@ it was not measured it is **excluded from the headline ranking** and must only
 ever be referred to as "not measured — estimated".
 
 KDPII is conversational text, where free-form labels (PERSON, ADDRESS) dominate
-and ko-pii's structural strengths matter less. Even so, ko-pii is **the
-highest-accuracy rule-based Korean PII tool** here, well ahead of Presidio
-(0.273) and openai/privacy-filter (0.264). On the administrative generated set in
-Section 3b ko-pii's lead over both baselines widens further. See Section 8 for an
-honest interpretation.
+and ko-pii's structural strengths matter less. In this exact dataset and scoring
+configuration, ko-pii has the highest aggregate F1 among the measured systems.
+This is a dataset-specific comparison, not a universal product ranking or
+evidence that a customer deployment is qualified. See Section 8 for the
+operational interpretation.
 
 ## 3b. Second dataset — generated administrative / form-like set (measured)
 
@@ -101,8 +101,9 @@ EDUCATION, …) and open-class IDs (insurance / prescription numbers) that ko-pi
 does not target, so its aggregate F1 here understates its strength on the
 structured PII it is built for. The key finding holds regardless: ko-pii's
 deterministic IDs are near ceiling on this set too (EMAIL 0.998, PHONE 0.989,
-CARD 0.988, RRN 0.955), and it remains the highest-accuracy rule-based tool by a
-wide margin over Presidio (0.483) and openai/privacy-filter (0.451).
+CARD 0.988, RRN 0.955). Its aggregate F1 is higher than the measured comparison
+systems under this dataset and scorer. That result is not transferred to
+unmeasured domains or customer traffic.
 
 ## 3c. Robustness cross-check — expanded set (1,938 docs)
 
@@ -232,10 +233,9 @@ A balanced reading of these results:
   (administrative / form-like documents) is reflected by its **0.790** on the
   generated eval set (Section 3b, same matcher, independent of ko-pii's rules) and
   by its near-ceiling deterministic per-label F1 (Section 5).
-- **Bottom line.** Among rule-based Korean PII tools, ko-pii is the
-  highest-accuracy option on both the conversational KDPII set (0.660 vs Presidio
-  0.273, openai/privacy-filter 0.264) and the administrative generated set (0.790
-  vs 0.483 / 0.451). It delivers this at **cost (≈$0), speed (~5,350 docs/s on one
-  CPU core), fully on-prem operation with no external PII transmission, and
-  checksum-verified deterministic PII**. This benchmark is published so readers
-  can verify and reproduce those numbers rather than take a vendor's word for it.
+- **Bottom line.** Under the two exact datasets and one canonical scorer,
+  ko-pii's aggregate F1 is higher than the measured comparison systems. Its
+  product role is a fast, on-prem, checksum-oriented structural PII layer, not a
+  universal PII ranking winner. Customer deployment still requires domain
+  qualification with tenant confusion counts. This benchmark is published so
+  readers can verify and reproduce the scoped measurements.

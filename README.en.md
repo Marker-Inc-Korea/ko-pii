@@ -6,10 +6,32 @@
 [![PyPI](https://img.shields.io/pypi/v/ko-pii.svg)](https://pypi.org/project/ko-pii/)
 [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Demo](https://img.shields.io/badge/demo-HuggingFace-yellow.svg)](https://huggingface.co/spaces/modak000/ko-pii-demo)
+[![Software: Stable](https://img.shields.io/badge/software-stable-1f6f43)](CHANGELOG.md)
 
 **A Python library for detecting and reversibly pseudonymizing personal information (PII) in Korean documents.** Works with rules + dictionaries + checksums only, without any external ML dependency. Especially strong on public/administrative documents, and usable as a preprocessing layer in front of any ML pipeline.
 
-> **Public benchmark — the highest-accuracy rule-based Korean PII tool.** On human‑labeled KDPII (4,891 docs), ko-pii beats Microsoft Presidio and openai/privacy-filter (**F1 0.66** vs 0.27 / 0.26), runs at **0.19 ms/doc (~5,350 docs/s) — 22× faster than Presidio**, and processes 1M documents at **~$0**, fully on-premise. Deterministic IDs (RRN · card · phone · email) reach **F1 ≈ 1.0** via checksum. Every number is **measured and reproducible** with a single scorer — see [benchmark](docs/BENCHMARK.md) · [full comparison](docs/presentation/ko-pii-종합비교.md).
+> **Public measurements are distribution-specific evidence, not product
+> qualification.** ko-pii measured F1 0.66 on 4,891 conversational KDPII
+> documents and F1 0.79 on a 540-document administrative/form-like generated
+> set. Results change with the dataset, label policy, and scorer, so these
+> numbers are not a universal ranking or the expected accuracy of a customer
+> deployment. See the [benchmark methodology](docs/BENCHMARK.md).
+
+## Product Contract
+
+| Item | Operating definition |
+|---|---|
+| Primary users | Privacy, data, and AI platform teams handling Korean public-sector or regulated documents |
+| Customer job | Pseudonymize structural Korean PII before external transfer or indexing and control restoration |
+| Product promise | Reproducible rule/dictionary/checksum detection, pseudonymization, and Vault audit |
+| Not promised | General NER, equal accuracy on chat/social/news text, legal anonymity, or compliance certification |
+| Go-live requirement | Measure label-level confusion counts on tenant documents and approve PERSON/ADDRESS handling |
+| Status meaning | `Software: Stable` covers package maturity; every tenant remains unqualified until site evidence exists |
+
+Critical identifiers and contextual labels such as PERSON and ADDRESS must not
+be collapsed into one F1 for an operating decision. Tenant qualification must
+evaluate critical leakage, contextual-label behavior, and Vault operations
+separately.
 
 ```python
 from ko_pii import Anonymizer, ProcessingMode
@@ -85,7 +107,9 @@ RAG/LLM pipelines index and retrieve raw, unstructured data and feed it directly
 - **Legal obligation** — Personal Information Protection Act (PIPA): restrictions on processing sensitive information such as resident registration numbers and health information (also relevant for GDPR/HIPAA abroad)
 - **Sovereignty / air-gapped networks** — public-sector network-separated environments cannot send PII to external APIs → **offline deterministic detection** is essential
 - **Trust / reputation** — a single leak can destroy trust in a service
-- **Complement to ML** — NER/LLM detection is prone to hallucination and is non-reproducible. For PII that can be checksum-verified (RRN, card, business registration number), ko-pii confirms detection at F1 ≈ 1.0, filling the gaps ML leaves
+- **Complement to ML** — format- and checksum-valid identifiers can be
+  validated deterministically, providing a precision-oriented layer alongside
+  contextual ML. Actual F1 remains dataset- and format-specific
 
 ko-pii blocks PII at **both ends of RAG — ingest (before entering the vector DB) and retrieval (before passing to the LLM)**. It substitutes the same person with the same token to preserve context (with LlamaIndex/LangChain integrations provided), and the Vault supports authorization-based restoration and audit tracing.
 
@@ -94,7 +118,8 @@ ko-pii blocks PII at **both ends of RAG — ingest (before entering the vector D
 ## Key features
 
 - **Korea-specific** — 33 categories of Korean PII (RRN, FRN, passport, business registration number, card, account, phone, email, address, vehicle, person, position, nationality, etc.). Especially strong on public documents
-- **Deterministic detection** — rules + dictionaries + checksums. RRN, card, business registration number, etc. are checksum-verified at F1 ≈ 1.000
+- **Deterministic detection** — rules + dictionaries + checksums produce
+  reproducible decisions for format-valid RRN, card, and business identifiers
 - **Evasion blocking** — neutralizes Unicode bypass tricks such as full-width digits (`０１０`) and zero-width character insertion via normalization (detection offsets are preserved against the original)
 - **No external dependencies** — uses only the Python standard library. Runs offline / on air-gapped networks, no GPU required
 - **Preprocessing layer** — emits standardized `DetectionResult` objects (label/start/end/text/confidence). Easy to slot in front of an ML pipeline
@@ -631,7 +656,11 @@ python -m ko_pii.classifier.train ...   # train the model yourself
 ## FAQ
 
 **Q1. Does rules-only, without ML, really work well?**
-Korea's core PII (RRN, passport, card, business registration number, etc.) is checksum-verified at F1 ≈ 1.000 — an area that ML cannot replace. Context-dependent PII like PERSON may be better handled by ML, but on public/administrative documents ko-pii is practical at F1 0.790 (generated eval set, 540 docs, validated gold; see [docs/BENCHMARK.md](docs/BENCHMARK.md) §3b).
+Korean structural PII can use deterministic format and checksum validation as a
+complement to ML. Context-dependent labels such as PERSON may benefit from ML.
+The aggregate F1 0.790 on the 540-document administrative/form-like generated
+set is reference evidence for domain qualification, not a customer operating
+guarantee (see [docs/BENCHMARK.md](docs/BENCHMARK.md) §3b).
 
 **Q2. What if there are too many false positives?**
 Inject a domain dictionary into `common_words.py`, turn off a specific category with `exclude={"PERSON"}`, or change the mode (`STRICT` → `BALANCED`).
