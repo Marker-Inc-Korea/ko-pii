@@ -15,5 +15,21 @@ dispatcher 가 자동 라우팅해 지원한다.
     text = read_text("input.hwpx")
 """
 from ko_pii.io_.dispatcher import read_text, read_records, SUPPORTED_EXTENSIONS
+from ko_pii.io_.bounded import (
+    BoundedDocument,
+    BoundedReadError,
+    DEFAULT_BOUNDED_EXTENSIONS,
+    FileReadPolicy,
+    read_text_bounded,
+)
 
-__all__ = ["read_text", "read_records", "SUPPORTED_EXTENSIONS"]
+__all__ = [
+    "read_text",
+    "read_records",
+    "SUPPORTED_EXTENSIONS",
+    "BoundedDocument",
+    "BoundedReadError",
+    "DEFAULT_BOUNDED_EXTENSIONS",
+    "FileReadPolicy",
+    "read_text_bounded",
+]

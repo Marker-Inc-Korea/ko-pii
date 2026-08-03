@@ -14,8 +14,9 @@
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
 import re
-from typing import Iterable, Optional
+from typing import Iterable, Literal, Optional
 
 from ko_pii.anonymizer import Anonymizer
 from ko_pii.core.modes import ProcessingMode
@@ -112,9 +113,94 @@ _HEADER_MAP: dict[str, str] = {
 }
 
 
+_SCHEMA_AMBIGUOUS_HEADERS = frozenset({
+    "name",
+    "address",
+    "url",
+    "ip",
+    "이름",
+    "환자",
+    "주민",
+    "카드",
+    "메일",
+    "우편",
+    "차량",
+    "계좌",
+})
+
+
+@dataclass(frozen=True)
+class SchemaColumnClassification:
+    """Evidence for an exact schema-column classification.
+
+    ``map_columns`` intentionally keeps its legacy composite-header substring
+    behavior for CSV/XLSX ergonomics. SQL policy compilation must be stricter:
+    a column such as ``product_name`` must never inherit the ``name`` mapping.
+    This record therefore describes exact or whitespace/case-normalized matches
+    only, and marks generic aliases with lower confidence for explicit review.
+    """
+
+    column: str
+    label: str
+    confidence: float
+    match: Literal["exact", "normalized"]
+    matched_header: str
+    ambiguous: bool
+
+
 def _normalize_header(h: str) -> str:
     """공백·괄호 등 정규화."""
     return re.sub(r"\s+", "", h).strip()
+
+
+def _normalize_schema_header(header: str) -> str:
+    return _normalize_header(header).casefold()
+
+
+def classify_schema_columns(
+    headers: Iterable[str],
+) -> dict[str, SchemaColumnClassification]:
+    """Classify schema columns without substring inference.
+
+    Exact aliases receive confidence ``1.0`` and whitespace/case-normalized
+    aliases receive ``0.95``. Generic names such as ``name`` or ``address`` are
+    still returned as review evidence with confidence ``0.60``. Callers should
+    set an explicit threshold when compiling a blocking SQL policy.
+    """
+
+    aliases: dict[str, list[tuple[str, str]]] = {}
+    for alias, label in _HEADER_MAP.items():
+        aliases.setdefault(_normalize_schema_header(alias), []).append((alias, label))
+
+    classifications: dict[str, SchemaColumnClassification] = {}
+    for header in headers:
+        if not isinstance(header, str) or not header.strip():
+            continue
+        normalized = _normalize_schema_header(header)
+        matches = aliases.get(normalized)
+        if not matches:
+            continue
+
+        labels = {label for _, label in matches}
+        if len(labels) != 1:
+            # Conflicting aliases are unsafe to compile into a blocking policy.
+            continue
+        label = next(iter(labels))
+        exact_alias = next((alias for alias, _ in matches if alias == header), None)
+        match: Literal["exact", "normalized"] = (
+            "exact" if exact_alias is not None else "normalized"
+        )
+        ambiguous = normalized in _SCHEMA_AMBIGUOUS_HEADERS
+        confidence = 0.60 if ambiguous else (1.0 if match == "exact" else 0.95)
+        classifications[header] = SchemaColumnClassification(
+            column=header,
+            label=label,
+            confidence=confidence,
+            match=match,
+            matched_header=exact_alias or matches[0][0],
+            ambiguous=ambiguous,
+        )
+    return classifications
 
 
 def map_columns(headers: Iterable[str]) -> dict[str, str]:
@@ -168,6 +254,30 @@ def _force_anonymize_cell(value: str, label: str, strategy: str,
                     extra={"fpe_value": new_val})
         return new_val
     return value
+
+
+def anonymize_value(
+    value: str,
+    label: str,
+    *,
+    strategy: str = "tokenize",
+    vault: Optional[ReversibleVault] = None,
+) -> tuple[str, ReversibleVault]:
+    """Anonymize an explicitly typed value without detector inference.
+
+    This is intended for schema-aware database results where upstream lineage
+    already established the PII label. It must not be used to label unknown
+    free text.
+    """
+
+    if not isinstance(value, str):
+        raise TypeError(f"value must be str, got {type(value).__name__}")
+    if not isinstance(label, str) or not label.strip():
+        raise ValueError("label must be a non-empty string")
+    if strategy not in {"tokenize", "redact", "asterisk", "partial", "hashed", "fpe"}:
+        raise ValueError(f"Unknown strategy: {strategy}")
+    active_vault = vault or ReversibleVault()
+    return _force_anonymize_cell(value, label, strategy, active_vault), active_vault
 
 
 def anonymize_records(

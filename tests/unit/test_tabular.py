@@ -1,4 +1,11 @@
-from ko_pii.tabular import anonymize_records, map_columns
+import pytest
+
+from ko_pii.tabular import (
+    anonymize_records,
+    anonymize_value,
+    classify_schema_columns,
+    map_columns,
+)
 from ko_pii.core.modes import ProcessingMode
 
 
@@ -23,6 +30,33 @@ class TestColumnMapping:
     def test_unmapped_passthrough(self):
         m = map_columns(["메모", "비고", "기타사항"])
         assert m == {}
+
+
+class TestSchemaColumnClassification:
+    def test_exact_sensitive_columns_include_evidence(self):
+        classified = classify_schema_columns(["성명", "주민등록번호"])
+
+        assert classified["성명"].label == "PERSON"
+        assert classified["성명"].confidence == 1.0
+        assert classified["성명"].ambiguous is False
+        assert classified["주민등록번호"].label == "RRN"
+
+    def test_normalized_match_is_explicit(self):
+        classified = classify_schema_columns(["성 명"])
+
+        assert classified["성 명"].match == "normalized"
+        assert classified["성 명"].confidence == 0.95
+
+    def test_generic_name_requires_review(self):
+        classified = classify_schema_columns(["name"])
+
+        assert classified["name"].label == "PERSON"
+        assert classified["name"].ambiguous is True
+        assert classified["name"].confidence == 0.60
+
+    @pytest.mark.parametrize("column", ["product_name", "사용자이름설명", "고객 연락처 메모"])
+    def test_schema_classification_never_uses_substrings(self, column):
+        assert classify_schema_columns([column]) == {}
 
 
 class TestAnonymizeRecords:
@@ -75,3 +109,12 @@ class TestAnonymizeRecords:
         records = [{"성명": "", "주민번호": "880101-1234568"}]
         out, _ = anonymize_records(records)
         assert out[0]["성명"] == ""
+
+    def test_explicit_value_anonymization(self):
+        output, _ = anonymize_value("홍길동", "PERSON", strategy="redact")
+
+        assert output == "[성명]"
+
+    def test_explicit_value_rejects_unknown_strategy(self):
+        with pytest.raises(ValueError, match="Unknown strategy"):
+            anonymize_value("홍길동", "PERSON", strategy="unknown")

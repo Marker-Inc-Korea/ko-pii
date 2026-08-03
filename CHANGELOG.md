@@ -5,6 +5,15 @@
 
 ## [Unreleased]
 
+### Added
+
+- SQL 정책 컴파일용 `classify_schema_columns()`를 추가했습니다. 기존 표 처리의 부분 문자열
+  추론과 달리 정확·정규화 일치만 허용하고 모호한 헤더에는 신뢰도 근거를 반환합니다.
+- schema lineage가 확정된 단일 값을 검출기 추론 없이 처리하는 `anonymize_value()`를
+  추가했습니다.
+- 신뢰하지 않는 문서의 파일·ZIP 멤버·압축 해제량·압축률·XML DTD·엔티티·추출 문자 수를
+  제한하고 콘텐츠 없는 provenance를 반환하는 `read_text_bounded()`를 추가했습니다.
+
 ### Documentation
 
 - 소프트웨어 안정성과 고객 도메인 qualification을 분리한 제품 계약을 추가했습니다.

@@ -333,6 +333,19 @@ print(anon_rows[0])
 # {'성명': '<PERSON_1>', '주민번호': '<RRN_1>', '연락처': '<PHONE_1>', '주소': '<ADDRESS_1>'}
 ```
 
+SQL 스키마처럼 오탐이 곧 쿼리 차단으로 이어지는 경로에서는 부분 문자열 매핑 대신
+근거와 신뢰도를 반환하는 strict API를 사용합니다. `product_name`은 `name`으로 분류되지
+않고, 단독 `name`은 자동 차단이 아니라 낮은 신뢰도의 검토 대상으로 표시됩니다.
+
+```python
+from ko_pii.tabular import classify_schema_columns
+
+evidence = classify_schema_columns(["성명", "주민등록번호", "product_name", "name"])
+print(evidence["성명"])             # PERSON, confidence=1.0
+print(evidence["name"].confidence)  # 0.60 (ambiguous)
+assert "product_name" not in evidence
+```
+
 ### 검토 큐 워크플로우 (오탐 학습)
 
 confidence 낮은 검출 → 검토 큐에 저장 → 사용자가 FP/OK/FN 마킹 → 누적 마킹에서 사전 추천 패치 자동 생성 (자동 반영 X, 사람 검토 후 반영).
@@ -533,6 +546,25 @@ for r in detect("신청인 880101-1234568"):
 | PDF | [pdfplumber](https://pypi.org/project/pdfplumber/) (우선) / [pypdf](https://pypi.org/project/pypdf/) (fallback) | 텍스트 레이어만 추출 (스캔 PDF는 OCR 필요) |
 
 > **PDF 참고:** PDF는 글자 좌표 기반이라 칸별 공백·줄바꿈 삽입이 흔합니다. ko-pii는 내장 정규화 엔진(`text_normalizer`)으로 PII 패턴 중간의 불필요 공백/줄바꿈을 자동 보정합니다. pdfplumber가 pypdf보다 레이아웃 분석이 우수하므로 pdfplumber 설치를 권장합니다.
+
+신뢰하지 않는 RAG 문서를 처리할 때는 일반 `read_text()` 대신 파일 크기, ZIP 멤버 수,
+개별·전체 압축 해제량, 압축률, 경로 탈출, XML DTD·엔티티, 추출 문자 수를 먼저 검사하는
+bounded API를 사용합니다.
+
+```python
+from ko_pii.io_ import FileReadPolicy, read_text_bounded
+
+document = read_text_bounded(
+    "notice.hwpx",
+    policy=FileReadPolicy(max_file_bytes=8 * 1024 * 1024),
+)
+print(document.sha256, document.archive_members)
+text = document.text
+```
+
+기본 bounded allowlist는 TXT·Markdown·CSV·TSV·HWPX·DOCX·XLSX입니다. PDF와 구형 HWP는
+파서 자체가 결정론적 페이지·압축 해제 budget을 제공하지 않으므로, 별도 메모리·시간 제한
+worker에서 실행하는 배포만 `allowed_extensions`로 명시적으로 활성화해야 합니다.
 
 ### RAG 파이프라인 연동
 
