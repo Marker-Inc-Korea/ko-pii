@@ -43,6 +43,20 @@ print(result.vault.reveal("<RRN_1>"))            # 880101-1234568 (권한자만 
 print(result.combined_risk.combined_risk.name)   # CRITICAL
 ```
 
+조각 단위 입력은 각 조각을 따로 검사하지 말고, 최종 판정 전까지 보관하십시오.
+
+```python
+from ko_pii import PreForwardAnonymizer
+
+stream = PreForwardAnonymizer(max_chars=100_000)
+stream.feed("주민번호 880101-")
+stream.feed("1234568 입니다")
+safe_result = stream.finalize()  # 이 시점 전에는 원문을 downstream으로 보내지 않음
+```
+
+이 API는 토큰별 저지연 출력을 가장하지 않습니다. 식별자가 임의의 chunk 경계에서 나뉠 수
+있으므로, 개인정보 경계에서는 완성된 메시지를 가명화한 뒤 전달하는 것이 기본 계약입니다.
+
 ### 가명화 전후 비교
 
 ```
@@ -151,7 +165,11 @@ anon = Anonymizer(
 ## 설치
 
 ```bash
-pip install ko-pii
+pip install ko-pii  # 현재 PyPI stable
+
+# main의 1.16 API를 태그 배포 전에 검증하려면
+python3 -m pip install \
+  "ko-pii @ git+https://github.com/Marker-Inc-Korea/ko-pii.git@main"
 ```
 
 extras 옵션 (필요 시):
@@ -257,15 +275,16 @@ logging.info("신청인 홍길동 (880101-1234568) 처리 완료")
 - 생성 평가셋의 구조적 라벨은 EMAIL 0.998, PHONE 0.989, CARD 0.988, RRN 0.955로
   측정됐다. 이 값은 해당 gold·matcher 조건이며 보편적 보장이 아니다.
 - **생성 평가셋(540)**은 ko-pii 룰을 참조하지 않고 생성한 독립 데이터(행정/서식체,
-  26라벨)이며 gold를 2단계 검증(98.8% 정확, `data/generated_eval.jsonl`)했다 — 자기 주입이
-  아니라 *과적합 우려가 없다* (상세 [BENCHMARK §3b](docs/BENCHMARK.md)).
+  26라벨)이며 gold를 2단계 검토(`data/generated_eval.jsonl`)했다. 자기 주입 데이터는
+  아니지만 생성 데이터의 분포 편향과 평가 불확실성은 남으므로 고객 문서 성능을 대체하지
+  않는다 (상세 [BENCHMARK §3b](docs/BENCHMARK.md)).
 - 상세·재현: [`docs/BENCHMARK.md`](docs/BENCHMARK.md) · [`docs/EVALUATION_REPORT.md`](docs/EVALUATION_REPORT.md). (KLUE 는 이전 방법론 수치)
 
 > **운영 전 권장:** 사용하시는 도메인의 실제 문서 30~100건을 직접 테스트해보세요. 도메인마다 성능 차이가 있습니다.
 
 ### 알려진 한계
 
-- **PERSON 오탐 (FP) + 도메인 의존성** — 룰 기반 PERSON 검출의 가장 큰 약점. 성씨 글자로 시작하는 일반명사·생약명·외래어가 사람 이름으로 잡힐 수 있음. **공공문서 도메인 특화**라, 공공문서 gold 에선 F1 0.97 이지만 외부 신문 NER(KLUE-NER PS, 5K 문장) 대비로는 **F1 0.38**(P 0.36 / R 0.41) — 신문체 인명(역사·외국인·공인)과 일반명사 과탐이 크다. 일반 도메인 NER 용도라면 `common_words.py` 도메인 사전 주입, `exclude={"PERSON"}`, 또는 하이브리드 분류기(`dev/classifier`)를 권한다. (재현: `python -c "from ko_pii.eval.klue_ner import load_klue_ner, evaluate_person; print(evaluate_person(load_klue_ner('data/klue_ner/klue-ner-v1.1_dev.tsv')).format())"`)
+- **PERSON 오탐 (FP) + 도메인 의존성** — 룰 기반 PERSON 검출의 가장 큰 약점. 성씨 글자로 시작하는 일반명사·생약명·외래어가 사람 이름으로 잡힐 수 있음. 외부 신문 NER(KLUE-NER PS, 5K 문장)에서는 **F1 0.419**로, 신문체 인명(역사·외국인·공인)과 일반명사 과탐이 크다. 일반 도메인 NER 용도라면 `common_words.py` 도메인 사전 주입, `exclude={"PERSON"}`, 또는 하이브리드 분류기(`dev/classifier`)를 권한다. (재현: `python -c "from ko_pii.eval.klue_ner import load_klue_ner, evaluate_person; print(evaluate_person(load_klue_ner('data/klue_ner/klue-ner-v1.1_dev.tsv')).format())"`)
 - **ADDRESS 비정형** — "강남 쪽에 살아" 같은 비정형 주소는 약함 (anchor 필요). 정형 주소 ("서울특별시 강남구 테헤란로 152") 는 OK
 - **형식이 겹치는 비-PII** — 대표번호 4-4(`1588-2024`)는 제품·연식 번호와, 무구분자 13~19자리는 바코드·IMEI와 형식이 같다. 길이-브랜드 일관성·단어경계 문맥으로 상당수 거르지만, recall 우선이라 형식만으로 완전 구분은 불가 — 최종 정밀 판단은 주변 문맥(검토 큐) 또는 하이브리드 분류기(`dev/classifier`)의 몫
 - 결정적 PII (RRN·PHONE·EMAIL·카드·사업자) 는 체크섬/형식 검증이라 오탐 거의 없음

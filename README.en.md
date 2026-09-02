@@ -46,6 +46,22 @@ print(result.vault.reveal("<RRN_1>"))            # 880101-1234568 (only authoriz
 print(result.combined_risk.combined_risk.name)   # CRITICAL
 ```
 
+Do not scan transport chunks independently. Keep them behind the forwarding
+boundary until the final decision:
+
+```python
+from ko_pii import PreForwardAnonymizer
+
+stream = PreForwardAnonymizer(max_chars=100_000)
+stream.feed("주민번호 880101-")
+stream.feed("1234568 입니다")
+safe_result = stream.finalize()  # feed() never returns source text
+```
+
+This API does not pretend to offer token-level low latency. An identifier can
+cross any chunk boundary, so the privacy-safe default is to pseudonymize the
+complete bounded message before forwarding it.
+
 ### Before / after pseudonymization
 
 ```
@@ -155,7 +171,11 @@ anon = Anonymizer(
 ## Installation
 
 ```bash
-pip install ko-pii
+pip install ko-pii  # current PyPI stable
+
+# To test the 1.16 API on main before its tagged release:
+python3 -m pip install \
+  "ko-pii @ git+https://github.com/Marker-Inc-Korea/ko-pii.git@main"
 ```
 
 Extras (as needed):

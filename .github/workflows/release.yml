@@ -23,6 +23,21 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Verify tag matches package version
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          python - <<'PY'
+          import os
+          import tomllib
+          from pathlib import Path
+
+          version = tomllib.loads(Path("pyproject.toml").read_text("utf-8"))["project"]["version"]
+          expected = f"v{version}"
+          if os.environ["RELEASE_TAG"] != expected:
+              raise SystemExit(f"tag {os.environ['RELEASE_TAG']} does not match {expected}")
+          PY
+
       - name: Install build tools
         run: python -m pip install "build==1.5.0" "twine==7.0.0"
 

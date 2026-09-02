@@ -15,7 +15,6 @@ ko-pii 는 한국 개인정보 검출·가명화 라이브러리로, 잘못된 �
 
 ### 보고 채널
 
-- **이메일:** rlaehrud63@gmail.com (제목 prefix: `[ko-pii security]`)
 - **GitHub Private Advisory:** https://github.com/Marker-Inc-Korea/ko-pii/security/advisories/new
 
 ### 보고에 포함하면 좋은 것
@@ -41,8 +40,8 @@ ko-pii 는 **방어 도구** 이며 다음을 가정합니다.
   Vault 파일이 유출되면 원본 복원 가능. `[security]` extras 의 AES-256-GCM
   + PBKDF2 480k 반복 권장.
 - **체크섬 외 휴리스틱:** PERSON/ADDRESS 등 사전·문맥 기반 검출은
-  100% 보장하지 않음 (false negative 가능). 외부 공개 전에는 사람 검수 +
-  여러 모드 (`PARANOID` 등) 의 조합 권장.
+  100% 보장하지 않음 (false negative 가능). 외부 공개 전에는 고객 도메인
+  qualification과 별도 승인 절차를 권장.
 
 ## 알려진 비-취약점 (Known Non-Issues)
 

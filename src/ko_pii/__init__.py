@@ -29,9 +29,15 @@ from ko_pii.modes.hashed import hashed
 from ko_pii.modes.partial import partial, mask_value
 from ko_pii.modes.redact import redact
 from ko_pii.modes.tokenize import tokenize
+from ko_pii.streaming import (
+    PreForwardAnonymizer,
+    StreamBufferClosed,
+    StreamBufferLimitExceeded,
+    StreamBufferStatus,
+)
 from ko_pii.vault.reversible import ReversibleVault, VaultEntry
 
-__version__ = "1.15.4"  # pyproject.toml 과 동기화 (tests/unit/test_version.py 가드)
+__version__ = "1.16.0"  # pyproject.toml 과 동기화 (tests/unit/test_version.py 가드)
 
 __all__ = [
     "Anonymizer",
@@ -50,6 +56,10 @@ __all__ = [
     "fpe",
     "ReversibleVault",
     "VaultEntry",
+    "PreForwardAnonymizer",
+    "StreamBufferClosed",
+    "StreamBufferLimitExceeded",
+    "StreamBufferStatus",
     # analytics
     "AttributeClass",
     "CombinedRiskReport",

@@ -5,6 +5,8 @@
 
 ## [Unreleased]
 
+## [1.16.0] - 2026-09-02
+
 ### Added
 
 - SQL 정책 컴파일용 `classify_schema_columns()`를 추가했습니다. 기존 표 처리의 부분 문자열
@@ -13,6 +15,8 @@
   추가했습니다.
 - 신뢰하지 않는 문서의 파일·ZIP 멤버·압축 해제량·압축률·XML DTD·엔티티·추출 문자 수를
   제한하고 콘텐츠 없는 provenance를 반환하는 `read_text_bounded()`를 추가했습니다.
+- 전송 조각 사이에 나뉜 식별자를 놓치지 않도록 원문을 먼저 내보내지 않고 bounded buffer에서
+  완성한 뒤 한 번에 가명화하는 `PreForwardAnonymizer`를 추가했습니다.
 
 ### Documentation
 
