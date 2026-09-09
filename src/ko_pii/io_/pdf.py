@@ -9,13 +9,13 @@
 from __future__ import annotations
 
 try:
-    import pdfplumber  # type: ignore
+    import pdfplumber
     _HAS_PDFPLUMBER = True
 except ImportError:
     _HAS_PDFPLUMBER = False
 
 try:
-    from pypdf import PdfReader  # type: ignore
+    from pypdf import PdfReader
     _HAS_PYPDF = True
 except ImportError:
     _HAS_PYPDF = False
@@ -35,9 +35,9 @@ def _extract_raw(path: str) -> str:
     if _HAS_PDFPLUMBER:
         parts: list[str] = []
         with pdfplumber.open(path) as pdf:
-            for page in pdf.pages:
+            for plumber_page in pdf.pages:
                 try:
-                    text = page.extract_text() or ""
+                    text = plumber_page.extract_text() or ""
                 except Exception:
                     text = ""
                 parts.append(text)
@@ -46,9 +46,9 @@ def _extract_raw(path: str) -> str:
     # fallback: pypdf
     reader = PdfReader(path)
     parts = []
-    for page in reader.pages:
+    for pypdf_page in reader.pages:
         try:
-            text = page.extract_text() or ""
+            text = pypdf_page.extract_text() or ""
         except Exception:
             text = ""
         parts.append(text)

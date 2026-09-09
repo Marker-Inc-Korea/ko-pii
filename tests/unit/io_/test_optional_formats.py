@@ -1,4 +1,6 @@
 """HWP 5.x · PDF 입력 — optional deps 가 있을 때만 실행."""
+from types import SimpleNamespace
+
 import pytest
 
 
@@ -18,6 +20,39 @@ class TestPdfOptional:
         monkeypatch.setattr(pdf_mod, "_HAS_PYPDF", False)
         with pytest.raises(ImportError, match="pdfplumber"):
             pdf_mod.read_text(str(tmp_path / "dummy.pdf"))
+
+    def test_pdfplumber_is_preferred_and_preserves_page_boundaries(self, monkeypatch):
+        from ko_pii.io_ import pdf as pdf_mod
+
+        class FakePdf:
+            pages = [
+                SimpleNamespace(extract_text=lambda: "first"),
+                SimpleNamespace(extract_text=lambda: None),
+            ]
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc_value, traceback):
+                return False
+
+        monkeypatch.setattr(pdf_mod, "_HAS_PDFPLUMBER", True)
+        monkeypatch.setattr(pdf_mod.pdfplumber, "open", lambda _path: FakePdf())
+
+        assert pdf_mod._extract_raw("dummy.pdf") == "first\n\n"
+
+    def test_pypdf_fallback_preserves_page_boundaries(self, monkeypatch):
+        from ko_pii.io_ import pdf as pdf_mod
+
+        pages = [
+            SimpleNamespace(extract_text=lambda: "first"),
+            SimpleNamespace(extract_text=lambda: "second"),
+        ]
+        monkeypatch.setattr(pdf_mod, "_HAS_PDFPLUMBER", False)
+        monkeypatch.setattr(pdf_mod, "_HAS_PYPDF", True)
+        monkeypatch.setattr(pdf_mod, "PdfReader", lambda _path: SimpleNamespace(pages=pages))
+
+        assert pdf_mod._extract_raw("dummy.pdf") == "first\n\nsecond"
 
 
 class TestHwpWithOlefile:

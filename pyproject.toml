@@ -116,6 +116,7 @@ module = [
     "torch.*", "transformers.*", "tokenizers.*", "sklearn.*", "onnxruntime.*",
     "huggingface_hub.*", "datasets.*", "presidio_analyzer.*",
     "llama_index.*", "langchain_core.*", "cryptography.*",
+    "pdfplumber", "pdfplumber.*", "pypdf", "pypdf.*",
 ]
 ignore_missing_imports = true
 
