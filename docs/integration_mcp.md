@@ -135,8 +135,9 @@ ko-pii-mcp-server
 
 - `reveal` 도구는 *권한 검사 없이* 동작. Production 에서는 wrapping 필수.
 - 세션 vault 는 *in-memory* — 프로세스 재시작 시 소실.
-  영구 저장은 `ko_pii.vault.ReversibleVault.save()` 또는 `[security]` extras 의
-  암호화 vault 사용 권장.
+  `ReversibleVault.save()`는 원본 PII가 담긴 평문 JSON이므로 운영 영구 저장에는
+  `[security]` extra의 암호화 vault 또는 별도 보안 저장소를 사용.
+- actor/context는 감사 메타데이터일 뿐 인증된 사용자 신원을 증명하지 않음.
 - `KPII_VAULT_PASSWORD` 환경변수로 암호화 vault 자동 로드 가능 (향후 확장).
 
 ## MCP 클라이언트 호환성

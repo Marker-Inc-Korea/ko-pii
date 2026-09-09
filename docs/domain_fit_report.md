@@ -97,7 +97,7 @@ PERSON, ADDRESS, DT_BIRTH, POSITION, EDUCATION, MAJOR, AGE, HEIGHT, WEIGHT는
 | Critical identifiers | 라벨별 TP/FP/FN, recall, precision, checksum-valid/invalid 분리 |
 | Contextual labels | PERSON·ADDRESS 등 라벨별 confusion count와 문서유형별 편차 |
 | Document safety | critical PII가 하나라도 남은 문서 비율 |
-| Transformation | 원문 누출, 토큰 안정성, Vault 복원·권한·감사 |
+| Transformation | 원문 누출, 토큰 안정성, 복원 경로의 접근통제·감사 |
 | Operations | latency, 오류, degraded, parser별 실패, raw 로그 여부 |
 
 critical identifier는 qualification set의 관측 미탐 0건을 요구한다. 이는 실제 미탐률이

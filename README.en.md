@@ -23,7 +23,7 @@
 |---|---|
 | Primary users | Privacy, data, and AI platform teams handling Korean public-sector or regulated documents |
 | Customer job | Pseudonymize structural Korean PII before external transfer or indexing and control restoration |
-| Product promise | Reproducible rule/dictionary/checksum detection, pseudonymization, and Vault audit |
+| Product promise | Reproducible rule/dictionary/checksum detection and pseudonymization, plus Vault storage and audit-recording primitives |
 | Not promised | General NER, equal accuracy on chat/social/news text, legal anonymity, or compliance certification |
 | Go-live requirement | Measure label-level confusion counts on tenant documents and approve PERSON/ADDRESS handling |
 | Status meaning | `Software: Stable` covers package maturity; every tenant remains unqualified until site evidence exists |
@@ -42,7 +42,7 @@ result = Anonymizer(mode=ProcessingMode.STRICT, strategy="tokenize").process(
 print(result.text)
 # 신청인 <PERSON_1> (<RRN_1>) 연락처 <PHONE_1>
 
-print(result.vault.reveal("<RRN_1>"))            # 880101-1234568 (only authorized users can restore)
+print(result.vault.reveal("<RRN_1>"))            # 880101-1234568 (the application controls access)
 print(result.combined_risk.combined_risk.name)   # CRITICAL
 ```
 
@@ -82,7 +82,9 @@ redact (replace with category name):
   주소: [주소]
 ```
 
-> **New here?** Use `mode=ProcessingMode.STRICT` + `strategy="tokenize"`. It's the safest default setting (blocks MEDIUM risk and above, with Vault-based restoration).
+> **New here?** If restoration is required, use `STRICT` + `tokenize`. Otherwise,
+> use `STRICT` + `redact`, which stores no original-value mapping. A Vault is a
+> separate PII store that requires its own protection.
 
 ### Things you might not expect
 
@@ -94,7 +96,7 @@ redact (replace with category name):
 - **Automatic rejection of administrative dates** — "시행일자: 2026-05-21", "감사기간: 3월~4월" → not birthdays (30+ non-birthday keywords)
 - **Automatic rejection of pseudonymized notations** — "박씨", "김모씨", "○○○ 시민" → already pseudonymized (not PII)
 - **Automatic combined-risk assessment** — a name alone may not be PII, but when *name + RRN + address* appear together → CRITICAL (quasi-identifier combination check per the "Guidelines on De-identification Measures for Personal Information")
-- **Audit logging** — JSONL trace of who restored which token and when (Article 29 of the Personal Information Protection Act)
+- **Audit logging** — JSONL records of token operations with caller-supplied actor and context
 
 ---
 
@@ -127,7 +129,7 @@ RAG/LLM pipelines index and retrieve raw, unstructured data and feed it directly
   validated deterministically, providing a precision-oriented layer alongside
   contextual ML. Actual F1 remains dataset- and format-specific
 
-ko-pii blocks PII at **both ends of RAG — ingest (before entering the vector DB) and retrieval (before passing to the LLM)**. It substitutes the same person with the same token to preserve context (with LlamaIndex/LangChain integrations provided), and the Vault supports authorization-based restoration and audit tracing.
+ko-pii blocks PII at **both ends of RAG — ingest (before entering the vector DB) and retrieval (before passing to the LLM)**. Within one Vault, it substitutes the same person with the same token to preserve context (with LlamaIndex/LangChain integrations provided), and supports restoration and audit recording. Authentication, authorization, and key management remain the calling application's responsibility.
 
 ---
 
@@ -161,9 +163,13 @@ anon = Anonymizer(
     exclude={"AGE", "HEIGHT", "WEIGHT"},  # avoid false positives like "per 1 kg of body weight"
 )
 
-# If there are many PERSON FPs — inject a domain dictionary
-# Add pharma ingredient names / manufacturer names to src/ko_pii/dictionaries/common_words.py
-# e.g. "이부프로펜", "한미약품", "메트포르민" → automatically excluded from PERSON
+# Apply exclusions only to this project; do not modify the package dictionary
+anon = Anonymizer(
+    mode=ProcessingMode.STRICT,
+    strategy="tokenize",
+    exclude={"AGE", "HEIGHT", "WEIGHT"},
+    person_exclusions={"이부프로펜", "한미약품", "메트포르민"},
+)
 ```
 
 ---
@@ -194,21 +200,28 @@ pip install "ko-pii[security]"   # Vault AES-256-GCM
 ### Scenario 1 — Bulk pseudonymization of approved official documents (before external release / sending to an LLM)
 
 ```python
+import os
 from pathlib import Path
-from ko_pii import Anonymizer, ProcessingMode
 
-anon = Anonymizer(mode=ProcessingMode.PARANOID, strategy="tokenize")
+from ko_pii import Anonymizer, ProcessingMode
+from ko_pii.io_ import read_text
+from ko_pii.vault.encrypted import save_encrypted
 
 for path in Path("./공문서/").glob("*.hwp"):
-    result = anon.process(path.read_text(encoding="utf-8"))
-    Path(f"./가명화/{path.name}").write_text(result.text, encoding="utf-8")
-    # Keep vault.json stored separately (only authorized users can restore)
-    result.vault.save(f"./vault/{path.stem}.json")
+    # Use one Vault per document to limit linkability and incident scope
+    anon = Anonymizer(mode=ProcessingMode.PARANOID, strategy="tokenize")
+    result = anon.process(read_text(str(path)))
+    Path(f"./가명화/{path.stem}.txt").write_text(result.text, encoding="utf-8")
+    save_encrypted(
+        result.vault,
+        f"./vault/{path.stem}.kvault",
+        os.environ["KPII_VAULT_PASSWORD"],
+    )
 ```
 
-- **PARANOID mode** — blocks everything at LOW risk and above (safe for LLM / external transmission)
+- **PARANOID mode** — conservatively handles LOW risk and above. It does not guarantee zero misses; validate it on the target document distribution before external transmission.
 - Keep the pseudonymized result externally and the Vault in an internal store, separated
-- HWP/HWPX parser: `pip install "ko-pii[file]"`
+- HWP parsing and Vault encryption: `pip install "ko-pii[file,security]"`
 
 ### Scenario 2 — Up-front PII verification in a civil-petition response system
 
@@ -275,7 +288,7 @@ A generic Korean NER model (KoELECTRA NER) was **not measured** for this run (ro
 
 > **Fair comparison.** The aggregate F1 partly reflects that Presidio and openai/privacy-filter **lack many Korean PII categories entirely** (they emit 0 on AGE, POSITION, RRN, …). Even restricting to the categories each tool *does* support, ko-pii still leads — **vs openai/privacy-filter 0.61 : 0.37** (its 7 labels), **vs Presidio 0.87 : 0.65** (its 9 labels). The gap is not merely missing categories; ko-pii is also more accurate on common ground.
 
-> **Honest framing.** KDPII is everyday conversational text. ko-pii is rule-based: it is strong on structural/deterministic PII and Korean administrative/form text, and weaker on free-form conversation (KDPII PERSON 0.135, ADDRESS 0.241). ko-pii's own generated eval set (below — 540 docs, admin/form-like, validated gold, independent of ko-pii's rules) at 0.790 shows where ko-pii is strong.
+> **Honest framing.** KDPII is everyday conversational text. ko-pii is rule-based: it is strong on structural/deterministic PII and Korean administrative/form text, and weaker on free-form conversation (KDPII PERSON 0.135, ADDRESS 0.241). The project-built generated eval set below (540 admin/form-like documents, validated gold) scored 0.790. Its generator did not reference ko-pii rules, but this is not independent third-party validation and does not replace evaluation on customer documents.
 
 ### Deterministic / structural PII — ko-pii per-label F1 on KDPII
 
@@ -300,11 +313,17 @@ Checksum- and regex-verified categories reach near-perfect F1:
 | Presidio | 4.2 ms | ~238 docs/s | 1 CPU core |
 | openai/PF (ONNX, CPU) | 481 ms | ~2 docs/s | 1 CPU core (bulk needs GPU) |
 
-### Cost to process 1,000,000 documents
+These systems used different active recognizers, models, and runtimes. The table
+describes the measured configurations rather than a universal same-function speed
+ranking.
 
-| System | Cost per 1M docs |
+### External API fee context
+
+| System | Per-document external API fee |
 |---|---:|
-| **ko-pii** | **~$0** (1 CPU core, ~3 min) |
+| **ko-pii core** | None |
+
+Local CPU, storage, and operational costs are not zero and are excluded here.
 
 ### Reproduction
 
@@ -326,14 +345,19 @@ python -m ko_pii.eval.model_comparison data/kdpii/test.json \
 
 Full details: [`docs/BENCHMARK.md`](docs/BENCHMARK.md) and [`docs/EVALUATION_REPORT.md`](docs/EVALUATION_REPORT.md).
 
-> **Before production use:** test 30–100 of your own real documents directly. Performance varies by domain.
+> **Before production use:** 30–100 real documents are only an initial smoke and
+> calibration sample for obvious integration errors and false positives/negatives.
+> They do not establish statistical fitness or zero leakage. Before go-live, use a
+> larger risk- and label-distribution-based frozen set, retain label-level TP/FP/FN,
+> recall, and confidence intervals, then run shadow/canary checks. See
+> [`docs/domain_fit_report.md`](docs/domain_fit_report.md).
 
 ### Known limitations
 
 - **ko-pii is rule-based** — strong on structural/deterministic PII and Korean administrative/form text, weak on free-form conversation (KDPII PERSON 0.135, ADDRESS 0.241).
-- **PERSON false positives (FP)** — the biggest weakness of rule-based PERSON detection. Domain vocabulary (e.g. pharma ingredient names) can be picked up as a person's name. → inject a domain dictionary into `common_words.py`, or turn it off with `exclude={"PERSON"}`.
+- **PERSON false positives (FP)** — the biggest weakness of rule-based PERSON detection. Domain vocabulary (e.g. pharma ingredient names) can be picked up as a person's name. Use `person_exclusions={...}`, turn PERSON off with `exclude={"PERSON"}`, or supply a trained token-NER hybrid.
 - **Unstructured ADDRESS** — weak on unstructured addresses like "강남 쪽에 살아" (needs an anchor). Structured addresses ("서울특별시 강남구 테헤란로 152") are fine.
-- Deterministic PII (RRN, PHONE, EMAIL, card, business registration number) is checksum/format-verified, so false positives are rare.
+- Checksum-backed structural labels have stronger false-positive controls than format-only labels, but OCR, new separators, and unsupported real formats can still cause misses; validate recall separately.
 
 Full evaluation: [`docs/EVALUATION_REPORT.md`](docs/EVALUATION_REPORT.md).
 
@@ -354,7 +378,18 @@ ko-pii ./incoming/ --batch --workers 4 --output-dir ./anonymized/
 # Vault encryption + audit log
 KPII_VAULT_PASSWORD=secret ko-pii doc.hwp \
     --vault vault.kvault --audit-log audit.jsonl
+
+# Per-project PERSON exclusions (UTF-8, one term per line; blanks/# comments ignored)
+ko-pii doc.txt --person-exclusions-file tenant-person-exclusions.txt
 ```
+
+`--batch` processes each file independently and does not support `--vault`,
+`--vault-password`, or `--audit-log`. Combining those options is rejected instead
+of being silently ignored. Use single-file mode when you need a reversible Vault
+and audit trail. With `--json-summary`, warnings are included in the JSON
+`warnings` array so the complete `stderr` stream remains one parseable object.
+In this mode, use `KPII_VAULT_PASSWORD` instead of the interactive
+`--vault-password` prompt.
 
 ### Python API
 
@@ -365,7 +400,7 @@ anon = Anonymizer(mode=ProcessingMode.STRICT, strategy="tokenize")
 result = anon.process(text)
 
 print(result.text)                       # pseudonymized text
-print(result.vault.reveal("<RRN_1>"))    # restore original (authorized only)
+print(result.vault.reveal("<RRN_1>"))    # restore original (authorization is application-owned)
 print(result.summary["by_label"])        # {"RRN": 1, "PHONE": 1, "PERSON": 1}
 ```
 
@@ -426,6 +461,9 @@ apply_feedback(
 # → feedback_patches/names_to_add.txt           (names marked FN)
 # → feedback_patches/summary.json
 ```
+
+After review, pass `common_words_additions.txt` through `person_exclusions` or
+`--person-exclusions-file`; do not patch the installed package dictionary.
 
 ### Calling an individual detector
 
@@ -579,7 +617,7 @@ Recognizes 7 label variants: `성명: 홍길동` / `[성명] 홍길동` / `(성�
 |---|---|:---:|
 | **HWP/HWPX/DOCX/PDF parser** | Automatic parsing of Hancom Office / MS Word / PDF (body + tables + headers + metadata). See parser details below | `[file]` |
 | **Vault encryption** | AES-256-GCM + PBKDF2 with 480k iterations | `[security]` |
-| **Audit log (JSONL)** | records every `reveal()` call (Article 29 of PIPA) | core |
+| **Audit log (JSONL)** | records `store()`/`reveal()` operations with selectable fail-closed behavior | core |
 | **Batch processing** | whole-directory + parallel workers | core |
 | **Review queue** | low-confidence detections → human review → automatic learning of FP vocabulary | core |
 | **HTML report** | visualization of true positives (green) / false positives (red) / misses (yellow) | core |
@@ -625,7 +663,7 @@ chain = retriever | KoPiiRedactor(mode="STRICT") | prompt | llm
 |---|---|---|
 | What | rules = deterministic IDs (checksums), ML = fuzzy categories — **replaces detections** | document-level "has PII" classifier reinforcing rule results (adds no spans) |
 | Use | `Anonymizer(secondary_detector=..., merge_mode="role_split")` | `ko_pii.classifier.HybridAnonymizer` |
-| Performance | external validation **F1 0.97** ([`docs/HYBRID_NER.md`](docs/HYBRID_NER.md)) | review triggers / sensitivity tuning |
+| Performance | **F1 0.968** on project-built OOD Set A (not independent third-party validation; [`docs/HYBRID_NER.md`](docs/HYBRID_NER.md)) | review triggers / sensitivity tuning |
 
 **① Token-NER hybrid** — plug in an NER model you trained with the [`docs/HYBRID_NER.md`](docs/HYBRID_NER.md) recipe:
 
@@ -683,10 +721,16 @@ set is reference evidence for domain qualification, not a customer operating
 guarantee (see [docs/BENCHMARK.md](docs/BENCHMARK.md) §3b).
 
 **Q2. What if there are too many false positives?**
-Inject a domain dictionary into `common_words.py`, turn off a specific category with `exclude={"PERSON"}`, or change the mode (`STRICT` → `BALANCED`).
+Use `person_exclusions={...}` or `--person-exclusions-file` for project-scoped
+terms, turn PERSON off with `exclude={"PERSON"}`, or adjust the mode. You do not
+need to modify the installed package dictionary.
 
-**Q3. What if I lose the Vault?**
-Restoration is impossible (by security design). Store it encrypted with the `[security]` extras, or use `strategy="redact"` (category-name substitution, no Vault needed).
+**Q3. Does the Vault enforce access control?**
+No. `ReversibleVault` is a storage/restoration primitive and does not authenticate
+the caller holding the object or file. Enforce IAM/ACL and key management in the
+application, and use encryption plus `--audit-failure-policy raise` for operational
+CLI runs. If restoration is unnecessary, use `redact`. See
+[`docs/VAULT_SECURITY.md`](docs/VAULT_SECURITY.md).
 
 **Q4. Are HWP tables and headers all captured?**
 Yes. With the `[file]` extras installed, body + tables + headers + footers + metadata are all extracted.

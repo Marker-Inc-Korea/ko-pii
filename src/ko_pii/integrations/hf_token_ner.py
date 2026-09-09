@@ -4,7 +4,7 @@
 토큰분류 모델(라벨이 ``B-PERSON``/``I-ADDRESS`` 처럼 ko-pii 카테고리명)을
 :class:`ko_pii.Anonymizer` 의 ``secondary_detector`` 로 꽂는 어댑터.
 
-하이브리드(외부 검증 F1 0.97) 사용 예::
+role-split 하이브리드 사용 예::
 
     from ko_pii import Anonymizer
     from ko_pii.integrations.hf_token_ner import HFTokenNERAdapter

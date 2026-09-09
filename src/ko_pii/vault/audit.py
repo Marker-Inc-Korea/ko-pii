@@ -1,15 +1,16 @@
 """Vault 감사 로그 — 모든 ``reveal()`` / ``store()`` 호출 추적.
 
-개인정보보호법 제29조 (안전조치의무) 의 *처리 이력 기록* 요건 직접 대응.
+처리 이력을 남기기 위한 로컬 기록 도구다. 이것만으로 접근통제·무결성 보호 또는
+법적 준수를 보장하지 않는다.
 
-저장 포맷: JSON Lines (``.jsonl``) — append-only, 검색·집계 친화적.
+저장 포맷: JSON Lines (``.jsonl``) — append 방식이며 검색·집계에 적합하다.
 각 라인:
   {"ts": "ISO-8601", "action": "reveal", "token": "<RRN_1>", "label": "RRN",
    "actor": "user@host", "context": "..."}
 
 특징:
-- thread-safe (다중 워커에서도 안전 append)
-- 원자적 write (한 라인 통째 flush)
+- 단일 프로세스 안에서 thread-safe
+- 각 레코드마다 flush하지만 프로세스 간 원자성·fsync·변조 방지는 제공하지 않음
 - ``with AuditLog(path) as log:`` 컨텍스트 매니저
 - 라인 부분 손상 무시 (마지막 줄만 잘릴 수 있음)
 """
@@ -25,7 +26,11 @@ from typing import Any, Optional, TextIO
 
 
 class AuditLog:
-    """Append-only JSONL 감사 로그.
+    """Append-style JSONL 감사 로그.
+
+    The file remains mutable by any principal with filesystem write access.
+    Use external access control and integrity protection when it is an audit
+    trust boundary.
 
     Usage::
 
@@ -98,10 +103,7 @@ class AuditLog:
         with self._LOCK:
             fh = self._open_if_needed()
             fh.write(line + "\n")
-            try:
-                fh.flush()
-            except Exception:
-                pass
+            fh.flush()
 
     # 의미 있는 헬퍼들
     def record_store(self, token: str, label: str, **kw: Any) -> None:
@@ -112,8 +114,19 @@ class AuditLog:
     ) -> None:
         self.record("reveal", token=token, label=label, **kw)
 
-    def record_anonymize(self, count: int, mode: str, **kw: Any) -> None:
-        self.record("anonymize", extra={"count": count, "mode": mode}, **kw)
+    def record_anonymize(
+        self,
+        count: int,
+        mode: str,
+        *,
+        status: str = "completed",
+        **kw: Any,
+    ) -> None:
+        self.record(
+            "anonymize",
+            extra={"count": count, "mode": mode, "status": status},
+            **kw,
+        )
 
 
 def replay(path: str) -> list[dict[str, Any]]:

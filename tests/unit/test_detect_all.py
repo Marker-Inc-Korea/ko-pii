@@ -1,5 +1,7 @@
 import unicodedata
 
+import pytest
+
 from ko_pii import Anonymizer, ProcessingMode
 from ko_pii.detect import detect_all
 
@@ -32,6 +34,51 @@ def test_exclude_filter():
     text = "신청인 880101-1234568 연락처 010-1234-5678"
     detections = detect_all(text, exclude=["RRN"])
     assert "RRN" not in {d.label for d in detections}
+
+
+def test_person_exclusions_are_scoped_to_one_call():
+    text = "성명: 김도구"
+    assert any(d.label == "PERSON" and d.text == "김도구" for d in detect_all(text))
+
+    excluded = detect_all(text, person_exclusions={"김도구"})
+    assert not any(d.label == "PERSON" for d in excluded)
+
+    assert any(d.label == "PERSON" and d.text == "김도구" for d in detect_all(text))
+
+
+def test_person_exclusions_use_same_unicode_normalization_as_input():
+    text = unicodedata.normalize("NFD", "성명: 김도구")
+    exclusion = unicodedata.normalize("NFD", "김도구")
+
+    detections = detect_all(text, person_exclusions={exclusion})
+
+    assert not any(d.label == "PERSON" for d in detections)
+
+
+def test_person_exclusion_is_not_reintroduced_by_raw_boundary_pass():
+    text = "성명: 김민\u200b수 주민번호 900101-1\u200b234567"
+
+    detections = detect_all(text, person_exclusions={"김민수"})
+
+    assert not any(d.label == "PERSON" for d in detections)
+    assert any(d.label == "RRN" for d in detections)
+
+
+@pytest.mark.parametrize("value", ["김도구", ["김도구", 1]])
+def test_person_exclusions_require_an_iterable_of_strings(value):
+    with pytest.raises(TypeError, match="person exclusions"):
+        detect_all("성명: 김도구", person_exclusions=value)
+
+
+def test_empty_person_exclusions_skip_candidate_normalization(monkeypatch):
+    from ko_pii.patterns import person
+
+    def unexpected_normalization(value):
+        raise AssertionError(f"unexpected candidate normalization: {value}")
+
+    monkeypatch.setattr(person, "normalize_unicode", unexpected_normalization)
+
+    assert list(person.detect("성명: 김도구"))
 
 
 def test_corp_reg_vs_rrn_partition():

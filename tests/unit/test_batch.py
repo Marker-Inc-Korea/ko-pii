@@ -75,3 +75,20 @@ class TestProcessPaths:
         # 1개 성공, 1개 실패
         assert summary.succeeded == 1
         assert summary.failed == 1
+
+    def test_person_exclusions_apply_to_batch(self, tmp_path):
+        src = tmp_path / "in.txt"
+        src.write_text("성명: 김도구", encoding="utf-8")
+        out_dir = tmp_path / "out"
+
+        summary = process_paths(
+            inputs=[str(src)],
+            output_dir=str(out_dir),
+            mode=ProcessingMode.STRICT,
+            strategy="redact",
+            person_exclusions={"김도구"},
+            progress=False,
+        )
+
+        assert summary.succeeded == 1
+        assert (out_dir / "in.txt").read_text(encoding="utf-8") == "성명: 김도구"

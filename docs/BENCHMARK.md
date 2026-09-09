@@ -141,21 +141,21 @@ Per-document latency, **measured**. One unit = 1 CPU core (unless noted) or
 | Presidio | 4.2 ms | ~238 docs/s | CPU, 1 core |
 | openai/privacy-filter (ONNX, CPU) | 481 ms | ~2 docs/s | CPU (GPU needed at scale) |
 
-ko-pii runs at **0.19 ms/doc (~5,350 docs/s)** on a single CPU core — **22×
-faster than Presidio** (4.2 ms/doc).
+In these measured configurations, ko-pii ran at **0.19 ms/doc (~5,350 docs/s)**
+on a single CPU core. The systems used different active recognizers, models, and
+runtimes, so this is not a universal same-function speed ranking.
 
-### Cost context (optional)
+### External API fee context
 
-These are **calculated** figures, not measured runtime, based on KDPII documents
-measured at ~170 input / ~10 output tokens, expressed as cost per **1,000,000
-documents**:
+The ko-pii core makes no external API call, so there is no per-document API fee:
 
-| Approach | Cost / 1M docs |
+| Approach | Per-document external API fee |
 |---|---|
-| ko-pii (CPU, 1 core, ~3 min) | ~$0 |
+| ko-pii core | None |
 
-ko-pii processes 1M documents in about 3 minutes on a single CPU core at
-effectively zero marginal cost — no GPU, no per-call API charge.
+The measured throughput would put 1M documents at about 3 minutes on the benchmark
+host's single CPU core. This extrapolation is not a capacity guarantee. Local
+compute, storage, parsing, and operational costs remain and are not estimated here.
 
 ## 5. Deterministic / structural PII — ko-pii per-label F1
 

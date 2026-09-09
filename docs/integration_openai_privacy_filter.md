@@ -110,7 +110,7 @@ anon = Anonymizer(
     merge_mode="union",
 )
 clean_text = anon.process(user_input).text
-# clean_text → GPT-4 / Claude / Gemini API 안전 전송
+# 대상 데이터로 미탐 검증 후 외부 모델 호출에 사용
 ```
 
 ### 시나리오 C: 빅데이터 일괄 처리 — *속도 vs 정확도*
@@ -220,7 +220,9 @@ PERSON · EMAIL · PHONE · ADDRESS · DT_BIRTH · URL · ACCOUNT 한정:
 
 **PII 주입 코퍼스 (실데이터 + 합성 PII):**
 
-기존 합성 (13 템플릿) 의 과적합 가능성을 우회하려고 새로 만든 코퍼스. AI Hub 569 행정문서 본문 200 문단 (양 모델 모두 학습 노출 없음) 에 합성 PII 를 10가지 anchor 패턴으로 주입. Gold 1,043 spans.
+기존 합성(13 템플릿)의 과적합 가능성을 줄이려고 만든 프로젝트 구축 코퍼스다. ko-pii 룰
+설계에 사용하지 않은 AI Hub 569 행정문서 중 본문 200문단에 합성 PII를 10가지 anchor
+패턴으로 주입했다. 비교 모델의 사전학습 노출 여부는 확인하지 못했다. Gold 1,043 spans.
 
 | 카테고리 | gold | ko-pii F1 | PF F1 |
 |---------|----:|---------:|------:|

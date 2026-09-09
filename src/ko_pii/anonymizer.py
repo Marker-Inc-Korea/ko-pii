@@ -22,6 +22,7 @@ from ko_pii.core.types import DetectionResult, RiskLevel
 from ko_pii.detect import detect_all
 from ko_pii.modes._apply import apply_substitutions
 from ko_pii.modes.redact import label_to_hangul
+from ko_pii.patterns.person import is_person_excluded, normalize_exclusions
 from ko_pii.vault.reversible import ReversibleVault
 
 
@@ -62,6 +63,8 @@ class Anonymizer:
         if absent (used for ``tokenize`` and ``hashed``).
     include / exclude :
         Filter detectors by label.
+    person_exclusions :
+        Domain terms to suppress only from PERSON detection for this instance.
     """
 
     def __init__(
@@ -74,6 +77,7 @@ class Anonymizer:
         secondary_detector: Any = None,
         merge_mode: str = "union",
         role_split_labels: Optional[Iterable[str]] = None,
+        person_exclusions: Optional[Iterable[str]] = None,
     ) -> None:
         if strategy not in {"tokenize", "redact", "asterisk", "hashed",
                             "partial", "fpe"}:
@@ -89,12 +93,16 @@ class Anonymizer:
         # role_split 모드에서 secondary 가 담당할 라벨 (None=기본 퍼지 10종)
         self.role_split_labels = (frozenset(role_split_labels)
                                   if role_split_labels is not None else None)
+        self.person_exclusions = normalize_exclusions(person_exclusions)
 
     # ------------------------------------------------------------ public
 
     def process(self, text: str) -> AnonymizationResult:
         primary = detect_all(
-            text, include=self.include, exclude=self.exclude
+            text,
+            include=self.include,
+            exclude=self.exclude,
+            person_exclusions=self.person_exclusions,
         )
         # Optional secondary detector (ML 어댑터 등) 가 있으면 결과 병합
         if self.secondary_detector is not None:
@@ -104,6 +112,20 @@ class Anonymizer:
                 secondary = [s for s in secondary if s.label in self.include]
             if self.exclude:
                 secondary = [s for s in secondary if s.label not in self.exclude]
+            if self.person_exclusions:
+                # Filter before overlap resolution. An excluded PERSON must not
+                # displace an overlapping primary ADDRESS or identifier.
+                secondary = [
+                    detection
+                    for detection in secondary
+                    if not (
+                        detection.label == "PERSON"
+                        and is_person_excluded(
+                            detection.text,
+                            self.person_exclusions,
+                        )
+                    )
+                ]
             detections = merge_detections(
                 primary, secondary, mode=MergeMode(self.merge_mode),
                 role_split_labels=self.role_split_labels,

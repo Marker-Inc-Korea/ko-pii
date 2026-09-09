@@ -21,6 +21,7 @@ from ko_pii.context.name_origin import classify_name_origin
 from ko_pii.context.name_syllables import name_shape_bonus
 from ko_pii.context.particles import strip_trailing_particle
 from ko_pii.core.types import DetectionResult, RiskLevel
+from ko_pii.core.unicode_norm import normalize_unicode
 from ko_pii.dictionaries.agencies import is_agency
 from ko_pii.dictionaries.agency_abbrev import normalize_agency
 from ko_pii.dictionaries.agency_titles import is_valid_agency_title
@@ -296,7 +297,43 @@ def _looks_like_street_name(raw: str) -> bool:
     return len(raw) >= 3 and any(raw.endswith(s) for s in _STREET_SUFFIXES)
 
 
-def detect(text: str) -> Iterator[DetectionResult]:
+def normalize_exclusions(
+    exclusions: Iterable[str] | None,
+) -> frozenset[str]:
+    """Validate and normalize per-call PERSON false-positive exclusions."""
+    if exclusions is None:
+        return frozenset()
+    if isinstance(exclusions, (str, bytes)):
+        raise TypeError("person exclusions must be an iterable of strings, not a string")
+
+    normalized: set[str] = set()
+    for value in exclusions:
+        if not isinstance(value, str):
+            raise TypeError("person exclusions must contain only strings")
+        value, _ = normalize_unicode(value)
+        value = value.strip()
+        if value:
+            normalized.add(value)
+    return frozenset(normalized)
+
+
+def is_person_excluded(value: str, exclusions: frozenset[str]) -> bool:
+    """Return whether a PERSON value matches a normalized exclusion exactly."""
+    if not exclusions:
+        return False
+    normalized, _ = normalize_unicode(value)
+    return normalized.strip() in exclusions
+
+
+def _is_common_or_excluded(value: str, exclusions: frozenset[str]) -> bool:
+    return is_person_excluded(value, exclusions) or is_common_word(value)
+
+
+def detect(
+    text: str,
+    *,
+    exclusions: Iterable[str] | None = None,
+) -> Iterator[DetectionResult]:
     """Yield PERSON detections.
 
     Two-pass strategy:
@@ -304,12 +341,20 @@ def detect(text: str) -> Iterator[DetectionResult]:
               and register into a per-document NameDictionary.
       Pass B: rescan candidates that were below threshold; if the (stem) is
               now in the dictionary, emit with boosted confidence.
+    ``exclusions`` contains domain terms that must not be emitted as PERSON.
+    It is scoped to this call and never mutates the package dictionary.
     """
-    yield from _detect_with_dict(text, NameDictionary())
+    yield from _detect_with_dict(
+        text,
+        NameDictionary(),
+        normalize_exclusions(exclusions),
+    )
 
 
 def _detect_with_dict(
-    text: str, name_dict: NameDictionary
+    text: str,
+    name_dict: NameDictionary,
+    exclusions: frozenset[str] = frozenset(),
 ) -> Iterator[DetectionResult]:
     deterministic_spans = [
         (m.start(), m.end()) for m in _DETERMINISTIC_HINTS.finditer(text)
@@ -325,7 +370,7 @@ def _detect_with_dict(
     macro_spans: set[tuple[int, int]] = set()
     for p_start, p_end, agency, person_text, title in _macro_matches(text):
         # 합리성 추가 검증 — 이름 부분이 common_word 가 아닌지
-        if is_common_word(person_text):
+        if _is_common_or_excluded(person_text, exclusions):
             continue
         # field_label / title 자체는 PERSON 이 아님
         if is_field_label(person_text) or is_title(person_text):
@@ -346,7 +391,7 @@ def _detect_with_dict(
     emitted: list[tuple[Any, ...]] = []  # (cand, particle, score, evidence)
     # 매크로로 잡은 것은 우선 emit
     for p_start, p_end, agency, person_text, title in _macro_matches(text):
-        if is_common_word(person_text):
+        if _is_common_or_excluded(person_text, exclusions):
             continue
         if is_field_label(person_text) or is_title(person_text):
             continue
@@ -385,7 +430,7 @@ def _detect_with_dict(
         # 부분 가명 표기 (박씨/이모/김군) — 이미 익명화된 표기이므로 거부
         if _looks_like_anonymized(stem):
             continue
-        if is_common_word(stem):
+        if _is_common_or_excluded(stem, exclusions):
             continue
         # Skip tokens that are themselves dictionary words (field label,
         # title, agency) — those are infrastructure markers, not names.
@@ -431,6 +476,8 @@ def _detect_with_dict(
             embedded_title = title_suffix
         elif title_suffix and len(front) == 1:
             # 1자 + 직책 (예: "강회장") — 1자 단독은 신뢰도 너무 낮음 → 거부
+            continue
+        if is_person_excluded(stem, exclusions):
             continue
 
         # Heuristic: skip tokens without any leading surname unless the

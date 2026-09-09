@@ -85,12 +85,29 @@ def _run_shape(s: str) -> list[int]:
     return [m.end() - m.start() for m in _PII_RUN.finditer(s)]
 
 
+def _run_detectors(
+    text: str,
+    person_exclusions: frozenset[str],
+    *,
+    include_person: bool = True,
+) -> list[DetectionResult]:
+    raw: list[DetectionResult] = []
+    for fn in DETECTORS:
+        if fn is person.detect:
+            if include_person:
+                raw.extend(person.detect(text, exclusions=person_exclusions))
+        else:
+            raw.extend(fn(text))
+    return raw
+
+
 def detect_all(
     text: str,
     include: Optional[Iterable[str]] = None,
     exclude: Optional[Iterable[str]] = None,
     *,
     normalize: bool = True,
+    person_exclusions: Optional[Iterable[str]] = None,
 ) -> list[DetectionResult]:
     """Run every detector and return a merged, conflict-resolved list.
 
@@ -103,9 +120,13 @@ def detect_all(
     ``normalize`` (기본 True): 전각/호환문자 폴딩 + 제로폭 문자 제거로 검출
     우회를 차단한다. 결과 offset 은 원본 ``text`` 기준으로 역매핑된다.
     ASCII 입력은 우회 벡터가 없어 그대로 통과한다.
+
+    ``person_exclusions``: 이 호출에서 PERSON 으로 검출하지 않을 도메인 용어.
+    패키지 내장 사전을 수정하지 않으며 다른 호출에 영향을 주지 않는다.
     """
     if not isinstance(text, str):
         raise TypeError(f"detect_all() expects str, got {type(text).__name__}")
+    normalized_exclusions = person.normalize_exclusions(person_exclusions)
     source = text
     offset_map: Optional[list[int]] = None
     if normalize and needs_normalization(text):
@@ -113,9 +134,7 @@ def detect_all(
         if norm != text:
             text, offset_map = norm, omap
 
-    raw: list[DetectionResult] = []
-    for fn in DETECTORS:
-        raw.extend(fn(text))
+    raw = _run_detectors(text, normalized_exclusions)
 
     if offset_map is not None:
         # 정규화가 텍스트를 바꿨다(전각 폴딩/보이지 않는 문자 제거 등).
@@ -129,8 +148,15 @@ def detect_all(
         # 한다. 한글/공백/이모지 사이의 제로폭 떡칠은 모양이 그대로라 융합이 없으므로
         # 더블패스(검출기 28개 2회)를 건너뛴다 — 제로폭 1자로 비용을 2배 만드는 DoS 완화.
         if _run_shape(source) != _run_shape(text):
-            for fn in DETECTORS:
-                raw.extend(fn(source))
+            # PERSON은 정규화본에서 이미 검사했다. 원문 패스에서 보이지 않는
+            # 문자로 잘린 이름 조각을 다시 PERSON으로 올리지 않는다.
+            raw.extend(
+                _run_detectors(
+                    source,
+                    normalized_exclusions,
+                    include_person=False,
+                )
+            )
 
     inc = set(include) if include else None
     exc = set(exclude) if exclude else set()

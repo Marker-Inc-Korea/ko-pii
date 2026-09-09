@@ -9,7 +9,7 @@ import argparse
 import json
 import os
 import sys
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from ko_pii import __version__
 from ko_pii.anonymizer import Anonymizer
@@ -17,6 +17,9 @@ from ko_pii.core.modes import ProcessingMode
 from ko_pii.reporting.certificate import generate_certificate
 from ko_pii.reporting.summary import format_summary_text
 from ko_pii.vault.reversible import ReversibleVault
+
+if TYPE_CHECKING:
+    from ko_pii.vault.audit import AuditLog
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -46,7 +49,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument(
         "--vault",
-        help="Path to read/write the vault JSON (used by tokenize/hashed).",
+        help="Path to read/write the vault JSON (single-file mode only).",
     )
     p.add_argument(
         "--include",
@@ -55,6 +58,10 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--exclude",
         help="Comma-separated category labels to exclude.",
+    )
+    p.add_argument(
+        "--person-exclusions-file",
+        help="UTF-8 file with one domain term per line to exclude from PERSON detection.",
     )
     p.add_argument(
         "-o", "--output",
@@ -106,7 +113,13 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument(
         "--audit-log",
-        help="Append audit log to this JSONL file.",
+        help="Append audit log to this JSONL file (single-file mode only).",
+    )
+    p.add_argument(
+        "--audit-failure-policy",
+        choices=["raise", "best_effort"],
+        default="raise",
+        help="Behavior when audit logging fails (default: raise).",
     )
     # OpenAI Privacy Filter 통합 (옵션)
     p.add_argument(
@@ -157,16 +170,53 @@ def _split_csv(value: Optional[str]) -> Optional[list[str]]:
     return [t.strip() for t in value.split(",") if t.strip()]
 
 
+def _load_person_exclusions(path: Optional[str]) -> Optional[tuple[str, ...]]:
+    if not path:
+        return None
+    with open(path, "r", encoding="utf-8") as f:
+        return tuple(
+            line
+            for raw in f
+            if (line := raw.strip()) and not line.startswith("#")
+        )
+
+
+def _emit_warning(args: argparse.Namespace, message: str) -> None:
+    """Keep stderr machine-readable when ``--json-summary`` is active."""
+    if getattr(args, "json_summary", False):
+        warnings = getattr(args, "_json_warnings", None)
+        if warnings is None:
+            warnings = []
+            setattr(args, "_json_warnings", warnings)
+        if message not in warnings:
+            warnings.append(message)
+        return
+    print(message, file=sys.stderr)
+
+
+def _write_json_summary(
+    args: argparse.Namespace,
+    summary: dict[str, object],
+) -> None:
+    payload = dict(summary)
+    warnings = getattr(args, "_json_warnings", [])
+    if warnings:
+        payload["warnings"] = list(warnings)
+    sys.stderr.write(json.dumps(payload, ensure_ascii=False, indent=2))
+    sys.stderr.write("\n")
+
+
 def _resolve_vault_password(args: argparse.Namespace) -> Optional[str]:
     pw: Optional[str] = args.vault_password
     if pw == "__PROMPT__":          # 값 없는 --vault-password → 안전한 프롬프트 입력
         import getpass
         return getpass.getpass("Vault password: ")
     if pw:
-        import sys
-        print("경고: --vault-password 값은 프로세스 목록/셸 히스토리에 노출됩니다. "
-              "env var $KPII_VAULT_PASSWORD 또는 값 없는 --vault-password(프롬프트) 사용 권장.",
-              file=sys.stderr)
+        _emit_warning(
+            args,
+            "경고: --vault-password 값은 프로세스 목록/셸 히스토리에 노출됩니다. "
+            "env var $KPII_VAULT_PASSWORD 또는 값 없는 --vault-password(프롬프트) 사용 권장.",
+        )
         return pw
     return os.environ.get("KPII_VAULT_PASSWORD")
 
@@ -194,7 +244,89 @@ def _save_vault(args: argparse.Namespace, vault: ReversibleVault) -> None:
         from ko_pii.vault.encrypted import save_encrypted
         save_encrypted(vault, args.vault, pw)
     else:
+        _emit_warning(
+            args,
+            "경고: 암호 없이 저장한 Vault JSON에는 원본 개인정보가 평문으로 포함됩니다. "
+            "운영 환경에서는 --vault-password 또는 KPII_VAULT_PASSWORD를 사용하십시오.",
+        )
         vault.save(args.vault)
+
+
+def _validate_batch_args(
+    parser: argparse.ArgumentParser,
+    args: argparse.Namespace,
+) -> None:
+    unsupported = []
+    if args.audit_log is not None:
+        unsupported.append("--audit-log")
+    if args.vault is not None:
+        unsupported.append("--vault")
+    if args.vault_password is not None:
+        unsupported.append("--vault-password")
+    if unsupported:
+        parser.error(
+            "--batch does not support "
+            + ", ".join(unsupported)
+            + "; process files individually when reversible Vault or audit records are required"
+        )
+
+
+def _validate_json_args(
+    parser: argparse.ArgumentParser,
+    args: argparse.Namespace,
+) -> None:
+    if args.json_summary and args.vault_password == "__PROMPT__":
+        parser.error(
+            "--json-summary cannot use the interactive --vault-password prompt; "
+            "set KPII_VAULT_PASSWORD instead"
+        )
+
+
+def _open_audit(args: argparse.Namespace) -> Optional["AuditLog"]:
+    if not args.audit_log:
+        return None
+
+    from ko_pii.vault.audit import AuditLog
+
+    audit = AuditLog(args.audit_log)
+    try:
+        return audit.__enter__()
+    except Exception as exc:
+        try:
+            audit.__exit__(*sys.exc_info())
+        except Exception:
+            pass
+        if args.audit_failure_policy == "raise":
+            raise
+        _emit_warning(
+            args,
+            "경고: 감사 로그를 열지 못해 감사 기록 없이 계속합니다 "
+            f"({type(exc).__name__}: {exc}).",
+        )
+        return None
+
+
+def _close_audit(
+    args: argparse.Namespace,
+    audit: Optional["AuditLog"],
+    active_error: Optional[tuple[Any, Any, Any]] = None,
+) -> None:
+    if audit is None:
+        return
+    try:
+        audit.__exit__(*(active_error or (None, None, None)))
+    except Exception as exc:
+        # Preserve an in-flight processing error instead of hiding it with a
+        # secondary close failure.
+        if active_error is not None:
+            return
+        if args.audit_failure_policy == "raise":
+            raise
+        _emit_warning(
+            args,
+            "경고: 감사 로그를 정상적으로 종료하지 못했지만 best_effort 정책으로 "
+            f"계속합니다 ({type(exc).__name__}: {exc}).",
+        )
 
 
 def _run_batch(args: argparse.Namespace) -> int:
@@ -209,17 +341,13 @@ def _run_batch(args: argparse.Namespace) -> int:
         workers=args.workers,
         include=_split_csv(args.include),
         exclude=_split_csv(args.exclude),
-        progress=not args.no_progress,
-    )
-    sys.stderr.write(
-        f"\n[배치 완료] 총 {summary.total_files}개 / 성공 {summary.succeeded} / "
-        f"실패 {summary.failed} / 검출 {summary.total_detections} / "
-        f"차단 {summary.total_blocked} / 검토 {summary.total_review} / "
-        f"{summary.elapsed_s:.2f}초\n"
+        person_exclusions=_load_person_exclusions(args.person_exclusions_file),
+        progress=not args.no_progress and not args.json_summary,
     )
     if args.json_summary:
         import dataclasses
-        sys.stderr.write(json.dumps(
+        _write_json_summary(
+            args,
             {
                 "total": summary.total_files,
                 "succeeded": summary.succeeded,
@@ -230,55 +358,70 @@ def _run_batch(args: argparse.Namespace) -> int:
                 "elapsed_s": summary.elapsed_s,
                 "results": [dataclasses.asdict(r) for r in summary.results],
             },
-            ensure_ascii=False, indent=2,
-        ))
-        sys.stderr.write("\n")
+        )
+    else:
+        sys.stderr.write(
+            f"\n[배치 완료] 총 {summary.total_files}개 / 성공 {summary.succeeded} / "
+            f"실패 {summary.failed} / 검출 {summary.total_detections} / "
+            f"차단 {summary.total_blocked} / 검토 {summary.total_review} / "
+            f"{summary.elapsed_s:.2f}초\n"
+        )
     return 0 if summary.failed == 0 else 1
 
 
-def main(argv: Optional[list[str]] = None) -> int:
-    parser = _build_parser()
-    args = parser.parse_args(argv)
+def _run_single(
+    args: argparse.Namespace,
+    text: str,
+    vault: Optional[ReversibleVault],
+    audit: Optional["AuditLog"],
+) -> int:
+    try:
+        secondary = None
+        if args.with_privacy_filter:
+            from ko_pii.integrations import get_privacy_filter_adapter
+            secondary = get_privacy_filter_adapter(device=args.privacy_filter_device)
 
-    if args.labels:
-        from ko_pii.labels import format_labels_table
-        print(format_labels_table())
-        return 0
-    if args.input is None:
-        parser.error("input is required (or use --labels to list categories)")
+        anon = Anonymizer(
+            mode=ProcessingMode(args.mode),
+            strategy=args.strategy,
+            vault=vault,
+            include=_split_csv(args.include),
+            exclude=_split_csv(args.exclude),
+            secondary_detector=secondary,
+            merge_mode=args.merge_mode,
+            person_exclusions=_load_person_exclusions(args.person_exclusions_file),
+        )
+        if audit and anon.vault is not None:
+            anon.vault.attach_audit(
+                audit,
+                failure_policy=args.audit_failure_policy,
+            )
 
-    if args.batch:
-        return _run_batch(args)
+        result = anon.process(text)
+        if audit:
+            try:
+                audit.record_anonymize(
+                    count=len(result.detections),
+                    mode=args.mode,
+                    status="prepared",
+                    context=args.input,
+                )
+            except Exception:
+                if args.audit_failure_policy == "raise":
+                    raise
+                _emit_warning(
+                    args,
+                    "경고: 익명화 결과 준비 감사 레코드를 기록하지 못했습니다.",
+                )
+    except BaseException:
+        _close_audit(args, audit, sys.exc_info())
+        raise
 
-    text = _read_input(args.input)
+    # Audit finalization belongs to the fail-closed boundary. The event above
+    # says "prepared", not "persisted", because later filesystem/stdout writes
+    # cannot be committed atomically with a JSONL audit file.
+    _close_audit(args, audit)
 
-    vault = _load_vault(args)
-    audit = None
-    if args.audit_log:
-        from ko_pii.vault.audit import AuditLog
-        audit = AuditLog(args.audit_log)
-        audit.__enter__()
-        if vault is not None:
-            vault.attach_audit(audit)
-
-    secondary = None
-    if args.with_privacy_filter:
-        from ko_pii.integrations import get_privacy_filter_adapter
-        secondary = get_privacy_filter_adapter(device=args.privacy_filter_device)
-
-    anon = Anonymizer(
-        mode=ProcessingMode(args.mode),
-        strategy=args.strategy,
-        vault=vault,
-        include=_split_csv(args.include),
-        exclude=_split_csv(args.exclude),
-        secondary_detector=secondary,
-        merge_mode=args.merge_mode,
-    )
-    if audit and anon.vault is not None:
-        anon.vault.attach_audit(audit)
-
-    result = anon.process(text)
     _write_output(args.output, result.text)
 
     if args.vault and result.vault is not None:
@@ -288,22 +431,37 @@ def main(argv: Optional[list[str]] = None) -> int:
         with open(args.report, "w", encoding="utf-8") as f:
             f.write(generate_certificate(result, document_id=args.input))
 
-    if audit:
-        audit.record_anonymize(
-            count=len(result.detections),
-            mode=args.mode,
-            context=args.input,
-        )
-        audit.__exit__(None, None, None)
-
     if args.json_summary:
-        sys.stderr.write(json.dumps(result.summary, ensure_ascii=False, indent=2))
-        sys.stderr.write("\n")
+        _write_json_summary(args, result.summary)
     else:
         sys.stderr.write(format_summary_text(result))
         sys.stderr.write("\n")
 
     return 0
+
+
+def main(argv: Optional[list[str]] = None) -> int:
+    parser = _build_parser()
+    args = parser.parse_args(argv)
+    setattr(args, "_json_warnings", [])
+
+    if args.labels:
+        from ko_pii.labels import format_labels_table
+        print(format_labels_table())
+        return 0
+    if args.input is None:
+        parser.error("input is required (or use --labels to list categories)")
+
+    _validate_json_args(parser, args)
+
+    if args.batch:
+        _validate_batch_args(parser, args)
+        return _run_batch(args)
+
+    text = _read_input(args.input)
+    vault = _load_vault(args)
+    audit = _open_audit(args)
+    return _run_single(args, text, vault, audit)
 
 
 if __name__ == "__main__":

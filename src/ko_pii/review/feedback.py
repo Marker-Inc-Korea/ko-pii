@@ -90,7 +90,7 @@ def apply_feedback(
         with open(os.path.join(output_dir, "common_words_additions.txt"),
                   "w", encoding="utf-8") as f:
             f.write("# ko-pii 검토 큐에서 자동 생성된 일반 단어 후보\n")
-            f.write("# 검토 후 src/ko_pii/dictionaries/common_words.py 에 반영하세요.\n")
+            f.write("# 검토 후 --person-exclusions-file 입력으로 사용하세요.\n")
             for w in person_fps:
                 f.write(w + "\n")
 

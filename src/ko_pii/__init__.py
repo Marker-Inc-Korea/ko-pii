@@ -35,7 +35,7 @@ from ko_pii.streaming import (
     StreamBufferLimitExceeded,
     StreamBufferStatus,
 )
-from ko_pii.vault.reversible import ReversibleVault, VaultEntry
+from ko_pii.vault.reversible import AuditFailurePolicy, ReversibleVault, VaultEntry
 
 __version__ = "1.16.0"  # pyproject.toml 과 동기화 (tests/unit/test_version.py 가드)
 
@@ -56,6 +56,7 @@ __all__ = [
     "fpe",
     "ReversibleVault",
     "VaultEntry",
+    "AuditFailurePolicy",
     "PreForwardAnonymizer",
     "StreamBufferClosed",
     "StreamBufferLimitExceeded",

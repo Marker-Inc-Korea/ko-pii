@@ -4,7 +4,7 @@
 - ``multiprocessing.Pool`` 로 워커 병렬화 (stdlib)
 - 진행률 표시 (stderr 라인 갱신, 외부 deps 없이)
 - 입력 파일별 결과를 *대응되는 출력 경로* 에 기록
-- Vault 는 *옵션* — 공유하면 문서 간 토큰 일관성 (같은 사람 → 같은 토큰)
+- 파일마다 독립된 처리 상태 사용 (문서 간 Vault 일관성·감사 로그는 CLI 배치 미지원)
 - 실패한 파일은 건너뛰고 보고 (전체 작업 중단 X)
 
 Usage::
@@ -117,9 +117,18 @@ def _process_single(
     args: tuple[
         str, str, str, str,
         Optional[tuple[str, ...]], Optional[tuple[str, ...]],
+        tuple[str, ...],
     ],
 ) -> FileResult:
-    (input_path, output_path, mode, strategy, include, exclude) = args
+    (
+        input_path,
+        output_path,
+        mode,
+        strategy,
+        include,
+        exclude,
+        person_exclusions,
+    ) = args
     t0 = time.time()
     try:
         from ko_pii.anonymizer import Anonymizer
@@ -132,6 +141,7 @@ def _process_single(
             strategy=strategy,
             include=list(include) if include else None,
             exclude=list(exclude) if exclude else None,
+            person_exclusions=person_exclusions,
         )
         result = anon.process(text)
 
@@ -188,6 +198,7 @@ def process_paths(
     workers: int = 1,
     include: Optional[Iterable[str]] = None,
     exclude: Optional[Iterable[str]] = None,
+    person_exclusions: Optional[Iterable[str]] = None,
     extensions: Optional[frozenset[str]] = None,
     progress: bool = True,
 ) -> BatchSummary:
@@ -195,10 +206,12 @@ def process_paths(
 
     Notes:
     -----
-    워커가 1 이면 in-process 처리 (vault 공유 가능). 2 이상이면 multiprocessing
-    이므로 *vault 공유 불가* — 각 워커는 자체 vault. 토큰 일관성이 필요하면
-    workers=1 사용.
+    워커 수와 관계없이 파일마다 별도 Anonymizer/Vault를 사용합니다. 문서 간 토큰
+    일관성이나 감사 가능한 가역 Vault가 필요하면 단일 파일 API를 사용하십시오.
     """
+    from ko_pii.patterns.person import normalize_exclusions
+
+    normalized_exclusions = normalize_exclusions(person_exclusions)
     files = collect_files(inputs, recursive=recursive, extensions=extensions)
     summary = BatchSummary(total_files=len(files))
     t0 = time.time()
@@ -224,6 +237,7 @@ def process_paths(
             strategy,
             tuple(include) if include else None,
             tuple(exclude) if exclude else None,
+            tuple(sorted(normalized_exclusions)),
         ))
 
     if workers <= 1:

@@ -91,6 +91,47 @@ class TestAnonymizerWithSecondary:
         assert "AAA" not in result.text
         assert "a@b.com" in result.text
 
+    def test_person_exclusions_also_filter_secondary_results(self):
+        text = "성명: 한미약품"
+        mock = MockSecondaryDetector([
+            _det("PERSON", 4, 8, "한미약품"),
+        ])
+        anon = Anonymizer(
+            mode=ProcessingMode.STRICT,
+            strategy="redact",
+            secondary_detector=mock,
+            merge_mode="union",
+            person_exclusions={"한미약품"},
+        )
+
+        result = anon.process(text)
+
+        assert result.text == text
+        assert not any(
+            record.detection.label == "PERSON" for record in result.detections
+        )
+
+    def test_excluded_secondary_person_cannot_displace_primary_address(self):
+        text = "주소: 서울특별시 강남구 테헤란로 152"
+        mock = MockSecondaryDetector([
+            _det("PERSON", 4, 6, "서울"),
+        ])
+        anon = Anonymizer(
+            mode=ProcessingMode.STRICT,
+            strategy="redact",
+            secondary_detector=mock,
+            merge_mode="union",
+            person_exclusions={"서울"},
+        )
+
+        result = anon.process(text)
+
+        assert any(
+            record.detection.label == "ADDRESS" for record in result.detections
+        )
+        assert "서울특별시 강남구 테헤란로 152" not in result.text
+        assert "[주소]" in result.text
+
 
 class TestProtocol:
     def test_mock_implements_protocol(self):

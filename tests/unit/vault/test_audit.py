@@ -1,3 +1,5 @@
+import pytest
+
 from ko_pii.core.types import RiskLevel
 from ko_pii.vault.audit import AuditLog, replay
 from ko_pii.vault.reversible import ReversibleVault
@@ -54,3 +56,73 @@ class TestAuditLog:
         entries = replay(log_path)
         assert len(entries) == 1
         assert entries[0]["action"] == "reveal"
+
+    def test_best_effort_policy_preserves_legacy_behavior(self):
+        class FailingAudit:
+            def record_store(self, *args, **kwargs):
+                raise OSError("audit unavailable")
+
+            def record_reveal(self, *args, **kwargs):
+                raise OSError("audit unavailable")
+
+        vault = ReversibleVault(salt="x", audit_log=FailingAudit())
+        token = vault.store("RRN", "880101-1234568", int(RiskLevel.CRITICAL))
+        assert vault.reveal(token) == "880101-1234568"
+
+    def test_raise_policy_blocks_unlogged_store_and_reveal(self):
+        class FailingAudit:
+            def record_store(self, *args, **kwargs):
+                raise OSError("audit unavailable")
+
+            def record_reveal(self, *args, **kwargs):
+                raise OSError("audit unavailable")
+
+        vault = ReversibleVault(
+            salt="x",
+            audit_log=FailingAudit(),
+            audit_failure_policy="raise",
+        )
+        with pytest.raises(OSError, match="audit unavailable"):
+            vault.store("RRN", "880101-1234568", int(RiskLevel.CRITICAL))
+        assert len(vault) == 0
+        assert vault.get("<RRN_1>") is None
+
+        vault = ReversibleVault(salt="x")
+        token = vault.store("RRN", "880101-1234568", int(RiskLevel.CRITICAL))
+        vault.attach_audit(FailingAudit(), failure_policy="raise")
+        with pytest.raises(OSError, match="audit unavailable"):
+            vault.reveal(token)
+
+    def test_raise_policy_rolls_back_occurrence_update(self):
+        class FailingAudit:
+            def record_store(self, *args, **kwargs):
+                raise OSError("audit unavailable")
+
+        vault = ReversibleVault(salt="x")
+        token = vault.store(
+            "RRN", "880101-1234568", int(RiskLevel.CRITICAL), offset=3
+        )
+        vault.attach_audit(FailingAudit(), failure_policy="raise")
+
+        with pytest.raises(OSError, match="audit unavailable"):
+            vault.store(
+                "RRN", "880101-1234568", int(RiskLevel.CRITICAL), offset=17
+            )
+
+        assert vault.get(token).occurrences == [3]
+
+    def test_rejects_unknown_audit_failure_policy(self):
+        with pytest.raises(ValueError, match="audit_failure_policy"):
+            ReversibleVault(audit_failure_policy="ignore")
+
+    def test_anonymize_status_is_recorded(self, tmp_path):
+        log_path = str(tmp_path / "audit.jsonl")
+        with AuditLog(log_path) as log:
+            log.record_anonymize(2, "STRICT", status="prepared")
+
+        [entry] = replay(log_path)
+        assert entry["extra"] == {
+            "count": 2,
+            "mode": "STRICT",
+            "status": "prepared",
+        }

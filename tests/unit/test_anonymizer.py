@@ -74,6 +74,18 @@ class TestAnonymizerSummary:
         # Phone NOT detected because of include filter
         assert "010-1234-5678" in result.text
 
+    def test_person_exclusions_do_not_mutate_global_dictionary(self):
+        text = "성명: 김도구"
+        scoped = Anonymizer(
+            mode=ProcessingMode.STRICT,
+            strategy="redact",
+            person_exclusions={"김도구"},
+        )
+        assert scoped.process(text).text == text
+
+        default = Anonymizer(mode=ProcessingMode.STRICT, strategy="redact")
+        assert "[성명]" in default.process(text).text
+
 
 class TestAnonymizerErrors:
     def test_unknown_strategy_raises(self):

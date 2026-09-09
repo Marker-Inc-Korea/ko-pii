@@ -21,7 +21,7 @@
 |---|---|
 | 주 고객 | 공공·규제 산업의 문서 RAG, 데이터 전처리, 개인정보보호 팀 |
 | 고객 과업 | 외부 전송·인덱싱 전에 한국형 구조적 PII를 가명화하고 복원 이력을 통제 |
-| 보장 범위 | 형식·사전·체크섬 기반의 재현 가능한 검출, 가명화와 Vault 감사 |
+| 보장 범위 | 형식·사전·체크섬 기반의 재현 가능한 검출과 가명화, Vault 저장·감사 기록 기능 |
 | 비보장 범위 | 일반 NER, 자유 대화·SNS 전반, 법적 익명성 판정, 모든 도메인의 동일 정확도 |
 | 운영 조건 | 고객 문서의 라벨 분포와 confusion count를 별도 측정하고 PERSON·ADDRESS 처리 정책 승인 |
 | 상태 해석 | `Software: Stable`은 패키지 안정성이다. 고객 환경은 도메인 qualification 전까지 미승격 |
@@ -39,7 +39,7 @@ result = Anonymizer(mode=ProcessingMode.STRICT, strategy="tokenize").process(
 print(result.text)
 # 신청인 <PERSON_1> (<RRN_1>) 연락처 <PHONE_1>
 
-print(result.vault.reveal("<RRN_1>"))            # 880101-1234568 (권한자만 복원)
+print(result.vault.reveal("<RRN_1>"))            # 880101-1234568 (Vault 접근 권한은 앱에서 통제)
 print(result.combined_risk.combined_risk.name)   # CRITICAL
 ```
 
@@ -77,7 +77,9 @@ redact (카테고리명 치환):
   주소: [주소]
 ```
 
-> **처음이시면:** `mode=ProcessingMode.STRICT` + `strategy="tokenize"` 추천. 가장 안전한 기본 설정 (MEDIUM 위험도 이상 차단 + Vault 복원 가능).
+> **처음이시면:** 복원이 필요하면 `STRICT` + `tokenize`, 필요 없으면 원본 매핑을
+> 남기지 않는 `STRICT` + `redact`를 사용하세요. Vault는 별도 보호가 필요한 개인정보
+> 저장소입니다.
 
 ### 이런 것도 됩니다
 
@@ -89,7 +91,7 @@ redact (카테고리명 치환):
 - **공문서 날짜 자동 거부** — "시행일자: 2026-05-21" "감사기간: 3월~4월" → 생일 아님 (비-생일 키워드 30+)
 - **가명 표기 자동 거부** — "박씨" "김모씨" "○○○ 시민" → 이미 가명화됨 (PII 아님)
 - **결합 위험도 자동 평가** — 이름만으로는 PII 아닐 수 있지만, *이름 + 주민번호 + 주소* 가 같이 나오면 → CRITICAL (「개인정보 비식별 조치 가이드라인」 의 준식별자 결합 검증)
-- **감사 로그** — 누가·언제·어떤 토큰을 복원했는지 JSONL 추적 (개인정보보호법 제29조)
+- **감사 로그** — 호출자가 제공한 actor/context와 토큰 처리 이력을 JSONL로 기록
 
 ---
 
@@ -121,7 +123,7 @@ RAG·LLM 파이프라인은 미정제 비정형 데이터를 그대로 인덱싱
 - **ML 보완** — NER·LLM과 달리 형식·체크섬이 유효한 PII를 결정론적으로 검증해 구조적
   식별자의 정밀도 기반을 제공함. 실제 F1은 입력 형식과 데이터셋별로 별도 측정
 
-ko-pii 는 RAG 의 **인제스트(벡터 DB 진입 전)와 검색(LLM 전달 전) 양단**에서 PII 를 차단합니다. 같은 인물은 같은 토큰으로 치환해 문맥을 보존하고(LlamaIndex·LangChain 연동 제공), Vault 로 권한 기반 복원과 감사 추적을 지원합니다.
+ko-pii 는 RAG 의 **인제스트(벡터 DB 진입 전)와 검색(LLM 전달 전) 양단**에서 PII 를 차단합니다. 같은 Vault 안에서는 같은 인물을 같은 토큰으로 치환해 문맥을 보존하고(LlamaIndex·LangChain 연동 제공), Vault 로 복원과 감사 기록을 지원합니다. 인증·인가와 키 관리는 호출 애플리케이션의 책임입니다.
 
 ---
 
@@ -155,9 +157,13 @@ anon = Anonymizer(
     exclude={"AGE", "HEIGHT", "WEIGHT"},  # "체중 1kg당" 오탐 방지
 )
 
-# PERSON FP 가 많다면 — 도메인 사전 주입
-# src/ko_pii/dictionaries/common_words.py 에 의약품 성분명·제조사명 추가
-# 예: "이부프로펜", "한미약품", "메트포르민" → PERSON 에서 자동 제외
+# PERSON FP가 많은 프로젝트만 별도 제외어 적용 (전역 사전은 변경하지 않음)
+anon = Anonymizer(
+    mode=ProcessingMode.STRICT,
+    strategy="tokenize",
+    exclude={"AGE", "HEIGHT", "WEIGHT"},
+    person_exclusions={"이부프로펜", "한미약품", "메트포르민"},
+)
 ```
 
 ---
@@ -188,21 +194,28 @@ pip install "ko-pii[security]"   # Vault AES-256-GCM
 ### 시나리오 1 — 결재 공문 일괄 가명화 (외부 공개·LLM 전송 전)
 
 ```python
+import os
 from pathlib import Path
-from ko_pii import Anonymizer, ProcessingMode
 
-anon = Anonymizer(mode=ProcessingMode.PARANOID, strategy="tokenize")
+from ko_pii import Anonymizer, ProcessingMode
+from ko_pii.io_ import read_text
+from ko_pii.vault.encrypted import save_encrypted
 
 for path in Path("./공문서/").glob("*.hwp"):
-    result = anon.process(path.read_text(encoding="utf-8"))
-    Path(f"./가명화/{path.name}").write_text(result.text, encoding="utf-8")
-    # vault.json 분리 보관 (권한 있는 사용자만 복원 가능)
-    result.vault.save(f"./vault/{path.stem}.json")
+    # 문서별 Vault로 연결 가능성과 사고 범위를 제한
+    anon = Anonymizer(mode=ProcessingMode.PARANOID, strategy="tokenize")
+    result = anon.process(read_text(str(path)))
+    Path(f"./가명화/{path.stem}.txt").write_text(result.text, encoding="utf-8")
+    save_encrypted(
+        result.vault,
+        f"./vault/{path.stem}.kvault",
+        os.environ["KPII_VAULT_PASSWORD"],
+    )
 ```
 
-- **PARANOID 모드** — LOW 위험도 이상 모두 차단 (LLM/외부 전송 안전)
+- **PARANOID 모드** — LOW 위험도 이상을 처리하는 보수적 전처리 모드입니다. 미탐이 없음을 보장하지 않으므로 외부 전송 전에는 대상 문서군으로 별도 검증해야 합니다.
 - 가명화 결과는 외부에, Vault 는 사내 저장소에 분리 보관
-- HWP/HWPX 파서: `pip install "ko-pii[file]"`
+- HWP 파서와 Vault 암호화: `pip install "ko-pii[file,security]"`
 
 ### 시나리오 2 — 민원 응대 시스템에서 사전 PII 검증
 
@@ -262,32 +275,43 @@ logging.info("신청인 홍길동 (880101-1234568) 처리 완료")
 아래 결과는 명시한 데이터셋과 단일 채점 조건의 측정값입니다. 보편적 정확도 순위나
 고객 환경의 운영 적합성을 자동으로 의미하지 않습니다:
 
-| 시스템 | 지연/문서 | 처리량 | 100만 문서 비용 | 특성 |
+| 시스템 | 지연/문서 | 처리량 | 문서당 외부 API 요금 | 특성 |
 |---|---:|---:|---:|---|
-| **ko-pii** | **0.19 ms** | **~5,350/s** | **~$0** (CPU 1코어 ~3분) | 결정적 · 체크섬 검증 · 온프레미스 |
-| Presidio | 4.2 ms | ~238/s | ~$0 | 한국 카테고리 다수 미지원 |
-| openai/privacy-filter | 481 ms | ~2/s | ~$0 | 한국 카테고리 7종만 |
+| **ko-pii** | **0.19 ms** | **~5,350/s** | 없음 | 결정적 · 체크섬 검증 · 온프레미스 |
+| Presidio | 4.2 ms | ~238/s | 없음 | 한국 카테고리 다수 미지원 |
+| openai/privacy-filter | 481 ms | ~2/s | 없음 | 한국 카테고리 7종만 |
 
-→ **0.19 ms/문서(~5,350 문서/s)로 Presidio(4.2ms)보다 22배 빠르고**, 결정적이라 같은 입력에 항상 같은 결과 · 검출마다 근거 조항/evidence 부착. 속도·비용·정성 전체 비교: [종합 비교표(한글)](docs/presentation/ko-pii-종합비교.md).
+이 실행 환경에서는 ko-pii 0.19ms, Presidio 4.2ms, openai/privacy-filter 481ms로
+측정됐습니다. 각 시스템의 활성 recognizer, 모델과 런타임 구조가 다르므로 이 수치는 동일
+기능의 보편적 속도 순위가 아니라 해당 구성의 처리 비용 비교입니다. 상세 조건:
+[종합 비교표(한글)](docs/presentation/ko-pii-종합비교.md).
+외부 API 요금이 없다는 뜻이며 서버 CPU·저장공간·운영 비용이 0이라는 뜻은 아닙니다.
 
-- KDPII는 단일 매처(`match_forms_overlap`, `person_min_length=3`)로 전체 4,891문서 재측정 — [openai/privacy-filter](https://huggingface.co/openai/privacy-filter) (660M ML) · [Microsoft Presidio](https://github.com/microsoft/presidio) 등 룰·NER 도구 대비 우위.
+- KDPII는 단일 매처(`match_forms_overlap`, `person_min_length=3`)로 전체 4,891문서를 [openai/privacy-filter](https://huggingface.co/openai/privacy-filter) (660M ML) · [Microsoft Presidio](https://github.com/microsoft/presidio)와 함께 재측정했습니다.
 - **공정 비교:** 위 전체 점수는 해외 도구가 *라벨 자체가 없는* 항목(AGE·POSITION·RRN 등)에서 0점이라 격차가 커진다. 각 도구가 **실제 지원하는 카테고리만**으로 좁혀도 ko-pii가 앞선다 — vs openai/PF **0.61 : 0.37**(그쪽 7라벨), vs Presidio **0.87 : 0.65**(그쪽 9라벨).
 - 생성 평가셋의 구조적 라벨은 EMAIL 0.998, PHONE 0.989, CARD 0.988, RRN 0.955로
   측정됐다. 이 값은 해당 gold·matcher 조건이며 보편적 보장이 아니다.
-- **생성 평가셋(540)**은 ko-pii 룰을 참조하지 않고 생성한 독립 데이터(행정/서식체,
-  26라벨)이며 gold를 2단계 검토(`data/generated_eval.jsonl`)했다. 자기 주입 데이터는
-  아니지만 생성 데이터의 분포 편향과 평가 불확실성은 남으므로 고객 문서 성능을 대체하지
-  않는다 (상세 [BENCHMARK §3b](docs/BENCHMARK.md)).
+- KDPII 라벨별 F1은 RRN·EMAIL·IP·FRN 1.000, PHONE 0.992인 반면 PERSON 0.135,
+  ADDRESS 0.241입니다. 운영 판단은 전체 F1보다 실제로 필요한 라벨의 precision·recall과
+  TP/FP/FN을 우선해야 합니다.
+- **생성 평가셋(540)**은 생성 단계에서 ko-pii 룰을 참조하지 않은 프로젝트 구축 데이터
+  (행정/서식체, 26라벨)이며 gold를 2단계 검토(`data/generated_eval.jsonl`)했다. 자기 주입
+  데이터는 아니지만 독립 제3자 평가도 아니며, 생성 데이터의 분포 편향과 평가 불확실성이
+  남으므로 고객 문서 성능을 대체하지 않는다 (상세 [BENCHMARK §3b](docs/BENCHMARK.md)).
 - 상세·재현: [`docs/BENCHMARK.md`](docs/BENCHMARK.md) · [`docs/EVALUATION_REPORT.md`](docs/EVALUATION_REPORT.md). (KLUE 는 이전 방법론 수치)
 
-> **운영 전 권장:** 사용하시는 도메인의 실제 문서 30~100건을 직접 테스트해보세요. 도메인마다 성능 차이가 있습니다.
+> **운영 전 권장:** 실제 문서 30~100건은 통합 오류와 명백한 오탐·미탐을 찾는 초기
+> smoke/calibration 표본입니다. 통계적 적합성이나 무누출을 보장하지 않습니다. 배포 전에는
+> 위험도와 라벨 분포에 맞춘 더 큰 frozen set에서 라벨별 TP/FP/FN·재현율·신뢰구간을 기록하고
+> shadow/canary를 거치세요. 절차: [`docs/domain_fit_report.md`](docs/domain_fit_report.md).
 
 ### 알려진 한계
 
-- **PERSON 오탐 (FP) + 도메인 의존성** — 룰 기반 PERSON 검출의 가장 큰 약점. 성씨 글자로 시작하는 일반명사·생약명·외래어가 사람 이름으로 잡힐 수 있음. 외부 신문 NER(KLUE-NER PS, 5K 문장)에서는 **F1 0.419**로, 신문체 인명(역사·외국인·공인)과 일반명사 과탐이 크다. 일반 도메인 NER 용도라면 `common_words.py` 도메인 사전 주입, `exclude={"PERSON"}`, 또는 하이브리드 분류기(`dev/classifier`)를 권한다. (재현: `python -c "from ko_pii.eval.klue_ner import load_klue_ner, evaluate_person; print(evaluate_person(load_klue_ner('data/klue_ner/klue-ner-v1.1_dev.tsv')).format())"`)
+- **PERSON 오탐 (FP) + 도메인 의존성** — 룰 기반 PERSON 검출의 가장 큰 약점. 성씨 글자로 시작하는 일반명사·생약명·외래어가 사람 이름으로 잡힐 수 있음. 외부 신문 NER(KLUE-NER PS, 5K 문장)에서는 **F1 0.419**로, 신문체 인명(역사·외국인·공인)과 일반명사 과탐이 크다. 일반 도메인 NER 용도라면 `person_exclusions={...}`, `exclude={"PERSON"}`, 또는 직접 학습한 토큰 NER 하이브리드를 권한다. (재현: `python -c "from ko_pii.eval.klue_ner import load_klue_ner, evaluate_person; print(evaluate_person(load_klue_ner('data/klue_ner/klue-ner-v1.1_dev.tsv')).format())"`)
 - **ADDRESS 비정형** — "강남 쪽에 살아" 같은 비정형 주소는 약함 (anchor 필요). 정형 주소 ("서울특별시 강남구 테헤란로 152") 는 OK
 - **형식이 겹치는 비-PII** — 대표번호 4-4(`1588-2024`)는 제품·연식 번호와, 무구분자 13~19자리는 바코드·IMEI와 형식이 같다. 길이-브랜드 일관성·단어경계 문맥으로 상당수 거르지만, recall 우선이라 형식만으로 완전 구분은 불가 — 최종 정밀 판단은 주변 문맥(검토 큐) 또는 하이브리드 분류기(`dev/classifier`)의 몫
-- 결정적 PII (RRN·PHONE·EMAIL·카드·사업자) 는 체크섬/형식 검증이라 오탐 거의 없음
+- 체크섬을 적용하는 구조적 라벨은 형식만 보는 라벨보다 오탐 억제 근거가 강하지만,
+  OCR·새 구분자·지원하지 않는 실제 형식에서는 미탐이 생길 수 있으므로 재현율을 별도 검증해야 함
 
 상세 평가: [`docs/EVALUATION_REPORT.md`](docs/EVALUATION_REPORT.md).
 
@@ -308,7 +332,16 @@ ko-pii ./incoming/ --batch --workers 4 --output-dir ./anonymized/
 # Vault 암호화 + 감사 로그
 KPII_VAULT_PASSWORD=secret ko-pii doc.hwp \
     --vault vault.kvault --audit-log audit.jsonl
+
+# 프로젝트별 PERSON 제외어 (UTF-8, 줄마다 한 단어; 빈 줄과 # 주석 무시)
+ko-pii doc.txt --person-exclusions-file tenant-person-exclusions.txt
 ```
+
+`--batch`는 파일별 독립 처리이며 `--vault`, `--vault-password`, `--audit-log`를 지원하지
+않습니다. 해당 옵션을 함께 지정하면 조용히 무시하지 않고 오류로 종료합니다. 가역 Vault와
+감사 이력이 필요한 문서는 단일 파일 모드로 처리하십시오. `--json-summary`를 사용하면 경고도
+JSON의 `warnings` 배열에 포함되어 `stderr` 전체를 하나의 JSON 객체로 파싱할 수 있습니다.
+이 모드에서는 대화형 `--vault-password` 프롬프트 대신 `KPII_VAULT_PASSWORD`를 사용해야 합니다.
 
 ### Python API
 
@@ -319,7 +352,7 @@ anon = Anonymizer(mode=ProcessingMode.STRICT, strategy="tokenize")
 result = anon.process(text)
 
 print(result.text)                       # 가명화된 텍스트
-print(result.vault.reveal("<RRN_1>"))    # 원본 복원 (권한자만)
+print(result.vault.reveal("<RRN_1>"))    # 원본 복원 (호출자 권한은 애플리케이션에서 검사)
 print(result.summary["by_label"])        # {"RRN": 1, "PHONE": 1, "PERSON": 1}
 ```
 
@@ -393,6 +426,9 @@ apply_feedback(
 # → feedback_patches/names_to_add.txt           (FN 표시 이름)
 # → feedback_patches/summary.json
 ```
+
+검토한 `common_words_additions.txt`는 패키지 소스를 수정하지 말고
+`person_exclusions` 또는 `--person-exclusions-file` 입력으로 사용합니다.
 
 ### 개별 검출기 호출
 
@@ -546,7 +582,7 @@ for r in detect("신청인 880101-1234568"):
 |---|---|:---:|
 | **HWP/HWPX/DOCX/PDF 파서** | 한컴오피스·MS Word·PDF 자동 파싱 (본문 + 표 + 머리말 + 메타데이터). 아래 파서 상세 참고 | `[file]` |
 | **Vault 암호화** | AES-256-GCM + PBKDF2 480k 반복 | `[security]` |
-| **감사 로그 (JSONL)** | 모든 `reveal()` 호출 기록 (개인정보보호법 제29조) | 코어 |
+| **감사 로그 (JSONL)** | `store()`/`reveal()` 처리 이력 기록, 실패 폐쇄 정책 선택 가능 | 코어 |
 | **배치 처리** | 디렉토리 일괄 + 병렬 워커 | 코어 |
 | **검토 큐** | confidence 낮은 검출 → 사람 검토 → 오탐 어휘 자동 학습 | 코어 |
 | **HTML 리포트** | 정탐 초록 / 오탐 빨강 / 미탐 노랑 시각화 | 코어 |
@@ -611,7 +647,7 @@ chain = retriever | KoPiiRedactor(mode="STRICT") | prompt | llm
 |---|---|---|
 | 무엇 | 룰=결정적 ID(체크섬), ML=퍼지(이름·주소 등) **검출 자체를 교체** | 문서 수준 "PII 있음/없음" 분류기로 룰 결과를 보강 (span 추가 없음) |
 | 사용 | `Anonymizer(secondary_detector=..., merge_mode="role_split")` | `ko_pii.classifier.HybridAnonymizer` |
-| 성능 | 외부 검증 **F1 0.97** ([`docs/HYBRID_NER.md`](docs/HYBRID_NER.md)) | 검토 트리거·민감도 조절용 |
+| 성능 | 프로젝트 구축 OOD Set A **F1 0.968** (독립 제3자 검증 아님, [`docs/HYBRID_NER.md`](docs/HYBRID_NER.md)) | 검토 트리거·민감도 조절용 |
 
 **① 토큰 NER 하이브리드** — [`docs/HYBRID_NER.md`](docs/HYBRID_NER.md) 레시피로 직접 학습한 NER 모델을 꽂으면 됩니다:
 
@@ -668,10 +704,15 @@ python -m ko_pii.classifier.train ...   # 모델은 직접 학습
 ([docs/BENCHMARK.md](docs/BENCHMARK.md) §3b).
 
 **Q2. 오탐이 많으면?**
-`common_words.py` 에 도메인 사전 주입, `exclude={"PERSON"}` 으로 특정 카테고리 끄기, 모드 변경 (`STRICT` → `BALANCED`).
+`person_exclusions={...}` 또는 `--person-exclusions-file`로 프로젝트별 용어를 제외하거나,
+`exclude={"PERSON"}`으로 카테고리를 끄고 모드를 조정하세요. 패키지 내장 사전을 직접
+수정할 필요가 없습니다.
 
-**Q3. Vault 분실하면?**
-복원 불가 (보안 설계). `[security]` extras 로 암호화 보관 또는 `strategy="redact"` (카테고리명 치환, Vault 불필요) 사용.
+**Q3. Vault는 접근 권한도 검사하나요?**
+아닙니다. `ReversibleVault`는 저장·복원 primitive이며 객체나 파일에 접근한 호출자를
+인증하지 않습니다. 애플리케이션 IAM/ACL과 키 관리로 접근을 통제하고, 운영 CLI에서는
+암호화와 `--audit-failure-policy raise`를 사용하세요. 복원이 필요 없다면 `redact`를
+사용하십시오. 상세: [`docs/VAULT_SECURITY.md`](docs/VAULT_SECURITY.md).
 
 **Q4. HWP 표·머리말 다 잡히나요?**
 네. `[file]` extras 설치 시 본문 + 표 + 머리말 + 꼬리말 + 메타데이터 모두 추출.

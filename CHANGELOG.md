@@ -5,6 +5,31 @@
 
 ## [Unreleased]
 
+### Added
+
+- `detect_all()`, `Anonymizer`, 배치와 CLI에 설치 패키지의 전역 사전을 수정하지 않는
+  프로젝트별 `person_exclusions` / `--person-exclusions-file`을 추가했습니다.
+- `ReversibleVault`에 감사 기록 실패를 전파하는 `audit_failure_policy="raise"`를
+  추가했습니다. CLI에서 `--audit-log` 사용 시 기본값은 실패 폐쇄입니다.
+
+### Changed
+
+- 평문 Vault 저장 시 원본 개인정보 포함 경고를 출력하고, Vault의 인증·인가·키 관리와
+  감사 로그 무결성이 애플리케이션 책임임을 보안 계약 문서에 명시했습니다.
+- OOD·속도·소표본 도메인 점검 수치가 독립 검증이나 운영 보장으로 읽히지 않도록 평가
+  조건과 qualification 문구를 구체화했습니다.
+
+### Fixed
+
+- 선택적 PDF 의존성이 설치되지 않은 코어 전용 환경에서도 PDF fallback 단위 테스트가
+  테스트 더블을 주입할 수 있도록 수정했습니다.
+- CLI 배치 모드에서 Vault·감사 옵션이 조용히 무시되던 동작을 명시적 오류로 바꾸고,
+  `best_effort` 감사 로그 열기 실패와 JSON 요약의 경고 혼입을 처리했습니다.
+- 감사 로그 종료를 결과 출력보다 먼저 수행하고, CLI 익명화 이벤트를 출력 저장 완료가 아닌
+  `status="prepared"`로 구분했습니다. JSON 요약과 대화형 비밀번호 프롬프트 조합도 거부합니다.
+- PERSON 제외 목록을 사용하지 않는 기본 탐지 경로에서 불필요한 후보별 Unicode 정규화를
+  건너뛰고, Unicode 원문 경계 복구 패스가 제외된 이름 조각을 다시 검출하지 않도록 수정했습니다.
+
 ## [1.16.0] - 2026-09-02
 
 ### Added
@@ -78,8 +103,8 @@
 ### Added
 - **`MergeMode.ROLE_SPLIT`** — 토큰 NER 하이브리드(룰=결정적 ID, ML=퍼지 *교체*)를
   라이브러리 병합 모드로 제공. `Anonymizer(secondary_detector=..., merge_mode="role_split",
-  role_split_labels=...)`. 외부 검증(OOD·체크섬 유효 gold)에서 **F1 0.97** 로 union 상회
-  — `docs/HYBRID_NER.md` 외부 검증 절.
+  role_split_labels=...)`. 프로젝트 구축 OOD Set A에서 **F1 0.968** 로 측정
+  — `docs/HYBRID_NER.md` 분포 외 보조 평가 절.
 - **`HFTokenNERAdapter`** (`ko_pii.integrations.hf_token_ner`) — HYBRID_NER 레시피로
   직접 학습한 토큰분류 NER 을 `secondary_detector` 로 꽂는 범용 어댑터 (lazy 로드,
   BIO 디코딩은 torch 없이 테스트 가능한 순수 함수).

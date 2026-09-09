@@ -8,8 +8,8 @@
 - ``FALLBACK_SECONDARY``: primary 의 REVIEW 만 secondary 에 위임 (Method D)
 - ``ROLE_SPLIT``: **역할 분담** — 퍼지 카테고리(이름·주소·직책 등)는 secondary(ML)가
   *교체* 담당, 나머지(결정적 ID 등)는 primary(룰)만 담당 (Method E).
-  ``docs/HYBRID_NER.md`` 의 하이브리드 구성(외부 검증 F1 0.97)이 이 모드 —
-  union 은 양쪽 FP 가 합산돼 항상 role_split 이하임이 실측됨.
+  ``docs/HYBRID_NER.md`` 에 평가된 하이브리드 구성이 이 모드다. 특정 평가셋의
+  결과가 모든 도메인에서 union 보다 우수함을 보장하지는 않는다.
 
 Overlap 해소: ``core.overlap.resolve_overlaps`` 단일 구현 사용
 (위험도 → 확신도 → 길이 순, ``detect_all`` 과 동일 — 늦게 시작하는 고위험 PII 누출 차단).

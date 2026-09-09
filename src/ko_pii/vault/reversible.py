@@ -3,7 +3,8 @@
 핵심 아이디어:
 - 검출된 원본 PII는 외부에 직접 노출되지 않고 Vault 에만 저장된다.
 - 본문에는 카테고리별 토큰 (예: ``<RRN_1>``) 으로 치환된다.
-- Vault 를 보유한 권한 있는 사용자만 토큰으로부터 원본을 복원할 수 있다.
+- Vault 객체 또는 저장 파일에 접근할 수 있는 호출자는 토큰으로부터 원본을 복원할 수
+  있다. 인증·인가는 이 클래스가 아니라 애플리케이션과 저장소 계층의 책임이다.
 
 Vault JSON schema v1::
 
@@ -24,8 +25,8 @@ Vault JSON schema v1::
         }
     }
 
-같은 원본 값은 같은 토큰을 받는다 (문서 내 일관성). 이는 hashlib 기반 안정 키로
-보장된다.
+같은 Vault 상태 안에서는 같은 원본 값이 같은 토큰을 받는다. 새 토큰 번호는 입력 순서에
+따라 배정된다. hashlib 기반 fingerprint는 hashed/FPE 전략에서 별도로 사용된다.
 
 Legal basis: 개인정보보호법 제28조의2~5 (가명정보 처리 특례) — 가명처리된 정보가
 "추가 정보 (즉, 본 Vault) 없이는 특정 개인을 알아볼 수 없도록" 분리 보관되어야 함.
@@ -37,12 +38,15 @@ import json
 import os
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Literal, Optional, TypeAlias
 
 if TYPE_CHECKING:
     from .audit import AuditLog
 
 SCHEMA_VERSION = 1
+
+AuditFailurePolicy: TypeAlias = Literal["best_effort", "raise"]
+_AUDIT_FAILURE_POLICIES = frozenset({"best_effort", "raise"})
 
 # 지문(fingerprint) KDF 반복 횟수 기본값 — 저엔트로피 PII 무차별 대입을 늦춘다.
 # (실제 보안의 핵심은 secret_key: 키가 있으면 키 없이는 대입 자체가 불가능.)
@@ -71,9 +75,9 @@ class VaultEntry:
 class ReversibleVault:
     """In-memory vault that maps tokens to original PII values.
 
-    Tokens are deterministic per (label, original) pair so that the same value
-    receives the same token throughout a document — and across multiple runs
-    if the same ``salt`` is reused.
+    Once a mapping is stored, the same ``(label, original)`` pair receives the
+    same token while that Vault state is reused. New token numbers depend on
+    insertion order; reusing only the ``salt`` does not reproduce token IDs.
     """
 
     def __init__(
@@ -82,12 +86,14 @@ class ReversibleVault:
         audit_log: Optional["AuditLog"] = None,
         secret_key: Optional[str] = None,
         fingerprint_iterations: Optional[int] = None,
+        audit_failure_policy: AuditFailurePolicy = "best_effort",
     ) -> None:
         """``audit_log``: optional :class:`AuditLog` for compliance tracking.
 
         When provided, every ``store()`` and ``reveal()`` call is appended to
-        the log — directly answering 개인정보보호법 제29조 안전조치의무 의
-        처리 이력 요건.
+        the log. ``audit_failure_policy="best_effort"`` preserves the legacy
+        behavior and continues when logging fails. Use ``"raise"`` when a
+        missing audit record must stop processing or prevent a reveal.
 
         ``secret_key``: hashed/FPE 지문용 비밀 키(pepper). 미지정 시 env
         ``KPII_FINGERPRINT_KEY`` 사용. **vault JSON 에 저장되지 않는다.** salt 는
@@ -95,12 +101,14 @@ class ReversibleVault:
         대입으로 복원될 수 있어 비밀 키가 권장된다. 실행 간 hashed/FPE 출력
         일관성을 위해선 같은 키(+같은 vault)를 재사용해야 한다.
         """
+        self._validate_audit_failure_policy(audit_failure_policy)
         self.salt: str = salt if salt is not None else _random_salt()
         self.created_at: str = datetime.now(timezone.utc).isoformat()
         self._entries: dict[str, VaultEntry] = {}
         self._reverse: dict[tuple[str, str], str] = {}  # (label, original) -> token
         self._counters: dict[str, int] = {}             # label -> next id
         self._audit: Optional["AuditLog"] = audit_log
+        self._audit_failure_policy: AuditFailurePolicy = audit_failure_policy
         self._secret_key: str = (
             secret_key if secret_key is not None
             else os.environ.get("KPII_FINGERPRINT_KEY", "")
@@ -132,9 +140,13 @@ class ReversibleVault:
         extra: Optional[dict[str, Any]] = None,
     ) -> str:
         """Insert or update an entry; return the assigned token."""
+        key = (label, original)
+        had_reverse_mapping = key in self._reverse
+        previous_counter = self._counters.get(label)
         token = self.token_for(label, original)
         entry = self._entries.get(token)
         is_new = entry is None
+        appended_occurrence = False
         if entry is None:
             entry = VaultEntry(
                 token=token,
@@ -150,12 +162,24 @@ class ReversibleVault:
         else:
             if offset >= 0:
                 entry.occurrences.append(offset)
+                appended_occurrence = True
         if self._audit is not None:
             try:
                 # 모든 store 호출 기록 (재저장 포함). new=False 면 기존 토큰 재사용.
                 self._audit.record_store(token, label, extra={"new": is_new})
             except Exception:
-                pass  # audit failure never blocks data flow
+                if self._audit_failure_policy == "raise":
+                    if is_new:
+                        self._entries.pop(token, None)
+                        if not had_reverse_mapping:
+                            self._reverse.pop(key, None)
+                            if previous_counter is None:
+                                self._counters.pop(label, None)
+                            else:
+                                self._counters[label] = previous_counter
+                    elif appended_occurrence:
+                        entry.occurrences.pop()
+                    raise
         return token
 
     # ---------------------------------------------------------------- lookup
@@ -177,12 +201,29 @@ class ReversibleVault:
                     extra={"found": entry is not None},
                 )
             except Exception:
-                pass
+                if self._audit_failure_policy == "raise":
+                    raise
         return entry.original if entry is not None else None
 
-    def attach_audit(self, audit_log: "AuditLog") -> None:
-        """Attach (or replace) an :class:`AuditLog` after construction."""
+    def attach_audit(
+        self,
+        audit_log: "AuditLog",
+        *,
+        failure_policy: Optional[AuditFailurePolicy] = None,
+    ) -> None:
+        """Attach an audit log and optionally replace its failure policy."""
+        if failure_policy is not None:
+            self._validate_audit_failure_policy(failure_policy)
+            self._audit_failure_policy = failure_policy
         self._audit = audit_log
+
+    @staticmethod
+    def _validate_audit_failure_policy(policy: str) -> None:
+        if policy not in _AUDIT_FAILURE_POLICIES:
+            allowed = ", ".join(sorted(_AUDIT_FAILURE_POLICIES))
+            raise ValueError(
+                f"Unknown audit_failure_policy: {policy!r}; expected one of {allowed}"
+            )
 
     def get(self, token: str) -> Optional[VaultEntry]:
         return self._entries.get(token)

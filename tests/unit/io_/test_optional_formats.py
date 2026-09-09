@@ -37,7 +37,12 @@ class TestPdfOptional:
                 return False
 
         monkeypatch.setattr(pdf_mod, "_HAS_PDFPLUMBER", True)
-        monkeypatch.setattr(pdf_mod.pdfplumber, "open", lambda _path: FakePdf())
+        monkeypatch.setattr(
+            pdf_mod,
+            "pdfplumber",
+            SimpleNamespace(open=lambda _path: FakePdf()),
+            raising=False,
+        )
 
         assert pdf_mod._extract_raw("dummy.pdf") == "first\n\n"
 
@@ -50,7 +55,12 @@ class TestPdfOptional:
         ]
         monkeypatch.setattr(pdf_mod, "_HAS_PDFPLUMBER", False)
         monkeypatch.setattr(pdf_mod, "_HAS_PYPDF", True)
-        monkeypatch.setattr(pdf_mod, "PdfReader", lambda _path: SimpleNamespace(pages=pages))
+        monkeypatch.setattr(
+            pdf_mod,
+            "PdfReader",
+            lambda _path: SimpleNamespace(pages=pages),
+            raising=False,
+        )
 
         assert pdf_mod._extract_raw("dummy.pdf") == "first\n\nsecond"
 

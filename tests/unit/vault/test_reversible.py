@@ -159,3 +159,15 @@ class TestFingerprintHardening:
         monkeypatch.delenv("KPII_FINGERPRINT_KEY")
         without = ReversibleVault(salt="s", fingerprint_iterations=1000)
         assert with_env.fingerprint("RRN", "900101-1234567") != without.fingerprint("RRN", "900101-1234567")
+
+    def test_audit_policy_addition_preserves_existing_positional_arguments(self):
+        vault = ReversibleVault("s", None, "secret", 1000)
+        expected = ReversibleVault(
+            salt="s",
+            secret_key="secret",
+            fingerprint_iterations=1000,
+        )
+        assert (
+            vault.fingerprint("RRN", "900101-1234567")
+            == expected.fingerprint("RRN", "900101-1234567")
+        )

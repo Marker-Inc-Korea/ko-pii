@@ -1,7 +1,7 @@
 """ROLE_SPLIT 병합 모드 + HFTokenNERAdapter bio_decode 테스트.
 
 ROLE_SPLIT = HYBRID_NER.md 의 하이브리드(룰=결정적 ID, ML=퍼지 교체) 구성을
-라이브러리 기능으로 노출한 것 — 외부 검증(F1 0.97)에서 union 을 능가한 모드.
+라이브러리 기능으로 노출한 것.
 """
 from ko_pii import Anonymizer, ProcessingMode
 from ko_pii.core.types import DetectionResult, RiskLevel
