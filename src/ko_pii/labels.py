@@ -7,6 +7,8 @@
 """
 from __future__ import annotations
 
+from typing import Iterable
+
 #: (한글명, 그룹, 검출 방식) — 그룹·방식은 README "33 PII 카테고리" 절과 동일 분류.
 LABEL_INFO: dict[str, tuple[str, str, str]] = {
     # ── 결정적 검증 (체크섬·화이트리스트) ──
@@ -53,6 +55,26 @@ GROUPS: tuple[str, ...] = ("결정적 검증", "키워드 anchor", "형식 검�
                            "사전·컨텍스트", "인적 속성")
 
 ALL_LABELS: tuple[str, ...] = tuple(LABEL_INFO)
+
+
+def validate_label_filter(
+    values: Iterable[str] | None, *, name: str,
+) -> tuple[str, ...] | None:
+    """Materialize a filter once and reject silent detector misconfiguration.
+
+    Labels use their exact registry spelling. None means unrestricted; an
+    empty include is rejected, while an empty exclude excludes nothing.
+    """
+    if values is None:
+        return None
+    if isinstance(values, str):
+        raise ValueError(f"{name} must be a collection of category labels")
+    result = tuple(values)
+    if any(not isinstance(value, str) or value not in LABEL_INFO for value in result):
+        raise ValueError(f"{name} contains an unknown category label; use ko-pii --labels")
+    if name == "include" and not result:
+        raise ValueError("include must contain at least one category label; use None for all")
+    return tuple(dict.fromkeys(result))
 
 
 def format_labels_table() -> str:

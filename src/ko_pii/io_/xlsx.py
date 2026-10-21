@@ -17,6 +17,8 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 import zipfile
 
+from ko_pii.io_.coverage import TextExtraction, inspect_parts
+
 NS = {"main": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
 
 
@@ -41,10 +43,10 @@ def _cell_value(c: ET.Element, sst: list[str]) -> str:
         v = c.find("main:v", NS)
         if v is None or v.text is None:
             return ""
-        try:
-            return sst[int(v.text)]
-        except (ValueError, IndexError):
-            return ""
+        index = int(v.text)
+        if not 0 <= index < len(sst):
+            raise ValueError("invalid shared string reference")
+        return sst[index]
     if t_attr == "inlineStr":
         is_elem = c.find("main:is", NS)
         if is_elem is None:
@@ -75,20 +77,20 @@ def _col_index(ref: str) -> int:
     return idx - 1
 
 
-def read_text(path: str) -> str:
-    """탭/줄바꿈 구분된 텍스트로 모든 시트 + 셀 반환."""
-    parts: list[str] = []
+def inspect_text(path: str) -> TextExtraction:
+    """Inspect each sheet without silently dropping parse failures."""
     with zipfile.ZipFile(path, "r") as zf:
-        sst = _shared_strings(zf)
+        sst: list[str] | None = None
         sheet_names = sorted(
             n for n in zf.namelist()
             if n.startswith("xl/worksheets/sheet") and n.endswith(".xml")
         )
-        for name in sheet_names:
-            try:
-                root = ET.fromstring(zf.read(name))
-            except ET.ParseError:
-                continue
+        def read_part(archive: zipfile.ZipFile, name: str) -> str:
+            nonlocal sst
+            if sst is None:
+                sst = _shared_strings(archive)
+            root = ET.fromstring(archive.read(name))
+            parts: list[str] = []
             for row in root.iter("{http://schemas.openxmlformats.org/spreadsheetml/2006/main}row"):
                 cells: dict[int, str] = {}
                 seq = -1
@@ -96,13 +98,21 @@ def read_text(path: str) -> str:
                     ci = _col_index(c.attrib.get("r", ""))
                     if ci < 0:
                         ci = seq + 1
+                    if ci >= 16_384:
+                        raise ValueError("column reference exceeds spreadsheet limits")
                     seq = max(seq, ci)
                     cells[ci] = _cell_value(c, sst)
                 row_vals = [cells.get(i, "") for i in range(seq + 1)]
                 parts.append("\t".join(row_vals))
                 parts.append("\n")
-            parts.append("\n")  # sheet separator
-    return "".join(parts)
+            return "".join(parts)
+
+        return inspect_parts(zf, sheet_names, read_part)
+
+
+def read_text(path: str) -> str:
+    """탭/줄바꿈 구분된 텍스트로 모든 시트 + 셀 반환."""
+    return inspect_text(path).require_complete()
 
 
 def read_records(path: str) -> list[dict[str, str]]:

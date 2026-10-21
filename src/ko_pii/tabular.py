@@ -276,7 +276,7 @@ def anonymize_value(
         raise ValueError("label must be a non-empty string")
     if strategy not in {"tokenize", "redact", "asterisk", "partial", "hashed", "fpe"}:
         raise ValueError(f"Unknown strategy: {strategy}")
-    active_vault = vault or ReversibleVault()
+    active_vault = vault if vault is not None else ReversibleVault()
     return _force_anonymize_cell(value, label, strategy, active_vault), active_vault
 
 
@@ -306,7 +306,7 @@ def anonymize_records(
         매핑된 컬럼 *외* 의 값들은 원본 그대로 보존.
     """
     if not records:
-        return [], (vault or ReversibleVault())
+        return [], (vault if vault is not None else ReversibleVault())
 
     if column_map is None:
         # 전체 레코드 키의 합집합에서 추론 — records[0] 만 보면 희소/이질 레코드의

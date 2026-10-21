@@ -12,13 +12,12 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 import zipfile
 
+from ko_pii.io_.coverage import TextExtraction, inspect_parts
+
 
 def _extract_from_xml(xml_bytes: bytes) -> list[str]:
     parts: list[str] = []
-    try:
-        root = ET.fromstring(xml_bytes)
-    except ET.ParseError:
-        return parts
+    root = ET.fromstring(xml_bytes)
     for elem in root.iter():
         local = elem.tag.split("}", 1)[-1]
         if local == "t" and elem.text:
@@ -33,10 +32,7 @@ def _extract_from_xml(xml_bytes: bytes) -> list[str]:
 def _extract_metadata(xml_bytes: bytes) -> dict[str, str]:
     """docProps/core.xml 의 작성자·수정자·제목 추출."""
     meta: dict[str, str] = {}
-    try:
-        root = ET.fromstring(xml_bytes)
-    except ET.ParseError:
-        return meta
+    root = ET.fromstring(xml_bytes)
     LOCAL_KEYS = {"creator", "lastModifiedBy", "title", "subject", "keywords"}
     for elem in root.iter():
         local = elem.tag.split("}", 1)[-1]
@@ -45,25 +41,25 @@ def _extract_metadata(xml_bytes: bytes) -> dict[str, str]:
     return meta
 
 
-def read_text(path: str) -> str:
-    out: list[str] = []
+def inspect_text(path: str) -> TextExtraction:
+    """Inspect supported text parts; partial text is for manual review only."""
     with zipfile.ZipFile(path, "r") as zf:
         names = zf.namelist()
-        # 메타데이터 — 작성자·수정자가 PII 인 경우가 잦음
-        if "docProps/core.xml" in names:
-            meta = _extract_metadata(zf.read("docProps/core.xml"))
-            for key in ("creator", "lastModifiedBy", "title", "subject"):
-                if key in meta:
-                    out.append(f"[메타:{key}] {meta[key]}\n")
-        # Main body
         candidates = ["word/document.xml"]
-        # Headers / footers
+        if "docProps/core.xml" in names:
+            candidates.insert(0, "docProps/core.xml")
         candidates += sorted(
             n for n in names
-            if n.startswith("word/header") or n.startswith("word/footer")
+            if (n.startswith("word/header") or n.startswith("word/footer")) and n.casefold().endswith(".xml")
         )
-        for name in candidates:
-            if name in names:
-                out.extend(_extract_from_xml(zf.read(name)))
-                out.append("\n")
-    return "".join(out)
+
+        def read_part(archive: zipfile.ZipFile, name: str) -> str:
+            if name == "docProps/core.xml":
+                return "\n".join(f"[메타:{key}] {value}" for key, value in _extract_metadata(archive.read(name)).items())
+            return "".join(_extract_from_xml(archive.read(name)))
+
+        return inspect_parts(zf, candidates, read_part)
+
+
+def read_text(path: str) -> str:
+    return inspect_text(path).require_complete()

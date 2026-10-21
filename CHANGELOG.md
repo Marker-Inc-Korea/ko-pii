@@ -5,6 +5,42 @@
 
 ## [Unreleased]
 
+## [1.18.0] - 2026-10-21
+
+### Fixed
+
+- 알 수 없는 include/exclude 라벨과 빈 include를 처리 전에 거부합니다. 오타를
+  검출 0건으로 표시하며 원문을 내보내던 경로를 차단했습니다.
+- `anonymize_value()`와 빈 레코드 처리에서 전달한 빈 Vault를 유지하므로 기존
+  salt, 매핑 수명 주기, 감사 실패 정책이 새 객체로 교체되지 않습니다.
+- DOCX/HWPX/XLSX의 손상된 텍스트 구성요소를 조용히 생략하지 않고 문서 실패로
+  반환합니다. XLSX의 잘못된 공유 문자열 참조도 빈 셀로 통과시키지 않습니다.
+- 배치 출력의 해시 접미사가 기존 출력 이름과 다시 충돌하는 경우에도 고유 경로를
+  배정합니다. 명시한 누락 입력을 실패 목록에 포함하고 generator 라벨 필터를 한 번만 소비합니다.
+- CLI의 Vault·감사·저장 관련 예상 가능한 오류를 종료 코드와 구조화된 오류로 반환합니다.
+  실패 응답에는 처리 단계, Vault 저장 여부, 결과 출력 상태를 포함합니다.
+
+### Added
+
+- `ko-pii-evaluate --output-mode STRICT --output-strategy redact --fail-on-retained`로
+  정답 위치와 실제 출력 치환 기록을 대조합니다. 탐지 실패, 정책상 유지, 부분 치환,
+  의도된 일부 마스킹과 치환 후 원문 잔존을 구분합니다. 익명성 인증은 아닙니다.
+- `AnonymizationResult.substitutions`에 실제 적용한 원문/출력 좌표를 제공합니다.
+- DOCX/HWPX/XLSX `inspect_text()`의 부분 검토 결과와 제한된 추출/CLI/배치의
+  `extraction_coverage` 또는 `coverage` 보고를 추가했습니다. 이미지·미지원 구성요소는
+  검사 완료로 주장하지 않습니다.
+- 배치의 건너뛴 경로·실패 사유 보고와 명시적 빈 작업 허용 옵션 `--allow-empty`를 추가했습니다.
+- Windows/macOS의 설치 CLI·worker·Vault·병렬 배치 테스트와 선택적 RAG 연동 CI를 추가했습니다.
+
+### Migration
+
+- 라벨은 `ko-pii --labels`에 나온 정확한 대문자 키를 사용합니다. Python API에서
+  `include=None`은 전체 검사, `include=[]`는 오류, `exclude=[]`는 제외 없음입니다.
+- CLI `main()`을 Python에서 직접 호출할 때 운영 오류는 예외 대신 종료 코드 1을
+  반환합니다. 잘못된 라벨 설정은 2입니다. 인자 구문 오류는 기존 argparse 동작을 유지합니다.
+- 부분 문서는 기본 처리 경로로 통과시키지 않습니다. `inspect_text()`는 명시적 검토용이며
+  OS 샌드박스나 전체 포맷/OCR 완전성 보장은 아닙니다.
+
 ## [1.17.0] - 2026-10-21
 
 ### Added

@@ -21,6 +21,7 @@ from ko_pii.vault.reversible import ReversibleVault
 from ko_pii.io_.atomic import write_text_atomic
 from ko_pii.io_.bounded import BoundedReadError, FileReadPolicy
 from ko_pii.io_.isolated import default_read_policy, read_text_isolated
+from ko_pii.labels import validate_label_filter
 
 if TYPE_CHECKING:
     from ko_pii.vault.audit import AuditLog
@@ -108,6 +109,8 @@ def _build_parser() -> argparse.ArgumentParser:
         "--no-progress", action="store_true",
         help="Disable batch progress indicator.",
     )
+    p.add_argument("--allow-empty", action="store_true",
+                   help="Allow empty batch directories or unmatched globs (not missing explicit files).")
     # 암호화 vault
     p.add_argument(
         "--vault-password", nargs="?", const="__PROMPT__", default=None,
@@ -156,13 +159,14 @@ def _build_parser() -> argparse.ArgumentParser:
     return p
 
 
-def _read_input(path: str, policy: FileReadPolicy, timeout: float) -> str:
+def _read_input(path: str, policy: FileReadPolicy, timeout: float) -> tuple[str, dict[str, object] | None]:
     if path == "-":
         text = sys.stdin.read(min(policy.max_text_chars, policy.max_file_bytes) + 1)
         if len(text) > policy.max_text_chars or len(text.encode("utf-8")) > policy.max_file_bytes:
             raise BoundedReadError("stdin_too_large", "standard input exceeds configured limits")
-        return text
-    return read_text_isolated(path, policy=policy, timeout=timeout).text
+        return text, None
+    document = read_text_isolated(path, policy=policy, timeout=timeout)
+    return document.text, document.coverage
 
 
 def _write_output(path: Optional[str], text: str) -> None:
@@ -175,9 +179,9 @@ def _write_output(path: Optional[str], text: str) -> None:
 
 
 def _split_csv(value: Optional[str]) -> Optional[list[str]]:
-    if not value:
+    if value is None:
         return None
-    return [t.strip() for t in value.split(",") if t.strip()]
+    return [t.strip() for t in value.split(",")]
 
 
 def _load_person_exclusions(path: Optional[str]) -> Optional[tuple[str, ...]]:
@@ -246,7 +250,7 @@ def _load_vault(args: argparse.Namespace) -> Optional[ReversibleVault]:
     if is_encrypted_file(args.vault):
         pw = _resolve_vault_password(args)
         if not pw:
-            raise SystemExit(
+            raise ValueError(
                 "암호화 vault: --vault-password 또는 환경변수 $KPII_VAULT_PASSWORD 필요."
             )
         return load_encrypted(args.vault, pw)
@@ -341,7 +345,7 @@ def _open_audit(args: argparse.Namespace) -> Optional["AuditLog"]:
         _emit_warning(
             args,
             "경고: 감사 로그를 열지 못해 감사 기록 없이 계속합니다 "
-            f"({type(exc).__name__}: {exc}).",
+            f"({type(exc).__name__}).",
         )
         return None
 
@@ -365,7 +369,7 @@ def _close_audit(
         _emit_warning(
             args,
             "경고: 감사 로그를 정상적으로 종료하지 못했지만 best_effort 정책으로 "
-            f"계속합니다 ({type(exc).__name__}: {exc}).",
+            f"계속합니다 ({type(exc).__name__}).",
         )
 
 
@@ -385,6 +389,7 @@ def _run_batch(args: argparse.Namespace) -> int:
         progress=not args.no_progress and not args.json_summary,
         read_policy=args._read_policy,
         extraction_timeout=args.extraction_timeout,
+        allow_empty=args.allow_empty,
     )
     if args.json_summary:
         import dataclasses
@@ -399,6 +404,7 @@ def _run_batch(args: argparse.Namespace) -> int:
                 "review": summary.total_review,
                 "elapsed_s": summary.elapsed_s,
                 "results": [dataclasses.asdict(r) for r in summary.results],
+                "skipped": summary.skipped,
             },
         )
     else:
@@ -417,6 +423,7 @@ def _run_single(
     vault: Optional[ReversibleVault],
     audit: Optional["AuditLog"],
 ) -> int:
+    args._stage = "processing"
     try:
         secondary = None
         if args.with_privacy_filter:
@@ -462,23 +469,52 @@ def _run_single(
     # Audit finalization belongs to the fail-closed boundary. The event above
     # says "prepared", not "persisted", because later filesystem/stdout writes
     # cannot be committed atomically with a JSONL audit file.
+    args._stage = "audit_finalize"
     _close_audit(args, audit)
 
     if args.vault and result.vault is not None:
+        args._stage = "vault_save"
         _save_vault(args, result.vault)
+        args._vault_saved = True
 
+    args._stage = "output_write"
+    args._output_state = "uncertain"
     _write_output(args.output, result.text)
+    args._output_state = "written"
 
     if args.report:
+        args._stage = "report_write"
         write_text_atomic(args.report, generate_certificate(result, document_id=args.input))
 
+    args._stage = "summary_write"
     if args.json_summary:
-        _write_json_summary(args, result.summary)
+        summary = dict(result.summary)
+        if args._coverage is not None:
+            summary["extraction_coverage"] = args._coverage
+        _write_json_summary(args, summary)
     else:
         sys.stderr.write(format_summary_text(result))
         sys.stderr.write("\n")
 
     return 0
+
+
+def _report_failure(args: argparse.Namespace, exc: Exception, *, code: str | None = None) -> int:
+    stage = getattr(args, "_stage", "configuration")
+    error = code or (exc.code if isinstance(exc, BoundedReadError) else f"{stage}_failed")
+    message = str(exc) if isinstance(exc, BoundedReadError) else f"{stage} could not be completed"
+    payload: dict[str, object] = {
+        "status": "failed", "error": error, "stage": stage, "message": message,
+        "vault_saved": getattr(args, "_vault_saved", False),
+        "output_state": getattr(args, "_output_state", "not_written"),
+    }
+    if isinstance(exc, BoundedReadError) and exc.coverage is not None:
+        payload["extraction_coverage"] = exc.coverage
+    if args.json_summary:
+        _write_json_summary(args, payload)
+    else:
+        print(f"ko-pii: {error}: {message}", file=sys.stderr)
+    return 2 if stage == "configuration" else 1
 
 
 def main(argv: Optional[list[str]] = None) -> int:
@@ -493,6 +529,12 @@ def main(argv: Optional[list[str]] = None) -> int:
     if args.input is None:
         parser.error("input is required (or use --labels to list categories)")
 
+    args._stage = "configuration"
+    try:
+        validate_label_filter(_split_csv(args.include), name="include")
+        validate_label_filter(_split_csv(args.exclude), name="exclude")
+    except ValueError as exc:
+        return _report_failure(args, exc, code="invalid_label_filter")
     _validate_json_args(parser, args)
     if args.vault_password == "":
         parser.error("--vault-password must not be empty")
@@ -511,27 +553,26 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     if args.batch:
         _validate_batch_args(parser, args)
+        args._stage = "batch"
         try:
             return _run_batch(args)
-        except ValueError as exc:
-            if args.json_summary:
-                _write_json_summary(args, {"status": "failed", "error": "batch_configuration", "message": str(exc)})
-            else:
-                print(f"ko-pii: batch_configuration: {exc}", file=sys.stderr)
-            return 1
+        except (OSError, ValueError) as exc:
+            return _report_failure(args, exc, code="batch_configuration")
 
     _validate_paths(parser, args)
     try:
-        text = _read_input(args.input, args._read_policy, args.extraction_timeout)
-    except BoundedReadError as exc:
-        if args.json_summary:
-            _write_json_summary(args, {"status": "failed", "error": exc.code, "message": str(exc)})
-        else:
-            print(f"ko-pii: {exc.code}: {exc}", file=sys.stderr)
-        return 1
-    vault = _load_vault(args)
-    audit = _open_audit(args)
-    return _run_single(args, text, vault, audit)
+        args._stage = "extraction"
+        text, args._coverage = _read_input(args.input, args._read_policy, args.extraction_timeout)
+        args._stage = "vault_load"
+        try:
+            vault = _load_vault(args)
+        except (KeyError, TypeError, AttributeError) as exc:
+            raise ValueError("invalid Vault structure") from exc
+        args._stage = "audit_open"
+        audit = _open_audit(args)
+        return _run_single(args, text, vault, audit)
+    except (OSError, ValueError, ImportError) as exc:
+        return _report_failure(args, exc)
 
 
 if __name__ == "__main__":

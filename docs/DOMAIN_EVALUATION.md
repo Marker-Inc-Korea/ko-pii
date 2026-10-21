@@ -57,6 +57,39 @@ UTF-8 JSONL의 한 줄이 문서 하나입니다. `id`, `text`, `spans`를 모�
 표본 구성이 잘못되면 결과도 의미가 없습니다. 이 명령은 운영 승인이나 법적 익명성 판정은
 수행하지 않습니다.
 
+## 최종 출력도 확인하기
+
+1.18부터 정답으로 표시한 구간과 실제 치환 좌표를 대조할 수 있습니다.
+
+```bash
+ko-pii-evaluate my-documents.jsonl --labels PHONE,PERSON \
+  --output-mode STRICT --output-strategy redact \
+  --fail-on-retained --output output-check.json
+```
+
+탐지기를 출력에 다시 실행하는 방식이 아닙니다. 실제 `Anonymizer`가 생성한 치환 전후
+좌표와 출력 구간을 사용합니다. `output_evaluation`은 다음 상태를 구분합니다.
+
+- `replaced`: 정답 구간 전체에 치환이 적용됐고 대응 출력 구간에 같은 원문 전체가 남지 않음.
+- `missed`: 해당 정답 구간에 겹치는 탐지 결과와 치환이 없음.
+- `retained_by_policy`: 탐지했지만 REVIEW/ALLOW 또는 AUDIT 정책 등으로 치환하지 않음.
+- `partially_replaced`: 정답 구간의 일부만 치환함.
+- `partial_strategy`: partial 전략으로 일부 정보 보존을 의도함. 전체 제거로 계산하지 않음.
+- `literal_retained`: 치환은 적용됐지만 대응 출력에 원문 전체가 그대로 포함됨.
+
+`--fail-on-retained`는 `replaced`가 아닌 정답 구간이 하나라도 있으면 보고서를 저장한 뒤
+종료 코드 1을 반환합니다. 의도된 partial 전략도 이에 포함됩니다. 정답이 0건이면 이 검사도
+검사 대상이 0건인 것이지 안전성을 입증한 것이 아닙니다.
+
+이 평가는 입력 JSONL의 텍스트·선택 라벨·정답 구간에 한정됩니다. 정답에서 누락된 개인정보,
+문서 추출에서 빠진 영역, 재식별 가능성, 토큰/Vault 보안은 별도 검증이 필요합니다.
+`replaced`도 철자 변형·의미적 복원 가능성이나 법적 익명성을 보장하지 않습니다.
+부분 마스킹이나 FPE와 같은 전략의 유지 정보가 용도에 적합한지는 별도 판단해야 합니다.
+
+`--baseline` 비교와 `--fail-on-new-misses`는 계속 **탐지 span만** 비교합니다.
+출력 검사는 현재 실행의 절대 조건이며 이전 실행 대비 출력 회귀 검사가 아닙니다.
+보고서는 mode/strategy와 상태·좌표만 담고 원문과 실제 치환 문자열은 복사하지 않습니다.
+
 ## 업데이트 전후 비교
 
 ```bash

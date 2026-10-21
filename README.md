@@ -2,6 +2,11 @@
 
 # ko-pii
 
+1.18에서는 잘못된 라벨·빈 Vault·문서 부분 추출·배치 누락/덮어쓰기 오류 처리를 보강했습니다.
+정답 문서의 최종 가명화 출력까지 확인하려면
+[출력 평가](docs/DOMAIN_EVALUATION.md#최종-출력도-확인하기)를,
+파일 처리 변경은 [이전 안내](docs/FILE_PROCESSING.md#118-실패-보고와-부분-문서)를 참고하십시오.
+
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![PyPI](https://img.shields.io/pypi/v/ko-pii.svg)](https://pypi.org/project/ko-pii/)
 [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)

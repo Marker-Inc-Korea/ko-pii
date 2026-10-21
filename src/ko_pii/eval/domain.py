@@ -11,9 +11,12 @@ import sys
 from typing import Any, Iterable
 
 from ko_pii import __version__
+from ko_pii.anonymizer import Anonymizer
+from ko_pii.core.modes import ProcessingMode
 from ko_pii.detect import detect_all
 from ko_pii.eval.metrics import BenchmarkReport, PerLabelMetrics, score_document
 from ko_pii.eval.synth import GoldDocument, GoldSpan
+from ko_pii.eval.output import assess_output, summarize_output
 from ko_pii.io_.atomic import write_text_atomic
 from ko_pii.labels import ALL_LABELS
 from ko_pii.patterns.person import normalize_exclusions
@@ -116,8 +119,10 @@ def evaluate(
     *,
     labels: Iterable[str] | None = None,
     person_exclusions: Iterable[str] = (),
+    output_mode: ProcessingMode | None = None,
+    output_strategy: str = "redact",
 ) -> dict[str, Any]:
-    """Evaluate detection, not transformation completeness or legal compliance."""
+    """Evaluate detection and optionally actual replacement of annotated spans."""
     if not documents:
         raise ValueError("dataset must contain at least one document")
     active = set(ALL_LABELS if labels is None else labels)
@@ -133,9 +138,18 @@ def evaluate(
     ).encode("utf-8")).hexdigest()
     metrics = BenchmarkReport(match_mode="strict")
     rows = []
+    output_rows = []
     for doc in sorted(documents, key=lambda item: item.id):
         gold = GoldDocument(doc.gold.text, [s for s in doc.gold.spans if s.label in active])
-        predictions = detect_all(doc.gold.text, include=active, person_exclusions=exclusions)
+        if output_mode is not None:
+            result = Anonymizer(
+                mode=output_mode, strategy=output_strategy, include=active,
+                person_exclusions=exclusions,
+            ).process(doc.gold.text)
+            predictions = [record.detection for record in result.detections]
+            output_rows.append({"id": doc.id, "spans": assess_output(gold, result, output_strategy)})
+        else:
+            predictions = detect_all(doc.gold.text, include=active, person_exclusions=exclusions)
         per_label = score_document(gold, predictions, mode="strict")
         for label, score in per_label.items():
             total = metrics.per_label.setdefault(label, PerLabelMetrics(label))
@@ -150,7 +164,7 @@ def evaluate(
             "false_negatives": _span_rows(expected - predicted),
             "false_positives": _span_rows(predicted - expected),
         })
-    return {
+    report = {
         "schema_version": REPORT_SCHEMA_VERSION,
         "package_version": __version__,
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -164,6 +178,9 @@ def evaluate(
         "per_label": {label: _counts(value) for label, value in sorted(metrics.per_label.items())},
         "documents": rows,
     }
+    if output_mode is not None:
+        report["output_evaluation"] = summarize_output(output_rows, output_mode.value, output_strategy)
+    return report
 
 
 def compare_reports(current: dict[str, Any], baseline: dict[str, Any]) -> dict[str, Any]:
@@ -203,6 +220,7 @@ def compare_reports(current: dict[str, Any], baseline: dict[str, Any]) -> dict[s
             changes[key].extend({"id": row["id"], **span} for span in _span_rows(spans))
     return {
         "baseline_version": baseline.get("package_version"),
+        "scope": "detector_spans_only",
         "counts": {key: len(rows) for key, rows in changes.items()},
         **changes,
     }
@@ -216,7 +234,12 @@ def format_summary(report: dict[str, Any]) -> str:
         r = "n/a" if values["recall"] is None else f"{values['recall']:.3f}"
         lines.append(f"{label:<20} {values['tp']:>5} {values['fp']:>6} {values['fn']:>6} {p:>10} {r:>7}")
     lines.append(f"Documents with unmatched gold spans: {report['documents_with_misses']}")
+    if "output_evaluation" in report:
+        output = report["output_evaluation"]
+        lines.append(f"Output evaluation: {output['mode']} / {output['strategy']} (annotated spans only)")
+        lines.extend(f"{state}: {count}" for state, count in output["counts"].items())
     if "comparison" in report:
+        lines.append("Baseline comparison: detector spans only (output retention is an absolute check)")
         for key, count in report["comparison"]["counts"].items():
             lines.append(f"{key}: {count}")
     return "\n".join(lines)
@@ -234,9 +257,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--baseline", help="Earlier report for the same corpus and label scope")
     parser.add_argument("--fail-on-new-misses", action="store_true")
     parser.add_argument("--fail-on-new-false-positives", action="store_true")
+    parser.add_argument("--output-mode", choices=[mode.value for mode in ProcessingMode])
+    parser.add_argument("--output-strategy", choices=["redact", "tokenize", "asterisk", "partial", "hashed", "fpe"])
+    parser.add_argument("--fail-on-retained", action="store_true",
+                        help="Fail if any gold span is not fully replaced, including intentional partial masking")
     args = parser.parse_args(argv)
     if (args.fail_on_new_misses or args.fail_on_new_false_positives) and not args.baseline:
         parser.error("regression exit-code options require --baseline")
+    if (args.fail_on_retained or args.output_strategy) and not args.output_mode:
+        parser.error("output evaluation options require --output-mode")
     output = Path(args.output).resolve()
     for source in (args.dataset, args.baseline, args.person_exclusions_file):
         if source and (output == Path(source).resolve() or (
@@ -250,7 +279,11 @@ def main(argv: list[str] | None = None) -> int:
                 args.person_exclusions_file, 1024 * 1024,
             ).splitlines() if line.strip() and not line.lstrip().startswith("#"))
         labels = None if args.labels is None else [s.strip() for s in args.labels.split(",")]
-        report = evaluate(load_dataset(args.dataset), labels=labels, person_exclusions=exclusions)
+        report = evaluate(
+            load_dataset(args.dataset), labels=labels, person_exclusions=exclusions,
+            output_mode=ProcessingMode(args.output_mode) if args.output_mode else None,
+            output_strategy=args.output_strategy or "redact",
+        )
         if args.baseline:
             baseline = json.loads(_read_json_file(args.baseline, 64 * 1024 * 1024))
             if not isinstance(baseline, dict):
@@ -267,6 +300,8 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     print(format_summary(report))
     counts = report.get("comparison", {}).get("counts", {})
+    if args.fail_on_retained and report["output_evaluation"]["not_fully_replaced"]:
+        return 1
     if args.fail_on_new_misses and counts.get("new_false_negatives", 0):
         return 1
     if args.fail_on_new_false_positives and counts.get("new_false_positives", 0):

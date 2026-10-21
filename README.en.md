@@ -2,6 +2,13 @@
 
 # ko-pii
 
+Version 1.18 rejects invalid label filters and incomplete archive text extraction,
+preserves supplied empty Vaults, and reports batch input/output failures explicitly.
+`ko-pii-evaluate --output-mode STRICT --output-strategy redact --fail-on-retained`
+also checks annotated spans against actual substitutions. This is not anonymity
+certification; baseline comparisons still cover detector spans only. See the
+[evaluation guide](docs/DOMAIN_EVALUATION.md) and [migration notes](CHANGELOG.md).
+
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![PyPI](https://img.shields.io/pypi/v/ko-pii.svg)](https://pypi.org/project/ko-pii/)
 [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)

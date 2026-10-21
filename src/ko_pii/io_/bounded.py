@@ -10,6 +10,7 @@ from typing import NoReturn
 import zipfile
 
 from ko_pii.io_ import dispatcher
+from ko_pii.io_.coverage import DocumentExtractionError
 
 
 DEFAULT_BOUNDED_EXTENSIONS: tuple[str, ...] = (
@@ -30,9 +31,10 @@ _OLE_SIGNATURE = bytes.fromhex("d0cf11e0a1b11ae1")
 class BoundedReadError(ValueError):
     """Machine-readable rejection raised before content reaches a guard."""
 
-    def __init__(self, code: str, message: str) -> None:
+    def __init__(self, code: str, message: str, *, coverage: dict[str, object] | None = None) -> None:
         super().__init__(message)
         self.code = code
+        self.coverage = coverage
 
 
 @dataclass(frozen=True)
@@ -76,6 +78,7 @@ class BoundedDocument:
     extension: str
     archive_members: int = 0
     declared_decompressed_bytes: int = 0
+    coverage: dict[str, object] | None = None
 
 
 def _reject(code: str, message: str) -> NoReturn:
@@ -227,12 +230,23 @@ def read_text_bounded(
         source,
         reject_nul=extension not in _BINARY_EXTENSIONS,
     )
+    coverage: dict[str, object] | None = None
     try:
-        text = dispatcher.read_text(str(source))
+        if extension in _ZIP_EXTENSIONS:
+            from ko_pii.io_ import docx, hwpx, xlsx
+            from ko_pii.io_.text_normalizer import normalize_for_detection
+            readers = {".docx": docx.inspect_text, ".hwpx": hwpx.inspect_text, ".xlsx": xlsx.inspect_text}
+            result = readers[extension](str(source))
+            text, _ = normalize_for_detection(result.require_complete())
+            coverage = result.coverage
+        else:
+            text = dispatcher.read_text(str(source))
     except ImportError:
         _reject("extractor_unavailable", "required document extractor is unavailable")
     except BoundedReadError:
         raise
+    except DocumentExtractionError as exc:
+        raise BoundedReadError(exc.code, str(exc), coverage=exc.coverage) from None
     except Exception as exc:
         from ko_pii.io_.pdf import PdfExtractionError
         if isinstance(exc, PdfExtractionError):
@@ -259,4 +273,5 @@ def read_text_bounded(
         extension=extension,
         archive_members=members,
         declared_decompressed_bytes=decompressed,
+        coverage=coverage,
     )

@@ -164,8 +164,7 @@ def test_cli_audit_is_fail_closed_by_default_and_closes_log(
 
     monkeypatch.setattr("ko_pii.vault.audit.AuditLog", FailingAudit)
 
-    with pytest.raises(OSError, match="audit unavailable"):
-        main([str(src), "-o", str(out), "--audit-log", str(tmp_path / "audit")])
+    assert main([str(src), "-o", str(out), "--audit-log", str(tmp_path / "audit")]) == 1
 
     assert not out.exists()
     assert instances[0].closed is True
@@ -262,12 +261,10 @@ def test_cli_audit_open_failure_is_fail_closed_by_default(tmp_path, monkeypatch)
 
     monkeypatch.setattr("ko_pii.vault.audit.AuditLog", FailingOpenAudit)
 
-    with pytest.raises(OSError, match="audit path unavailable"):
-        main([
-            str(src),
-            "-o", str(out),
-            "--audit-log", str(tmp_path / "missing" / "audit.jsonl"),
-        ])
+    assert main([
+        str(src), "-o", str(out),
+        "--audit-log", str(tmp_path / "missing" / "audit.jsonl"),
+    ]) == 1
 
     assert not out.exists()
 
@@ -349,12 +346,9 @@ def test_cli_strict_audit_close_failure_prevents_output(tmp_path, monkeypatch):
 
     monkeypatch.setattr("ko_pii.vault.audit.AuditLog", FailingCloseAudit)
 
-    with pytest.raises(OSError, match="audit close unavailable"):
-        main([
-            str(src),
-            "-o", str(out),
-            "--audit-log", str(tmp_path / "audit.jsonl"),
-        ])
+    assert main([
+        str(src), "-o", str(out), "--audit-log", str(tmp_path / "audit.jsonl"),
+    ]) == 1
 
     assert not out.exists()
 
@@ -391,12 +385,10 @@ def test_cli_audit_marks_prepared_not_persisted_before_output(
     monkeypatch.setattr("ko_pii.vault.audit.AuditLog", RecordingAudit)
     monkeypatch.setattr("ko_pii.cli._write_output", failing_output)
 
-    with pytest.raises(OSError, match="output unavailable"):
-        main([
-            str(src),
-            "-o", str(tmp_path / "out.txt"),
-            "--audit-log", str(tmp_path / "audit.jsonl"),
-        ])
+    assert main([
+        str(src), "-o", str(tmp_path / "out.txt"),
+        "--audit-log", str(tmp_path / "audit.jsonl"),
+    ]) == 1
 
     assert events == [{
         "count": 1,
@@ -434,12 +426,9 @@ def test_cli_summary_audit_failure_prevents_output_in_strict_mode(
 
     monkeypatch.setattr("ko_pii.vault.audit.AuditLog", FailingSummaryAudit)
 
-    with pytest.raises(OSError, match="audit summary unavailable"):
-        main([
-            str(src),
-            "-s", "redact",
-            "-o", str(out),
-            "--audit-log", str(tmp_path / "audit"),
-        ])
+    assert main([
+        str(src), "-s", "redact", "-o", str(out),
+        "--audit-log", str(tmp_path / "audit"),
+    ]) == 1
 
     assert not out.exists()

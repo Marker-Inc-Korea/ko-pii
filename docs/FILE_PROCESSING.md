@@ -72,3 +72,50 @@ POSIX에서는 새 파일 권한이 0600입니다. 교체 전 오류가 나면 �
 
 배치에서 Vault·감사·ML 옵션과 단일 파일용 출력/리포트 옵션은 지원하지 않습니다.
 해당 옵션을 지정하면 조용히 무시하지 않고 오류로 종료합니다.
+
+## 1.18 실패 보고와 부분 문서
+
+DOCX/HWPX/XLSX의 머리말·섹션·시트 등 지원 텍스트 구성요소 중 하나라도 파싱에 실패하면
+기본 `read_text()`와 CLI는 `document_extraction_incomplete` 오류를 반환합니다.
+실패 사유에는 원문이나 파서 예외 본문을 복사하지 않습니다. JSON의
+`extraction_coverage`와 배치 각 결과의 `coverage`에는 읽은/빈/실패한 구성요소가 표시됩니다.
+`complete`는 압축 파일에서 발견한 지원 텍스트 구성요소 추출에 한정되며 이미지 OCR이나
+미지원 부분까지 검사했다는 뜻이 아닙니다. 패키지의 관계/manifest를 전부 검증하는 기능은
+아니므로 참조는 있지만 파일 자체가 없는 시트 등의 손실까지 보장하지 않습니다.
+`scope`와 `limitations`에도 이 경계를 표시합니다. 구성요소 이름과 입력 경로 자체도
+민감정보일 수 있습니다.
+
+부분 내용을 직접 점검해야 할 때만 다음 저수준 API를 사용합니다. 이 API는 현재 프로세스에서
+실행되므로 신뢰하지 않는 문서를 자원 제한 없이 전달하지 마십시오.
+
+```python
+from ko_pii.io_.docx import inspect_text
+
+inspection = inspect_text("document.docx")  # hwpx/xlsx 모듈에도 동일 API 제공
+print(inspection.coverage)
+# inspection.text는 부분 텍스트일 수 있으므로 완전한 처리 결과로 배포하지 않습니다.
+```
+
+CLI의 운영 실패는 JSON에 `stage`, `error`, `vault_saved`, `output_state`를 남깁니다.
+`output_state`는 `not_written`, `uncertain`, `written` 중 하나입니다. 결과 파일/표준 출력
+쓰기 중 오류가 발생하면 일부 쓰기를 배제할 수 없으므로 `uncertain`으로 보고합니다.
+보고서 저장만 실패했다면 결과는 이미 출력됐을 수 있습니다. 구문 오류나 경로 충돌 등
+argparse 인자 검증 오류는 기존 사용법 안내와 종료 코드 2를 사용합니다.
+
+명시한 입력 파일 누락, glob 불일치, 빈 입력 폴더는 배치 실패로 보고됩니다.
+빈 폴더/glob 불일치를 허용할 때만 `--allow-empty` 또는 Python `allow_empty=True`를
+지정합니다. 이 옵션도 명시적 파일 누락을 숨기지 않습니다. 지원하지 않는 확장자는
+폴더 탐색 중에는 `skipped`로 보고하지만 명시적으로 지정한 파일이면 실패입니다.
+
+배치 JSON의 `results`는 입력-출력 대응표이기도 합니다. 실패한 실제 파일 경로만 추려
+재시도할 수 있습니다. `file_unavailable`은 경로 수정/복구, `glob_no_matches`와
+`no_input_files`는 입력 조건 수정을 먼저 해야 합니다. 이전 실패 보고서의 경로를 자동으로
+신뢰해 실행하지 말고 원래 허용했던 작업 경로인지 확인하십시오.
+
+```bash
+ko-pii ./incoming --batch --output-dir ./processed --json-summary 2> batch-result.json
+```
+
+stderr 리디렉션 파일은 입력 폴더 밖에 두십시오. 보고서 자체가 다음 입력에 포함되는 것을
+방지하기 위해서입니다. 병렬 처리는 작업 내부의 출력 이름 충돌을 방지하지만 서로 다른
+배치 프로세스가 같은 결과 폴더를 동시에 갱신하는 경우까지 잠그지는 않습니다.

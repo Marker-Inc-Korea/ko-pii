@@ -20,7 +20,8 @@ from ko_pii.analytics.combined_risk import (
 from ko_pii.core.modes import Action, ProcessingMode, policy_for
 from ko_pii.core.types import DetectionResult, RiskLevel
 from ko_pii.detect import detect_all
-from ko_pii.modes._apply import apply_substitutions
+from ko_pii.labels import validate_label_filter
+from ko_pii.modes._apply import AppliedSpan, apply_substitutions
 from ko_pii.modes.redact import label_to_hangul
 from ko_pii.patterns.person import is_person_excluded, normalize_exclusions
 from ko_pii.vault.reversible import ReversibleVault
@@ -40,6 +41,7 @@ class AnonymizationResult:
     vault: Optional[ReversibleVault]
     summary: dict[str, Any] = field(default_factory=dict)
     combined_risk: Optional[CombinedRiskReport] = None
+    substitutions: list[AppliedSpan] = field(default_factory=list)
 
     def review_items(self) -> list[DetectionRecord]:
         return [r for r in self.detections if r.action == Action.REVIEW]
@@ -86,8 +88,8 @@ class Anonymizer:
         self.policy = policy_for(mode)
         self.strategy = strategy
         self.vault = vault if vault is not None else ReversibleVault()
-        self.include = list(include) if include else None
-        self.exclude = list(exclude) if exclude else None
+        self.include = validate_label_filter(include, name="include")
+        self.exclude = validate_label_filter(exclude, name="exclude")
         self.secondary_detector = secondary_detector
         self.merge_mode = merge_mode
         # role_split 모드에서 secondary 가 담당할 라벨 (None=기본 퍼지 10종)
@@ -141,7 +143,8 @@ class Anonymizer:
         ]
 
         to_block = [r for r in decisions if r.action == Action.BLOCK]
-        replaced = self._apply(text, to_block)
+        substitutions: list[AppliedSpan] = []
+        replaced = self._apply(text, to_block, substitutions)
         combined = score_combined_risk(detections)
         summary = self._build_summary(decisions, combined)
         return AnonymizationResult(
@@ -150,11 +153,14 @@ class Anonymizer:
             vault=self.vault if self.strategy in {"tokenize", "hashed", "fpe"} else None,
             summary=summary,
             combined_risk=combined,
+            substitutions=substitutions,
         )
 
     # ----------------------------------------------------------- internal
 
-    def _apply(self, text: str, to_block: list[DetectionRecord]) -> str:
+    def _apply(
+        self, text: str, to_block: list[DetectionRecord], trace: list[AppliedSpan],
+    ) -> str:
         if not to_block:
             return text
 
@@ -175,21 +181,21 @@ class Anonymizer:
                         break
                 return tok
             return apply_substitutions(
-                text, (r.detection for r in to_block), repl
+                text, (r.detection for r in to_block), repl, trace=trace
             )
 
         if self.strategy == "redact":
             def repl(d: DetectionResult) -> str:
                 return f"[{label_to_hangul(d.label)}]"
             return apply_substitutions(
-                text, (r.detection for r in to_block), repl
+                text, (r.detection for r in to_block), repl, trace=trace
             )
 
         if self.strategy == "asterisk":
             def repl(d: DetectionResult) -> str:
                 return "*" * max(1, d.end - d.start)
             return apply_substitutions(
-                text, (r.detection for r in to_block), repl
+                text, (r.detection for r in to_block), repl, trace=trace
             )
 
         if self.strategy == "hashed":
@@ -201,7 +207,7 @@ class Anonymizer:
                         rec.token = tok
                         break
                 return tok
-            return apply_substitutions(text, (r.detection for r in to_block), repl)
+            return apply_substitutions(text, (r.detection for r in to_block), repl, trace=trace)
 
         if self.strategy == "partial":
             from ko_pii.modes.partial import mask_value
@@ -212,7 +218,7 @@ class Anonymizer:
                         rec.token = masked
                         break
                 return masked
-            return apply_substitutions(text, (r.detection for r in to_block), repl)
+            return apply_substitutions(text, (r.detection for r in to_block), repl, trace=trace)
 
         # fpe
         from ko_pii.modes.fpe import _FPE_BY_LABEL, _fpe_default
@@ -233,7 +239,7 @@ class Anonymizer:
                     rec.token = new_val
                     break
             return new_val
-        return apply_substitutions(text, (r.detection for r in to_block), repl_fpe)
+        return apply_substitutions(text, (r.detection for r in to_block), repl_fpe, trace=trace)
 
     def _build_summary(
         self,

@@ -52,7 +52,8 @@ def read_text_isolated(
         raise BoundedReadError("extract_worker_failed", "document extraction worker failed") from None
     if completed.returncode != 0:
         if isinstance(payload, dict) and isinstance(payload.get("code"), str):
-            raise BoundedReadError(payload["code"], payload.get("message", "extraction failed"))
+            raise BoundedReadError(payload["code"], payload.get("message", "extraction failed"),
+                                   coverage=payload.get("coverage"))
         raise BoundedReadError("extract_worker_failed", "document extraction worker failed")
     try:
         return BoundedDocument(**payload)

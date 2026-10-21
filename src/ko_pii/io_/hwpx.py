@@ -19,16 +19,15 @@ import re
 import xml.etree.ElementTree as ET
 import zipfile
 
+from ko_pii.io_.coverage import TextExtraction, inspect_parts
+
 
 _HP_T_TAG_PATTERN = re.compile(r"\{[^}]+\}t$|^t$")  # local-name = "t"
 
 
 def _extract_text_from_section(xml_bytes: bytes) -> list[str]:
     parts: list[str] = []
-    try:
-        root = ET.fromstring(xml_bytes)
-    except ET.ParseError:
-        return parts
+    root = ET.fromstring(xml_bytes)
     # Iterate every element with local-name 't' (텍스트 노드)
     for elem in root.iter():
         local = elem.tag.split("}", 1)[-1]
@@ -44,10 +43,7 @@ def _extract_text_from_section(xml_bytes: bytes) -> list[str]:
 def _extract_metadata(xml_bytes: bytes) -> dict[str, str]:
     """HWPX core 메타: 작성자·제목·키워드 추출."""
     meta: dict[str, str] = {}
-    try:
-        root = ET.fromstring(xml_bytes)
-    except ET.ParseError:
-        return meta
+    root = ET.fromstring(xml_bytes)
     LOCAL_KEYS = {"creator", "lastModifiedBy", "title", "subject",
                   "Author", "LastSavedBy", "Title"}
     for elem in root.iter():
@@ -57,8 +53,8 @@ def _extract_metadata(xml_bytes: bytes) -> dict[str, str]:
     return meta
 
 
-def read_text(path: str) -> str:
-    out: list[str] = []
+def inspect_text(path: str) -> TextExtraction:
+    """Inspect supported text parts; partial text is for manual review only."""
     with zipfile.ZipFile(path, "r") as zf:
         names = zf.namelist()
         # 메타데이터 (META-INF/core.xml 또는 docInfo.xml)
@@ -66,14 +62,7 @@ def read_text(path: str) -> str:
             "META-INF/core.xml", "Contents/core.xml",
             "docProps/core.xml",
         ]
-        for mc in meta_candidates:
-            if mc in names:
-                meta = _extract_metadata(zf.read(mc))
-                for key in ("creator", "lastModifiedBy", "title", "subject",
-                            "Author", "LastSavedBy", "Title"):
-                    if key in meta:
-                        out.append(f"[메타:{key}] {meta[key]}\n")
-                break
+        metadata = [name for name in meta_candidates if name in names]
         section_names = sorted(
             n for n in names
             if n.startswith("Contents/section") and n.endswith(".xml")
@@ -84,8 +73,16 @@ def read_text(path: str) -> str:
                 n for n in names
                 if n.endswith(".xml") and "section" in n.lower()
             )
-        for name in section_names:
-            data = zf.read(name)
-            out.extend(_extract_text_from_section(data))
-            out.append("\n")  # section separator
-    return "".join(out)
+        if not section_names:
+            section_names = ["Contents/section0.xml"]
+
+        def read_part(archive: zipfile.ZipFile, name: str) -> str:
+            if name in metadata:
+                return "\n".join(f"[메타:{key}] {value}" for key, value in _extract_metadata(archive.read(name)).items())
+            return "".join(_extract_text_from_section(archive.read(name)))
+
+        return inspect_parts(zf, metadata + section_names, read_part)
+
+
+def read_text(path: str) -> str:
+    return inspect_text(path).require_complete()

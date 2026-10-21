@@ -5,6 +5,7 @@ import re
 from typing import Iterable, Optional
 
 from ko_pii.core.types import DetectionResult
+from ko_pii.labels import validate_label_filter
 from ko_pii.core.overlap import resolve_overlaps as _resolve_overlaps
 from ko_pii.core.unicode_norm import (
     needs_normalization,
@@ -126,6 +127,8 @@ def detect_all(
     """
     if not isinstance(text, str):
         raise TypeError(f"detect_all() expects str, got {type(text).__name__}")
+    inc = validate_label_filter(include, name="include")
+    exc = validate_label_filter(exclude, name="exclude")
     normalized_exclusions = person.normalize_exclusions(person_exclusions)
     source = text
     offset_map: Optional[list[int]] = None
@@ -158,8 +161,6 @@ def detect_all(
                 )
             )
 
-    inc = set(include) if include else None
-    exc = set(exclude) if exclude else set()
     if inc is not None:
         raw = [d for d in raw if d.label in inc]
     if exc:

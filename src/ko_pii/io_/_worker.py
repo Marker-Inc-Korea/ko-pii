@@ -22,7 +22,7 @@ def main() -> int:
         print(json.dumps(asdict(result), ensure_ascii=False))
         return 0
     except BoundedReadError as exc:
-        print(json.dumps({"code": exc.code, "message": str(exc)}))
+        print(json.dumps({"code": exc.code, "message": str(exc), "coverage": exc.coverage}))
     except Exception:
         print(json.dumps({"code": "extract_worker_failed", "message": "document extraction worker failed"}))
     return 1

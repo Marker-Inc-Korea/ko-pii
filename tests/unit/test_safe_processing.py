@@ -58,8 +58,7 @@ def test_cli_does_not_publish_when_vault_storage_fails(tmp_path, monkeypatch, ca
         raise OSError("vault unavailable")
 
     monkeypatch.setattr("ko_pii.cli._save_vault", fail_save)
-    with pytest.raises(OSError, match="vault unavailable"):
-        main([str(source), "--vault", str(tmp_path / "vault")])
+    assert main([str(source), "--vault", str(tmp_path / "vault")]) == 1
     assert capsys.readouterr().out == ""
 
 
