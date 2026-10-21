@@ -1,0 +1,4 @@
+{"id":"phone-001","text":"010-1234-5678","spans":[{"label":"PHONE","start":0,"end":13}]}
+{"id":"person-001","text":"성명: 김도구","spans":[{"label":"PERSON","start":4,"end":7}]}
+{"id":"rrn-001","text":"880101-1234568","spans":[{"label":"RRN","start":0,"end":14}]}
+{"id":"negative-001","text":"system ready","spans":[]}

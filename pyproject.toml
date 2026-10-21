@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ko-pii"
-version = "1.16.0"
+version = "1.17.0"
 description = "한국어 PII 검출 + 가역 가명화 라이브러리 (ML 없이 룰 기반)"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -83,6 +83,7 @@ Changelog = "https://github.com/Marker-Inc-Korea/ko-pii/blob/main/CHANGELOG.md"
 ko-pii = "ko_pii.cli:main"
 ko-pii-benchmark = "ko_pii.eval.benchmark:main"
 ko-pii-klue-bench = "ko_pii.eval.klue_benchmark:main"
+ko-pii-evaluate = "ko_pii.eval.domain:main"
 ko-pii-mcp-server = "ko_pii.integrations.mcp_server:main"
 ko-pii-classify = "ko_pii.classifier.cli:main"
 

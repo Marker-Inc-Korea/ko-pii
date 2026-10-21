@@ -37,7 +37,7 @@ from ko_pii.streaming import (
 )
 from ko_pii.vault.reversible import AuditFailurePolicy, ReversibleVault, VaultEntry
 
-__version__ = "1.16.0"  # pyproject.toml 과 동기화 (tests/unit/test_version.py 가드)
+__version__ = "1.17.0"  # pyproject.toml 과 동기화 (tests/unit/test_version.py 가드)
 
 __all__ = [
     "Anonymizer",
