@@ -74,11 +74,8 @@ def save_encrypted(vault: ReversibleVault, path: str, password: str) -> None:
     # AAD = magic + version → integrity binds to the file format
     aad = MAGIC
     ciphertext = aead.encrypt(nonce, plaintext, aad)
-    with open(path, "wb") as f:
-        f.write(MAGIC)
-        f.write(salt)
-        f.write(nonce)
-        f.write(ciphertext)
+    from ko_pii.io_.atomic import write_bytes_atomic
+    write_bytes_atomic(path, MAGIC + salt + nonce + ciphertext)
 
 
 def load_encrypted(path: str, password: str) -> ReversibleVault:

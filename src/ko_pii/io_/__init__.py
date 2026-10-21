@@ -22,6 +22,7 @@ from ko_pii.io_.bounded import (
     FileReadPolicy,
     read_text_bounded,
 )
+from ko_pii.io_.isolated import read_text_isolated
 
 __all__ = [
     "read_text",
@@ -32,4 +33,5 @@ __all__ = [
     "DEFAULT_BOUNDED_EXTENSIONS",
     "FileReadPolicy",
     "read_text_bounded",
+    "read_text_isolated",
 ]

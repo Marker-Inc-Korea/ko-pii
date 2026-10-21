@@ -21,7 +21,7 @@ class TestPdfOptional:
         with pytest.raises(ImportError, match="pdfplumber"):
             pdf_mod.read_text(str(tmp_path / "dummy.pdf"))
 
-    def test_pdfplumber_is_preferred_and_preserves_page_boundaries(self, monkeypatch):
+    def test_pdfplumber_reports_empty_pages_instead_of_silent_success(self, monkeypatch):
         from ko_pii.io_ import pdf as pdf_mod
 
         class FakePdf:
@@ -44,7 +44,31 @@ class TestPdfOptional:
             raising=False,
         )
 
-        assert pdf_mod._extract_raw("dummy.pdf") == "first\n\n"
+        result = pdf_mod.inspect_text("dummy.pdf")
+        assert result.text == "first\n\n"
+        assert result.empty_pages == (2,)
+        with pytest.raises(pdf_mod.PdfExtractionError) as exc:
+            pdf_mod.read_text("dummy.pdf")
+        assert exc.value.empty_pages == (2,)
+
+    def test_page_exception_is_reported_without_parser_contents(self, monkeypatch):
+        from ko_pii.io_ import pdf as pdf_mod
+
+        def fail():
+            raise RuntimeError("secret document contents")
+
+        monkeypatch.setattr(pdf_mod, "_HAS_PDFPLUMBER", False)
+        monkeypatch.setattr(pdf_mod, "_HAS_PYPDF", True)
+        monkeypatch.setattr(pdf_mod, "PdfReader", lambda _: SimpleNamespace(pages=[
+            SimpleNamespace(extract_text=lambda: "first"),
+            SimpleNamespace(extract_text=fail),
+        ]), raising=False)
+
+        with pytest.raises(pdf_mod.PdfExtractionError) as exc:
+            pdf_mod.read_text("dummy.pdf")
+        assert exc.value.failed_pages == (2,)
+        assert exc.value.page_count == 2
+        assert "secret" not in str(exc.value)
 
     def test_pypdf_fallback_preserves_page_boundaries(self, monkeypatch):
         from ko_pii.io_ import pdf as pdf_mod

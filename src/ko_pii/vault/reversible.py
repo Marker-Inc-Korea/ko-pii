@@ -258,8 +258,8 @@ class ReversibleVault:
         return json.dumps(self.to_dict(), ensure_ascii=False, indent=indent)
 
     def save(self, path: str, indent: Optional[int] = 2) -> None:
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(self.dumps(indent=indent))
+        from ko_pii.io_.atomic import write_text_atomic
+        write_text_atomic(path, self.dumps(indent=indent))
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "ReversibleVault":

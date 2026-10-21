@@ -8,6 +8,9 @@
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
+from typing import Any, Iterable
+
 try:
     import pdfplumber
     _HAS_PDFPLUMBER = True
@@ -30,29 +33,62 @@ def _ensure_pdf_lib() -> None:
         )
 
 
-def _extract_raw(path: str) -> str:
-    """PDF → 원본 텍스트 추출 (pdfplumber 우선, pypdf fallback)."""
-    if _HAS_PDFPLUMBER:
-        parts: list[str] = []
-        with pdfplumber.open(path) as pdf:
-            for plumber_page in pdf.pages:
-                try:
-                    text = plumber_page.extract_text() or ""
-                except Exception:
-                    text = ""
-                parts.append(text)
-        return "\n\n".join(parts)
+@dataclass(frozen=True)
+class PdfTextResult:
+    """Text-layer coverage only; embedded images are not inspected with OCR."""
+    text: str
+    page_count: int
+    failed_pages: tuple[int, ...]
+    empty_pages: tuple[int, ...]
 
-    # fallback: pypdf
-    reader = PdfReader(path)
+
+class PdfExtractionError(ValueError):
+    code = "pdf_extraction_incomplete"
+
+    def __init__(self, result: PdfTextResult) -> None:
+        self.page_count = result.page_count
+        self.failed_pages = result.failed_pages
+        self.empty_pages = result.empty_pages
+        # Keep extracted text and parser exceptions out of error messages.
+        super().__init__(
+            f"PDF text extraction incomplete: pages={result.page_count}, "
+            f"failed_pages={list(result.failed_pages)}, "
+            f"empty_pages={list(result.empty_pages)}; review the source or apply OCR"
+        )
+
+
+def _collect_pages(pages: Iterable[Any]) -> PdfTextResult:
     parts = []
-    for pypdf_page in reader.pages:
+    failed = []
+    empty = []
+    for number, page in enumerate(pages, start=1):
         try:
-            text = pypdf_page.extract_text() or ""
+            text = page.extract_text() or ""
         except Exception:
+            failed.append(number)
             text = ""
+        else:
+            if not text.strip():
+                empty.append(number)
         parts.append(text)
-    return "\n\n".join(parts)
+    return PdfTextResult("\n\n".join(parts), len(parts), tuple(failed), tuple(empty))
+
+
+def inspect_text(path: str) -> PdfTextResult:
+    """Return partial text and coverage for an explicit manual-review workflow."""
+    _ensure_pdf_lib()
+    if _HAS_PDFPLUMBER:
+        with pdfplumber.open(path) as pdf:
+            return _collect_pages(pdf.pages)
+    reader = PdfReader(path)
+    return _collect_pages(reader.pages)
+
+
+def _extract_raw(path: str) -> str:
+    result = inspect_text(path)
+    if not result.page_count or result.failed_pages or result.empty_pages:
+        raise PdfExtractionError(result)
+    return result.text
 
 
 def read_text(path: str, *, normalize: bool = True) -> str:

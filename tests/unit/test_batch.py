@@ -1,5 +1,7 @@
 import os
 
+import pytest
+
 from ko_pii.batch import collect_files, process_paths
 from ko_pii.core.modes import ProcessingMode
 
@@ -30,6 +32,37 @@ class TestCollectFiles:
 
 
 class TestProcessPaths:
+    def test_rerun_does_not_reprocess_nested_output(self, tmp_path):
+        source = tmp_path / "doc.txt"
+        source.write_text("연락처 010-1234-5678", encoding="utf-8")
+        output = tmp_path / "out"
+        for _ in range(2):
+            result = process_paths([str(tmp_path)], str(output), progress=False)
+            assert result.total_files == 1
+            assert result.succeeded == 1
+
+    def test_rejects_input_directory_as_output(self, tmp_path):
+        source = tmp_path / "doc.txt"
+        source.write_text("original")
+        with pytest.raises(ValueError, match="differ"):
+            process_paths([str(tmp_path)], str(tmp_path), progress=False)
+        assert source.read_text() == "original"
+
+    @pytest.mark.parametrize("input_kind", ["directory", "file", "mixed"])
+    def test_rejects_output_ancestor_instead_of_dropping_input(self, tmp_path, input_kind):
+        source_dir = tmp_path / "job" / "input"
+        source_dir.mkdir(parents=True)
+        source = source_dir / "doc.txt"
+        source.write_text("original")
+        inputs = [str(source_dir)] if input_kind == "directory" else [str(source)]
+        if input_kind == "mixed":
+            outside = tmp_path / "outside.txt"
+            outside.write_text("another document")
+            inputs.append(str(outside))
+        with pytest.raises(ValueError, match="must not contain"):
+            process_paths(inputs, str(tmp_path / "job"), progress=False)
+        assert source.read_text() == "original"
+
     def test_basic_batch(self, tmp_path):
         in_dir = tmp_path / "in"
         in_dir.mkdir()

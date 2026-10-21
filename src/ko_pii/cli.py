@@ -9,6 +9,7 @@ import argparse
 import json
 import os
 import sys
+import math
 from typing import TYPE_CHECKING, Any, Optional
 
 from ko_pii import __version__
@@ -17,6 +18,9 @@ from ko_pii.core.modes import ProcessingMode
 from ko_pii.reporting.certificate import generate_certificate
 from ko_pii.reporting.summary import format_summary_text
 from ko_pii.vault.reversible import ReversibleVault
+from ko_pii.io_.atomic import write_text_atomic
+from ko_pii.io_.bounded import BoundedReadError, FileReadPolicy
+from ko_pii.io_.isolated import default_read_policy, read_text_isolated
 
 if TYPE_CHECKING:
     from ko_pii.vault.audit import AuditLog
@@ -143,15 +147,22 @@ def _build_parser() -> argparse.ArgumentParser:
         "extra_inputs", nargs="*",
         help="Additional input paths/globs for --batch mode.",
     )
+    limits = default_read_policy()
+    p.add_argument("--max-file-bytes", type=int, default=limits.max_file_bytes)
+    p.add_argument("--max-text-chars", type=int, default=limits.max_text_chars)
+    p.add_argument("--max-decompressed-bytes", type=int, default=limits.max_decompressed_bytes)
+    p.add_argument("--extraction-timeout", type=float, default=30.0,
+                   help="Seconds allowed per file extraction (default: 30).")
     return p
 
 
-def _read_input(path: str) -> str:
+def _read_input(path: str, policy: FileReadPolicy, timeout: float) -> str:
     if path == "-":
-        return sys.stdin.read()
-    # 확장자 기반 자동 디스패처 (HWPX/DOCX/XLSX/CSV/TXT 등)
-    from ko_pii.io_ import read_text
-    return read_text(path)
+        text = sys.stdin.read(min(policy.max_text_chars, policy.max_file_bytes) + 1)
+        if len(text) > policy.max_text_chars or len(text.encode("utf-8")) > policy.max_file_bytes:
+            raise BoundedReadError("stdin_too_large", "standard input exceeds configured limits")
+        return text
+    return read_text_isolated(path, policy=policy, timeout=timeout).text
 
 
 def _write_output(path: Optional[str], text: str) -> None:
@@ -160,8 +171,7 @@ def _write_output(path: Optional[str], text: str) -> None:
         if not text.endswith("\n"):
             sys.stdout.write("\n")
         return
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(text)
+    write_text_atomic(path, text)
 
 
 def _split_csv(value: Optional[str]) -> Optional[list[str]]:
@@ -207,18 +217,25 @@ def _write_json_summary(
 
 
 def _resolve_vault_password(args: argparse.Namespace) -> Optional[str]:
+    if hasattr(args, "_resolved_vault_password"):
+        resolved: Optional[str] = args._resolved_vault_password
+        return resolved
     pw: Optional[str] = args.vault_password
     if pw == "__PROMPT__":          # 값 없는 --vault-password → 안전한 프롬프트 입력
         import getpass
-        return getpass.getpass("Vault password: ")
-    if pw:
+        pw = getpass.getpass("Vault password: ")
+        if not pw:
+            raise ValueError("Vault password must not be empty")
+    elif pw:
         _emit_warning(
             args,
             "경고: --vault-password 값은 프로세스 목록/셸 히스토리에 노출됩니다. "
             "env var $KPII_VAULT_PASSWORD 또는 값 없는 --vault-password(프롬프트) 사용 권장.",
         )
-        return pw
-    return os.environ.get("KPII_VAULT_PASSWORD")
+    else:
+        pw = os.environ.get("KPII_VAULT_PASSWORD")
+    setattr(args, "_resolved_vault_password", pw)
+    return pw
 
 
 def _load_vault(args: argparse.Namespace) -> Optional[ReversibleVault]:
@@ -263,12 +280,35 @@ def _validate_batch_args(
         unsupported.append("--vault")
     if args.vault_password is not None:
         unsupported.append("--vault-password")
+    if args.with_privacy_filter:
+        unsupported.append("--with-privacy-filter")
+    if args.report is not None:
+        unsupported.append("--report")
+    if args.output is not None:
+        unsupported.append("--output")
     if unsupported:
         parser.error(
             "--batch does not support "
             + ", ".join(unsupported)
-            + "; process files individually when reversible Vault or audit records are required"
+            + "; use single-file mode for these options"
         )
+
+
+def _validate_paths(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
+    paths = [("input", args.input)] if args.input != "-" else []
+    for name in ("output", "vault", "report", "audit_log"):
+        value = getattr(args, name)
+        if value is not None and not (name == "output" and value == "-"):
+            if not value:
+                parser.error(f"{name} path must not be empty")
+            paths.append((name, value))
+    for index, (name, value) in enumerate(paths):
+        for other_name, other in paths[:index]:
+            same = os.path.realpath(value) == os.path.realpath(other)
+            if not same and os.path.exists(value) and os.path.exists(other):
+                same = os.path.samefile(value, other)
+            if same:
+                parser.error(f"{name} and {other_name} must use different files")
 
 
 def _validate_json_args(
@@ -343,6 +383,8 @@ def _run_batch(args: argparse.Namespace) -> int:
         exclude=_split_csv(args.exclude),
         person_exclusions=_load_person_exclusions(args.person_exclusions_file),
         progress=not args.no_progress and not args.json_summary,
+        read_policy=args._read_policy,
+        extraction_timeout=args.extraction_timeout,
     )
     if args.json_summary:
         import dataclasses
@@ -422,14 +464,13 @@ def _run_single(
     # cannot be committed atomically with a JSONL audit file.
     _close_audit(args, audit)
 
-    _write_output(args.output, result.text)
-
     if args.vault and result.vault is not None:
         _save_vault(args, result.vault)
 
+    _write_output(args.output, result.text)
+
     if args.report:
-        with open(args.report, "w", encoding="utf-8") as f:
-            f.write(generate_certificate(result, document_id=args.input))
+        write_text_atomic(args.report, generate_certificate(result, document_id=args.input))
 
     if args.json_summary:
         _write_json_summary(args, result.summary)
@@ -453,12 +494,41 @@ def main(argv: Optional[list[str]] = None) -> int:
         parser.error("input is required (or use --labels to list categories)")
 
     _validate_json_args(parser, args)
+    if args.vault_password == "":
+        parser.error("--vault-password must not be empty")
+    from dataclasses import replace
+    try:
+        args._read_policy = replace(
+            default_read_policy(),
+            max_file_bytes=args.max_file_bytes,
+            max_text_chars=args.max_text_chars,
+            max_decompressed_bytes=args.max_decompressed_bytes,
+        )
+        if not math.isfinite(args.extraction_timeout) or args.extraction_timeout <= 0:
+            raise ValueError("extraction timeout must be finite and positive")
+    except ValueError as exc:
+        parser.error(str(exc))
 
     if args.batch:
         _validate_batch_args(parser, args)
-        return _run_batch(args)
+        try:
+            return _run_batch(args)
+        except ValueError as exc:
+            if args.json_summary:
+                _write_json_summary(args, {"status": "failed", "error": "batch_configuration", "message": str(exc)})
+            else:
+                print(f"ko-pii: batch_configuration: {exc}", file=sys.stderr)
+            return 1
 
-    text = _read_input(args.input)
+    _validate_paths(parser, args)
+    try:
+        text = _read_input(args.input, args._read_policy, args.extraction_timeout)
+    except BoundedReadError as exc:
+        if args.json_summary:
+            _write_json_summary(args, {"status": "failed", "error": exc.code, "message": str(exc)})
+        else:
+            print(f"ko-pii: {exc.code}: {exc}", file=sys.stderr)
+        return 1
     vault = _load_vault(args)
     audit = _open_audit(args)
     return _run_single(args, text, vault, audit)

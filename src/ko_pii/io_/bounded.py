@@ -233,8 +233,13 @@ def read_text_bounded(
         _reject("extractor_unavailable", "required document extractor is unavailable")
     except BoundedReadError:
         raise
-    except Exception:
+    except Exception as exc:
+        from ko_pii.io_.pdf import PdfExtractionError
+        if isinstance(exc, PdfExtractionError):
+            _reject(exc.code, str(exc))
         _reject("extract_failed", "document text extraction failed")
+    if extension in _BINARY_EXTENSIONS and not text.strip():
+        _reject("no_extractable_text", "document has no extractable text; review or OCR is required")
     if len(text) > active_policy.max_text_chars:
         _reject("extracted_text_too_large", "extracted text exceeds max_text_chars")
 

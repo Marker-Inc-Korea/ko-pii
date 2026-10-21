@@ -26,9 +26,13 @@ import sys
 import time
 from dataclasses import dataclass, field
 from multiprocessing import Pool
+from pathlib import Path
 from typing import Iterable, Optional
 
 from ko_pii.core.modes import ProcessingMode
+from ko_pii.io_.bounded import BoundedReadError, FileReadPolicy
+from ko_pii.io_.isolated import default_read_policy, read_text_isolated
+from ko_pii.io_.atomic import write_text_atomic
 
 
 @dataclass
@@ -41,6 +45,7 @@ class FileResult:
     review: int
     error: Optional[str] = None
     elapsed_s: float = 0.0
+    error_code: Optional[str] = None
 
 
 @dataclass
@@ -118,6 +123,7 @@ def _process_single(
         str, str, str, str,
         Optional[tuple[str, ...]], Optional[tuple[str, ...]],
         tuple[str, ...],
+        FileReadPolicy, float,
     ],
 ) -> FileResult:
     (
@@ -128,14 +134,14 @@ def _process_single(
         include,
         exclude,
         person_exclusions,
+        read_policy,
+        extraction_timeout,
     ) = args
     t0 = time.time()
     try:
         from ko_pii.anonymizer import Anonymizer
         from ko_pii.core.modes import Action, ProcessingMode as PM
-        from ko_pii.io_ import read_text
-
-        text = read_text(input_path)
+        text = read_text_isolated(input_path, policy=read_policy, timeout=extraction_timeout).text
         anon = Anonymizer(
             mode=PM(mode),
             strategy=strategy,
@@ -147,8 +153,7 @@ def _process_single(
 
         if output_path:
             os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
-            with open(output_path, "w", encoding="utf-8") as f:
-                f.write(result.text)
+            write_text_atomic(output_path, result.text)
 
         n_block = sum(1 for r in result.detections if r.action == Action.BLOCK)
         n_review = sum(1 for r in result.detections if r.action == Action.REVIEW)
@@ -169,8 +174,9 @@ def _process_single(
             combined_risk="UNKNOWN",
             blocked=0,
             review=0,
-            error=f"{type(e).__name__}: {e}",
+            error=str(e) if isinstance(e, BoundedReadError) else f"{type(e).__name__}: processing failed",
             elapsed_s=time.time() - t0,
+            error_code=e.code if isinstance(e, BoundedReadError) else "processing_failed",
         )
 
 
@@ -201,6 +207,8 @@ def process_paths(
     person_exclusions: Optional[Iterable[str]] = None,
     extensions: Optional[frozenset[str]] = None,
     progress: bool = True,
+    read_policy: Optional[FileReadPolicy] = None,
+    extraction_timeout: float = 30.0,
 ) -> BatchSummary:
     """입력 파일·디렉토리·glob 들을 일괄 처리.
 
@@ -212,7 +220,14 @@ def process_paths(
     from ko_pii.patterns.person import normalize_exclusions
 
     normalized_exclusions = normalize_exclusions(person_exclusions)
-    files = collect_files(inputs, recursive=recursive, extensions=extensions)
+    input_values = list(inputs)
+    output_root = os.path.realpath(output_dir)
+    for value in input_values:
+        if Path(os.path.realpath(value)).is_relative_to(output_root):
+            raise ValueError("output directory must differ from and must not contain an input path")
+    files = collect_files(input_values, recursive=recursive, extensions=extensions)
+    # Re-running a recursive job must not ingest its own previous output.
+    files = [f for f in files if not Path(os.path.realpath(f)).is_relative_to(output_root)]
     summary = BatchSummary(total_files=len(files))
     t0 = time.time()
 
@@ -238,6 +253,8 @@ def process_paths(
             tuple(include) if include else None,
             tuple(exclude) if exclude else None,
             tuple(sorted(normalized_exclusions)),
+            read_policy or default_read_policy(),
+            extraction_timeout,
         ))
 
     if workers <= 1:
