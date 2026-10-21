@@ -177,11 +177,7 @@ anon = Anonymizer(
 ## Installation
 
 ```bash
-pip install ko-pii  # current PyPI stable
-
-# To test the 1.16 API on main before its tagged release:
-python3 -m pip install \
-  "ko-pii @ git+https://github.com/Marker-Inc-Korea/ko-pii.git@main"
+python -m pip install --upgrade ko-pii
 ```
 
 Extras (as needed):
@@ -192,6 +188,24 @@ pip install "ko-pii[security]"   # Vault AES-256-GCM
 ```
 
 **Python 3.10 or later.** The core uses only the standard library.
+
+### Evaluate your documents and compare updates
+
+```bash
+ko-pii-evaluate labeled-documents.jsonl --labels PHONE,PERSON,RRN \
+  --output baseline.json
+ko-pii-evaluate labeled-documents.jsonl --labels PHONE,PERSON,RRN \
+  --baseline baseline.json --output current.json --fail-on-new-misses
+```
+
+The evaluator measures label-level TP/FP/FN against your annotations and identifies newly
+missed spans, even when aggregate scores stay unchanged. It does not send data externally
+or copy source text into reports. See the [dataset and comparison guide](docs/DOMAIN_EVALUATION.md).
+
+CLI and batch extraction enforce file/archive/text limits and a per-file timeout. PDF pages
+that fail extraction or have no text layer cause an explicit failure. Extraction workers have
+a 512 MiB address-space limit on Linux; other platforms enforce file/time limits only.
+See [file processing and migration notes](docs/FILE_PROCESSING.md).
 
 ---
 
@@ -204,19 +218,22 @@ import os
 from pathlib import Path
 
 from ko_pii import Anonymizer, ProcessingMode
-from ko_pii.io_ import read_text
+from ko_pii.io_ import read_text_isolated
+from ko_pii.io_.atomic import write_text_atomic
 from ko_pii.vault.encrypted import save_encrypted
 
+Path("./가명화").mkdir(exist_ok=True)
+Path("./vault").mkdir(exist_ok=True)
 for path in Path("./공문서/").glob("*.hwp"):
     # Use one Vault per document to limit linkability and incident scope
     anon = Anonymizer(mode=ProcessingMode.PARANOID, strategy="tokenize")
-    result = anon.process(read_text(str(path)))
-    Path(f"./가명화/{path.stem}.txt").write_text(result.text, encoding="utf-8")
+    result = anon.process(read_text_isolated(path).text)
     save_encrypted(
         result.vault,
         f"./vault/{path.stem}.kvault",
         os.environ["KPII_VAULT_PASSWORD"],
     )
+    write_text_atomic(f"./가명화/{path.stem}.txt", result.text)
 ```
 
 - **PARANOID mode** — conservatively handles LOW risk and above. It does not guarantee zero misses; validate it on the target document distribution before external transmission.

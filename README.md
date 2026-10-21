@@ -171,11 +171,7 @@ anon = Anonymizer(
 ## 설치
 
 ```bash
-pip install ko-pii  # 현재 PyPI stable
-
-# main의 1.16 API를 태그 배포 전에 검증하려면
-python3 -m pip install \
-  "ko-pii @ git+https://github.com/Marker-Inc-Korea/ko-pii.git@main"
+python -m pip install --upgrade ko-pii
 ```
 
 extras 옵션 (필요 시):
@@ -186,6 +182,23 @@ pip install "ko-pii[security]"   # Vault AES-256-GCM
 ```
 
 **Python 3.10 이상.** 코어는 표준 라이브러리만 사용.
+
+### 내 문서로 확인하고 업데이트 비교하기
+
+```bash
+ko-pii-evaluate labeled-documents.jsonl --labels PHONE,PERSON,RRN \
+  --output baseline.json
+ko-pii-evaluate labeled-documents.jsonl --labels PHONE,PERSON,RRN \
+  --baseline baseline.json --output current.json --fail-on-new-misses
+```
+
+직접 표시한 정답을 기준으로 라벨별 정탐·오탐·미탐과 새로 놓친 항목을 비교합니다.
+원문을 보고서에 복사하거나 외부로 전송하지 않습니다. 입력 형식과 실행 예제는
+[내 문서 평가 가이드](docs/DOMAIN_EVALUATION.md)에 있습니다.
+
+CLI·배치는 파일 크기·압축 해제량·추출 시간을 제한하며, PDF에서 읽지 못한 페이지는
+성공으로 처리하지 않습니다. 기본값과 변경 방법은 [파일 처리 가이드](docs/FILE_PROCESSING.md)를
+참조하십시오.
 
 ---
 
@@ -198,19 +211,22 @@ import os
 from pathlib import Path
 
 from ko_pii import Anonymizer, ProcessingMode
-from ko_pii.io_ import read_text
+from ko_pii.io_ import read_text_isolated
+from ko_pii.io_.atomic import write_text_atomic
 from ko_pii.vault.encrypted import save_encrypted
 
+Path("./가명화").mkdir(exist_ok=True)
+Path("./vault").mkdir(exist_ok=True)
 for path in Path("./공문서/").glob("*.hwp"):
     # 문서별 Vault로 연결 가능성과 사고 범위를 제한
     anon = Anonymizer(mode=ProcessingMode.PARANOID, strategy="tokenize")
-    result = anon.process(read_text(str(path)))
-    Path(f"./가명화/{path.stem}.txt").write_text(result.text, encoding="utf-8")
+    result = anon.process(read_text_isolated(path).text)
     save_encrypted(
         result.vault,
         f"./vault/{path.stem}.kvault",
         os.environ["KPII_VAULT_PASSWORD"],
     )
+    write_text_atomic(f"./가명화/{path.stem}.txt", result.text)
 ```
 
 - **PARANOID 모드** — LOW 위험도 이상을 처리하는 보수적 전처리 모드입니다. 미탐이 없음을 보장하지 않으므로 외부 전송 전에는 대상 문서군으로 별도 검증해야 합니다.
@@ -620,6 +636,8 @@ text = document.text
 기본 bounded allowlist는 TXT·Markdown·CSV·TSV·HWPX·DOCX·XLSX입니다. PDF와 구형 HWP는
 파서 자체가 결정론적 페이지·압축 해제 budget을 제공하지 않으므로, 별도 메모리·시간 제한
 worker에서 실행하는 배포만 `allowed_extensions`로 명시적으로 활성화해야 합니다.
+CLI와 `read_text_isolated()`는 이 worker를 기본 제공하며,
+[시간·메모리 제한과 PDF 처리 범위](docs/FILE_PROCESSING.md)를 명시합니다.
 
 ### RAG 파이프라인 연동
 
