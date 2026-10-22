@@ -3,12 +3,13 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 import hashlib
 import json
 from pathlib import Path
 import sys
 from typing import Any, Iterable
+from collections.abc import Mapping
 
 from ko_pii import __version__
 from ko_pii.anonymizer import Anonymizer
@@ -16,7 +17,8 @@ from ko_pii.core.modes import ProcessingMode
 from ko_pii.detect import detect_all
 from ko_pii.eval.metrics import BenchmarkReport, PerLabelMetrics, score_document
 from ko_pii.eval.synth import GoldDocument, GoldSpan
-from ko_pii.eval.output import assess_output, summarize_output
+from ko_pii.eval.output import assess_output, summarize_output, compare_output_reports
+from ko_pii.policy import validate_strategies
 from ko_pii.io_.atomic import write_text_atomic
 from ko_pii.labels import ALL_LABELS
 from ko_pii.patterns.person import normalize_exclusions
@@ -70,7 +72,7 @@ def load_dataset(path: str | Path) -> list[LabeledDocument]:
     """Load JSONL with id, text and a complete spans list for each document."""
     documents = []
     seen = set()
-    for line_number, line in enumerate(_read_json_file(path, MAX_DATASET_BYTES).splitlines(), 1):
+    for line_number, line in enumerate(_read_json_file(path, MAX_DATASET_BYTES).split("\n"), 1):
         if not line.strip():
             continue
         try:
@@ -121,10 +123,12 @@ def evaluate(
     person_exclusions: Iterable[str] = (),
     output_mode: ProcessingMode | None = None,
     output_strategy: str = "redact",
+    output_strategies: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     """Evaluate detection and optionally actual replacement of annotated spans."""
     if not documents:
         raise ValueError("dataset must contain at least one document")
+    overrides = validate_strategies(output_strategy, output_strategies)
     active = set(ALL_LABELS if labels is None else labels)
     if not active or not active <= set(ALL_LABELS):
         raise ValueError("evaluated labels must be a nonempty subset of ko-pii labels")
@@ -145,6 +149,7 @@ def evaluate(
             result = Anonymizer(
                 mode=output_mode, strategy=output_strategy, include=active,
                 person_exclusions=exclusions,
+                strategies=overrides,
             ).process(doc.gold.text)
             predictions = [record.detection for record in result.detections]
             output_rows.append({"id": doc.id, "spans": assess_output(gold, result, output_strategy)})
@@ -168,6 +173,7 @@ def evaluate(
         "schema_version": REPORT_SCHEMA_VERSION,
         "package_version": __version__,
         "generated_at": datetime.now(timezone.utc).isoformat(),
+        "evaluation_date": date.today().isoformat(),
         "dataset_sha256": dataset_hash,
         "match_mode": "strict",
         "evaluated_labels": sorted(active),
@@ -179,7 +185,9 @@ def evaluate(
         "documents": rows,
     }
     if output_mode is not None:
-        report["output_evaluation"] = summarize_output(output_rows, output_mode.value, output_strategy)
+        output_report = summarize_output(output_rows, output_mode.value, output_strategy)
+        output_report["strategies"] = overrides
+        report["output_evaluation"] = output_report
     return report
 
 
@@ -188,6 +196,8 @@ def compare_reports(current: dict[str, Any], baseline: dict[str, Any]) -> dict[s
     for key in ("schema_version", "dataset_sha256", "match_mode", "evaluated_labels"):
         if key not in baseline or current[key] != baseline[key]:
             raise ValueError(f"baseline {key} differs; compare the same corpus and label scope")
+    if current.get("dataset_adapter") != baseline.get("dataset_adapter"):
+        raise ValueError("baseline external dataset mapping or source differs")
     old_docs = baseline.get("documents")
     if not isinstance(old_docs, list) or len(old_docs) != len(current["documents"]):
         raise ValueError("baseline document set differs")
@@ -218,12 +228,15 @@ def compare_reports(current: dict[str, Any], baseline: dict[str, Any]) -> dict[s
             ("resolved_false_positives", old_fp - new_fp),
         ):
             changes[key].extend({"id": row["id"], **span} for span in _span_rows(spans))
-    return {
+    comparison = {
         "baseline_version": baseline.get("package_version"),
         "scope": "detector_spans_only",
         "counts": {key: len(rows) for key, rows in changes.items()},
         **changes,
     }
+    if "output_evaluation" in current and "output_evaluation" in baseline:
+        comparison["output"] = compare_output_reports(current, baseline)
+    return comparison
 
 
 def format_summary(report: dict[str, Any]) -> str:
@@ -239,9 +252,11 @@ def format_summary(report: dict[str, Any]) -> str:
         lines.append(f"Output evaluation: {output['mode']} / {output['strategy']} (annotated spans only)")
         lines.extend(f"{state}: {count}" for state, count in output["counts"].items())
     if "comparison" in report:
-        lines.append("Baseline comparison: detector spans only (output retention is an absolute check)")
+        lines.append("Baseline comparison: detector spans; output retention compared separately when available")
         for key, count in report["comparison"]["counts"].items():
             lines.append(f"{key}: {count}")
+        if "output" in report["comparison"]:
+            lines.append(f"New not-fully-replaced spans: {report['comparison']['output']['new_not_fully_replaced']}")
     return "\n".join(lines)
 
 
@@ -251,6 +266,7 @@ def main(argv: list[str] | None = None) -> int:
         description="Evaluate labeled local JSONL documents and compare detector regressions.",
     )
     parser.add_argument("dataset", help="UTF-8 JSONL containing id, text and spans")
+    parser.add_argument("--dataset-format", choices=["ko-pii", "k-pii-bench"], default="ko-pii")
     parser.add_argument("--output", required=True, help="JSON report (no source text or span values)")
     parser.add_argument("--labels", help="Comma-separated labels; annotate all occurrences of these labels")
     parser.add_argument("--person-exclusions-file")
@@ -261,11 +277,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output-strategy", choices=["redact", "tokenize", "asterisk", "partial", "hashed", "fpe"])
     parser.add_argument("--fail-on-retained", action="store_true",
                         help="Fail if any gold span is not fully replaced, including intentional partial masking")
+    parser.add_argument("--fail-on-new-retained", action="store_true",
+                        help="Fail if a previously fully replaced gold span is no longer fully replaced")
+    parser.add_argument("--output-strategy-for", action="append", default=[], metavar="LABEL=STRATEGY")
     args = parser.parse_args(argv)
     if (args.fail_on_new_misses or args.fail_on_new_false_positives) and not args.baseline:
         parser.error("regression exit-code options require --baseline")
     if (args.fail_on_retained or args.output_strategy) and not args.output_mode:
         parser.error("output evaluation options require --output-mode")
+    if args.output_strategy_for and not args.output_mode:
+        parser.error("--output-strategy-for requires --output-mode")
+    if args.fail_on_new_retained and (not args.baseline or not args.output_mode):
+        parser.error("--fail-on-new-retained requires --baseline and --output-mode")
     output = Path(args.output).resolve()
     for source in (args.dataset, args.baseline, args.person_exclusions_file):
         if source and (output == Path(source).resolve() or (
@@ -279,16 +302,33 @@ def main(argv: list[str] | None = None) -> int:
                 args.person_exclusions_file, 1024 * 1024,
             ).splitlines() if line.strip() and not line.lstrip().startswith("#"))
         labels = None if args.labels is None else [s.strip() for s in args.labels.split(",")]
+        metadata = None
+        if args.dataset_format == "k-pii-bench":
+            from ko_pii.eval.external import K_PII_LABELS, load_k_pii_bench
+            documents, metadata = load_k_pii_bench(args.dataset)
+            supported = {label for label in K_PII_LABELS.values() if label is not None}
+            if labels is None:
+                labels = sorted(supported)
+            elif not set(labels) <= supported:
+                raise ValueError("selected labels are not covered by the external annotation mapping")
+        else:
+            documents = load_dataset(args.dataset)
+        from ko_pii.cli import _assignments
         report = evaluate(
-            load_dataset(args.dataset), labels=labels, person_exclusions=exclusions,
+            documents, labels=labels, person_exclusions=exclusions,
             output_mode=ProcessingMode(args.output_mode) if args.output_mode else None,
             output_strategy=args.output_strategy or "redact",
+            output_strategies=_assignments(args.output_strategy_for),
         )
+        if metadata is not None:
+            report["dataset_adapter"] = metadata
         if args.baseline:
             baseline = json.loads(_read_json_file(args.baseline, 64 * 1024 * 1024))
             if not isinstance(baseline, dict):
                 raise ValueError("baseline must be a JSON object")
             report["comparison"] = compare_reports(report, baseline)
+            if args.fail_on_new_retained and "output" not in report["comparison"]:
+                raise ValueError("baseline requires output evaluation for retention comparison")
         serialized = json.dumps(report, ensure_ascii=False, indent=2) + "\n"
         if len(serialized.encode("utf-8")) > 64 * 1024 * 1024:
             raise ValueError("report exceeds 64 MiB; split the evaluation dataset")
@@ -300,6 +340,8 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     print(format_summary(report))
     counts = report.get("comparison", {}).get("counts", {})
+    if args.fail_on_new_retained and report["comparison"]["output"]["new_not_fully_replaced"]:
+        return 1
     if args.fail_on_retained and report["output_evaluation"]["not_fully_replaced"]:
         return 1
     if args.fail_on_new_misses and counts.get("new_false_negatives", 0):

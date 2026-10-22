@@ -24,6 +24,8 @@ class DetectionResult:
     evidence: list[str] = field(default_factory=list)
     legal_basis: Optional[str] = None
     extra: dict[str, object] = field(default_factory=dict)
+    rule_id: Optional[str] = None
+    normalized: bool = False
 
     @property
     def length(self) -> int:

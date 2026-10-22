@@ -166,7 +166,10 @@ def detect_all(
     if exc:
         raw = [d for d in raw if d.label not in exc]
 
-    return _resolve_overlaps(raw)
+    resolved = _resolve_overlaps(raw)
+    for detection in resolved:
+        detection.rule_id = f"ko-pii.{detection.label.lower()}.v1"
+    return resolved
 
 
 # 겹침 해소는 core.overlap.resolve_overlaps 단일 구현 사용 (위 import 의 _resolve_overlaps).

@@ -1,0 +1,7 @@
+{
+  "users": [
+    {"name": "Example One", "phone": "018-2345-6789", "enabled": true},
+    {"name": "Example Two", "count": 2},
+    {"name": "Example Three", "phone": null}
+  ]
+}

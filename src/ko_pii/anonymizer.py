@@ -11,6 +11,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from collections.abc import Mapping
+from types import MappingProxyType
 from typing import Any, Iterable, Optional
 
 from ko_pii.analytics.combined_risk import (
@@ -24,6 +26,7 @@ from ko_pii.labels import validate_label_filter
 from ko_pii.modes._apply import AppliedSpan, apply_substitutions
 from ko_pii.modes.redact import label_to_hangul
 from ko_pii.patterns.person import is_person_excluded, normalize_exclusions
+from ko_pii.policy import policy_digest, validate_strategies
 from ko_pii.vault.reversible import ReversibleVault
 
 
@@ -32,6 +35,7 @@ class DetectionRecord:
     detection: DetectionResult
     action: Action
     token: Optional[str] = None
+    strategy: Optional[str] = None
 
 
 @dataclass
@@ -67,6 +71,9 @@ class Anonymizer:
         Filter detectors by label.
     person_exclusions :
         Domain terms to suppress only from PERSON detection for this instance.
+    strategies :
+        Optional per-label overrides for ``strategy``. Detection thresholds still
+        follow ``mode``; overrides do not turn REVIEW/ALLOW into BLOCK.
     """
 
     def __init__(
@@ -80,10 +87,10 @@ class Anonymizer:
         merge_mode: str = "union",
         role_split_labels: Optional[Iterable[str]] = None,
         person_exclusions: Optional[Iterable[str]] = None,
+        *,
+        strategies: Mapping[str, str] | None = None,
     ) -> None:
-        if strategy not in {"tokenize", "redact", "asterisk", "hashed",
-                            "partial", "fpe"}:
-            raise ValueError(f"Unknown strategy: {strategy}")
+        self.strategies = MappingProxyType(validate_strategies(strategy, strategies))
         self.mode = mode
         self.policy = policy_for(mode)
         self.strategy = strategy
@@ -134,10 +141,21 @@ class Anonymizer:
             )
         else:
             detections = primary
+        return self._process_detections(text, detections)
+
+    def strategy_for(self, label: str) -> str:
+        """Return the configured transformation, without changing mode thresholds."""
+        return self.strategies.get(label, self.strategy)
+
+    def _process_detections(
+        self, text: str, detections: list[DetectionResult], *, asserted: bool = False,
+    ) -> AnonymizationResult:
         decisions = [
             DetectionRecord(
                 detection=d,
-                action=self.policy.decide(d.risk_level, d.confidence),
+                action=(Action.BLOCK if asserted and self.mode != ProcessingMode.AUDIT
+                        else self.policy.decide(d.risk_level, d.confidence)),
+                strategy=self.strategy_for(d.label),
             )
             for d in detections
         ]
@@ -147,10 +165,17 @@ class Anonymizer:
         replaced = self._apply(text, to_block, substitutions)
         combined = score_combined_risk(detections)
         summary = self._build_summary(decisions, combined)
+        summary["detection_scope"] = {
+            "input_empty": not text, "asserted_field": asserted,
+            "include": sorted(self.include) if self.include is not None else None,
+            "exclude": sorted(self.exclude) if self.exclude is not None else [],
+            "combined_risk_basis": "observed_labels_heuristic_not_anonymity_assessment",
+        }
         return AnonymizationResult(
             text=replaced,
             detections=decisions,
-            vault=self.vault if self.strategy in {"tokenize", "hashed", "fpe"} else None,
+            vault=self.vault if ({self.strategy, *self.strategies.values()}
+                                 & {"tokenize", "hashed", "fpe"}) else None,
             summary=summary,
             combined_risk=combined,
             substitutions=substitutions,
@@ -166,8 +191,10 @@ class Anonymizer:
 
         records_by_detection = {id(rec.detection): rec for rec in reversed(to_block)}
 
-        if self.strategy == "tokenize":
-            def repl(d: DetectionResult) -> str:
+        def repl(d: DetectionResult) -> str:
+            record = records_by_detection[id(d)]
+            strategy = self.strategy_for(d.label)
+            if strategy == "tokenize":
                 tok = self.vault.store(
                     label=d.label,
                     original=d.text,
@@ -177,45 +204,23 @@ class Anonymizer:
                     extra=dict(d.extra),
                 )
                 # Tag the record with the token assigned.
-                records_by_detection[id(d)].token = tok
+                record.token = tok
                 return tok
-            return apply_substitutions(
-                text, (r.detection for r in to_block), repl, trace=trace
-            )
-
-        if self.strategy == "redact":
-            def repl(d: DetectionResult) -> str:
+            if strategy == "redact":
                 return f"[{label_to_hangul(d.label)}]"
-            return apply_substitutions(
-                text, (r.detection for r in to_block), repl, trace=trace
-            )
-
-        if self.strategy == "asterisk":
-            def repl(d: DetectionResult) -> str:
+            if strategy == "asterisk":
                 return "*" * max(1, d.end - d.start)
-            return apply_substitutions(
-                text, (r.detection for r in to_block), repl, trace=trace
-            )
-
-        if self.strategy == "hashed":
-            def repl(d: DetectionResult) -> str:
+            if strategy == "hashed":
                 fp = self.vault.fingerprint(d.label, d.text)
                 tok = f"<{d.label}:{fp[:12]}>"
-                records_by_detection[id(d)].token = tok
+                record.token = tok
                 return tok
-            return apply_substitutions(text, (r.detection for r in to_block), repl, trace=trace)
-
-        if self.strategy == "partial":
-            from ko_pii.modes.partial import mask_value
-            def repl(d: DetectionResult) -> str:
+            if strategy == "partial":
+                from ko_pii.modes.partial import mask_value
                 masked = mask_value(d.label, d.text)
-                records_by_detection[id(d)].token = masked
+                record.token = masked
                 return masked
-            return apply_substitutions(text, (r.detection for r in to_block), repl, trace=trace)
-
-        # fpe
-        from ko_pii.modes.fpe import _pseudonymize_value
-        def repl_fpe(d: DetectionResult) -> str:
+            from ko_pii.modes.fpe import _pseudonymize_value
             fp = self.vault.fingerprint(d.label, d.text)
             new_val = _pseudonymize_value(d.label, d.text, fp)
             self.vault.store(
@@ -226,9 +231,9 @@ class Anonymizer:
                 offset=d.start,
                 extra={**dict(d.extra), "fpe_value": new_val},
             )
-            records_by_detection[id(d)].token = new_val
+            record.token = new_val
             return new_val
-        return apply_substitutions(text, (r.detection for r in to_block), repl_fpe, trace=trace)
+        return apply_substitutions(text, (r.detection for r in to_block), repl, trace=trace)
 
     def _build_summary(
         self,
@@ -255,6 +260,8 @@ class Anonymizer:
             "total": len(decisions),
             "mode": self.mode.value,
             "strategy": self.strategy,
+            "strategies": dict(self.strategies),
+            "transformation_policy_sha256": policy_digest(self.mode.value, self.strategy, self.strategies),
             "by_action": by_action,
             "by_risk": by_risk,
             "by_label": by_label,

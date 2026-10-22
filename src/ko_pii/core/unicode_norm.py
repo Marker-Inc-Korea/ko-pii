@@ -275,5 +275,5 @@ def remap_to_source(
             end = len(source)
         else:
             end = det.end
-        out.append(replace(det, start=start, end=end, text=source[start:end]))
+        out.append(replace(det, start=start, end=end, text=source[start:end], normalized=True))
     return out

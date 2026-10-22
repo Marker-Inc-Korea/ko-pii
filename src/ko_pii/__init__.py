@@ -36,11 +36,20 @@ from ko_pii.streaming import (
     StreamBufferStatus,
 )
 from ko_pii.vault.reversible import AuditFailurePolicy, ReversibleVault, VaultEntry
+from ko_pii.structured import StructuredLimits, StructuredResult, anonymize_json, anonymize_jsonl, loads_json
+from ko_pii.field_rules import EACH, FieldRule
 
-__version__ = "1.19.1"  # pyproject.toml 과 동기화 (tests/unit/test_version.py 가드)
+__version__ = "1.20.0"  # pyproject.toml 과 동기화 (tests/unit/test_version.py 가드)
 
 __all__ = [
     "Anonymizer",
+    "anonymize_json",
+    "anonymize_jsonl",
+    "loads_json",
+    "StructuredLimits",
+    "StructuredResult",
+    "EACH",
+    "FieldRule",
     "AnonymizationResult",
     "DetectionRecord",
     "Action",

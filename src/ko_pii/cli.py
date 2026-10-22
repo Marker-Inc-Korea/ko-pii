@@ -10,6 +10,7 @@ import json
 import os
 import sys
 import math
+import stat
 from typing import TYPE_CHECKING, Any, Optional
 
 from ko_pii import __version__
@@ -22,6 +23,7 @@ from ko_pii.io_.atomic import write_text_atomic
 from ko_pii.io_.bounded import BoundedReadError, FileReadPolicy
 from ko_pii.io_.isolated import default_read_policy, read_text_isolated
 from ko_pii.labels import validate_label_filter
+from ko_pii.policy import validate_strategies
 
 if TYPE_CHECKING:
     from ko_pii.vault.audit import AuditLog
@@ -76,6 +78,16 @@ def _build_parser() -> argparse.ArgumentParser:
         "--report",
         help="Write a processing certificate to this path.",
     )
+    p.add_argument("--format", choices=["text", "json", "jsonl"], default="text",
+                   help="Input/output format; JSON modes preserve keys and process values.")
+    p.add_argument("--strategy-for", action="append", default=[], metavar="LABEL=STRATEGY",
+                   help="Override a label's transformation (repeatable, single-file mode).")
+    p.add_argument("--field-label", action="append", default=[], metavar="POINTER=LABEL",
+                   help="Assert the label of an exact JSON Pointer (JSON modes only).")
+    p.add_argument("--field-rules", help="JSON array of typed field rules; null path segments select array items.")
+    p.add_argument("--explain", help="Write value-free versioned JSON decision metadata.")
+    p.add_argument("--report-include-sensitive", action="store_true",
+                   help="Include raw review values, replacements and input path in --report. Do not share.")
     p.add_argument(
         "--json-summary",
         action="store_true",
@@ -178,6 +190,33 @@ def _write_output(path: Optional[str], text: str) -> None:
     write_text_atomic(path, text)
 
 
+def _assignments(items: list[str]) -> dict[str, str]:
+    result: dict[str, str] = {}
+    for item in items:
+        key, sep, value = item.rpartition("=")
+        if not sep or not value or key in result:
+            raise ValueError("assignments must be unique KEY=VALUE pairs")
+        result[key] = value
+    return result
+
+
+def _read_structured_input(path: str, policy: FileReadPolicy) -> str:
+    if path == "-":
+        return _read_input(path, policy, 30.0)[0]
+    fd = os.open(path, os.O_RDONLY | getattr(os, "O_NONBLOCK", 0))
+    with os.fdopen(fd, "rb") as handle:
+        info = os.fstat(handle.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_size > policy.max_file_bytes:
+            raise ValueError("JSON input must be a bounded regular file")
+        raw = handle.read(policy.max_file_bytes + 1)
+    if len(raw) > policy.max_file_bytes:
+        raise ValueError("JSON input exceeds byte limits")
+    text = raw.decode("utf-8-sig")
+    if len(text) > policy.max_text_chars:
+        raise ValueError("JSON input exceeds character limits")
+    return text
+
+
 def _split_csv(value: Optional[str]) -> Optional[list[str]]:
     if value is None:
         return None
@@ -278,6 +317,9 @@ def _validate_batch_args(
     args: argparse.Namespace,
 ) -> None:
     unsupported = []
+    if (args.format != "text" or args.strategy_for or args.field_label or args.field_rules
+            or args.explain or args.report_include_sensitive):
+        unsupported.append("structured/policy/explanation options")
     if args.audit_log is not None:
         unsupported.append("--audit-log")
     if args.vault is not None:
@@ -300,7 +342,7 @@ def _validate_batch_args(
 
 def _validate_paths(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
     paths = [("input", args.input)] if args.input != "-" else []
-    for name in ("output", "vault", "report", "audit_log"):
+    for name in ("output", "vault", "report", "audit_log", "explain", "person_exclusions_file", "field_rules"):
         value = getattr(args, name)
         if value is not None and not (name == "output" and value == "-"):
             if not value:
@@ -439,6 +481,7 @@ def _run_single(
             secondary_detector=secondary,
             merge_mode=args.merge_mode,
             person_exclusions=_load_person_exclusions(args.person_exclusions_file),
+            strategies=args._strategies,
         )
         if audit and anon.vault is not None:
             anon.vault.attach_audit(
@@ -446,11 +489,40 @@ def _run_single(
                 failure_policy=args.audit_failure_policy,
             )
 
-        result = anon.process(text)
+        explanation = None
+        if args.format == "text":
+            from ko_pii.reporting.explanation import explain
+            result = anon.process(text)
+            output_text = result.text
+            active_vault = result.vault
+            summary = dict(result.summary)
+            detection_count = len(result.detections)
+            if args.explain:
+                explanation = explain(result)
+        else:
+            from ko_pii.structured import StructuredLimits, anonymize_json, anonymize_jsonl, loads_json
+            limits = StructuredLimits(max_chars=args.max_text_chars)
+            if args.format == "json":
+                documents = [anonymize_json(loads_json(text, limits=limits), anonymizer=anon,
+                                            field_labels=args._field_labels, limits=limits, field_rules=args._field_rules)]
+                output_text = json.dumps(documents[0].data, ensure_ascii=False, indent=2) + "\n"
+            else:
+                documents = anonymize_jsonl(text, anonymizer=anon, field_labels=args._field_labels,
+                                           limits=limits, field_rules=args._field_rules)
+                output_text = "".join(json.dumps(doc.data, ensure_ascii=False) + "\n" for doc in documents)
+            detection_count = sum(len(f.result.detections) for doc in documents for f in doc.fields)
+            active_vault = anon.vault if ({anon.strategy, *anon.strategies.values()}
+                                          & {"tokenize", "hashed", "fpe"}) else None
+            summary = {"format": args.format, "documents": len(documents), "total": detection_count,
+                       "keys_screened": False, "strategy": anon.strategy, "strategies": dict(anon.strategies),
+                       "field_rules": [{"source_line": doc.source_line, "rules": doc.field_rule_summary}
+                                       for doc in documents]}
+            if args.explain:
+                explanation = {"schema_version": 1, "documents": [doc.report() for doc in documents]}
         if audit:
             try:
                 audit.record_anonymize(
-                    count=len(result.detections),
+                    count=detection_count,
                     mode=args.mode,
                     status="prepared",
                     context=args.input,
@@ -472,29 +544,39 @@ def _run_single(
     args._stage = "audit_finalize"
     _close_audit(args, audit)
 
-    if args.vault and result.vault is not None:
+    if args.vault and active_vault is not None:
         args._stage = "vault_save"
-        _save_vault(args, result.vault)
+        _save_vault(args, active_vault)
         args._vault_saved = True
 
     args._stage = "output_write"
     args._output_state = "uncertain"
-    _write_output(args.output, result.text)
+    _write_output(args.output, output_text)
     args._output_state = "written"
 
     if args.report:
         args._stage = "report_write"
-        write_text_atomic(args.report, generate_certificate(result, document_id=args.input))
+        certificate = generate_certificate(
+            result, document_id=args.input,
+            include_review_details=args.report_include_sensitive,
+            include_document_id=args.report_include_sensitive,
+            include_replacements=args.report_include_sensitive,
+        )
+        write_text_atomic(args.report, certificate)
+    if args.explain and explanation is not None:
+        args._stage = "explanation_write"
+        write_text_atomic(args.explain, json.dumps(explanation, ensure_ascii=False, indent=2) + "\n")
 
     args._stage = "summary_write"
     if args.json_summary:
-        summary = dict(result.summary)
         if args._coverage is not None:
             summary["extraction_coverage"] = args._coverage
         _write_json_summary(args, summary)
-    else:
+    elif args.format == "text":
         sys.stderr.write(format_summary_text(result))
         sys.stderr.write("\n")
+    else:
+        sys.stderr.write(f"Processed {summary['documents']} document(s); {detection_count} detection(s). Keys not screened.\n")
 
     return 0
 
@@ -533,8 +615,17 @@ def main(argv: Optional[list[str]] = None) -> int:
     try:
         validate_label_filter(_split_csv(args.include), name="include")
         validate_label_filter(_split_csv(args.exclude), name="exclude")
+        args._strategies = validate_strategies(args.strategy, _assignments(args.strategy_for))
+        args._field_labels = _assignments(args.field_label)
     except ValueError as exc:
-        return _report_failure(args, exc, code="invalid_label_filter")
+        return _report_failure(args, exc, code="invalid_label_filter" if not args.strategy_for and not args.field_label
+                               else "invalid_processing_policy")
+    if args.format == "text" and (args.field_label or args.field_rules):
+        parser.error("--field-label/--field-rules require --format json or jsonl")
+    if args.format != "text" and (args.report or args.report_include_sensitive):
+        parser.error("JSON modes use --explain instead of --report")
+    if args.report_include_sensitive and not args.report:
+        parser.error("--report-include-sensitive requires --report")
     _validate_json_args(parser, args)
     if args.vault_password == "":
         parser.error("--vault-password must not be empty")
@@ -561,8 +652,17 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     _validate_paths(parser, args)
     try:
+        args._field_rules = ()
+        if args.field_rules:
+            from ko_pii.field_rules import rules_from_json
+            from ko_pii.structured import loads_json
+            args._field_rules = rules_from_json(loads_json(_read_structured_input(args.field_rules, args._read_policy)))
         args._stage = "extraction"
-        text, args._coverage = _read_input(args.input, args._read_policy, args.extraction_timeout)
+        if args.format == "text":
+            text, args._coverage = _read_input(args.input, args._read_policy, args.extraction_timeout)
+        else:
+            text = _read_structured_input(args.input, args._read_policy)
+            args._coverage = None
         args._stage = "vault_load"
         try:
             vault = _load_vault(args)

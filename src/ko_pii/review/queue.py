@@ -12,12 +12,16 @@ verdict 가 ``null`` 이면 미검토. ``"OK"`` / ``"FP"`` / ``"FN"`` 셋 중 �
 from __future__ import annotations
 
 import json
+import math
 import os
 import uuid
-from dataclasses import dataclass, asdict, field
+from dataclasses import dataclass, asdict, field, replace
 from datetime import datetime, timezone
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Iterable, Optional
+
+from ko_pii.io_.atomic import write_text_atomic
+from ko_pii.structured import loads_json
 
 if TYPE_CHECKING:
     from ko_pii.anonymizer import DetectionRecord
@@ -50,6 +54,28 @@ class ReviewItem:
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "ReviewItem":
+        keys = set(cls.__dataclass_fields__)
+        if not isinstance(d, dict) or not {"id", "label", "text", "span"} <= d.keys() or not d.keys() <= keys:
+            raise ValueError("invalid review item fields")
+        for key in ("id", "label", "text"):
+            if not isinstance(d[key], str) or not d[key]:
+                raise ValueError("invalid review item string")
+        for key in ("doc", "verdict_note"):
+            if key in d and not isinstance(d[key], str):
+                raise ValueError("invalid review metadata")
+        for key in ("legal_basis", "verdict_at", "verdict_by"):
+            if d.get(key) is not None and not isinstance(d[key], str):
+                raise ValueError("invalid review metadata")
+        span, confidence, evidence = d["span"], d.get("confidence", 0.0), d.get("evidence", [])
+        if (not isinstance(span, list) or len(span) != 2 or any(type(n) is not int for n in span)
+                or not 0 <= span[0] < span[1]):
+            raise ValueError("invalid review span")
+        if type(confidence) not in (int, float) or not 0 <= confidence <= 1 or not math.isfinite(confidence):
+            raise ValueError("invalid review confidence")
+        if not isinstance(evidence, list) or any(not isinstance(e, str) for e in evidence):
+            raise ValueError("invalid review evidence")
+        if d.get("verdict") is not None and d["verdict"] not in ("OK", "FP", "FN"):
+            raise ValueError("invalid review verdict")
         return cls(
             id=d["id"], doc=d.get("doc", ""), label=d["label"],
             text=d["text"], span=list(d["span"]),
@@ -75,25 +101,64 @@ class ReviewQueue:
         if self._loaded:
             return
         if not os.path.exists(self.path):
+            self._items = []
             self._loaded = True
             return
+        loaded: list[ReviewItem] = []
+        ids: set[str] = set()
         with open(self.path, "r", encoding="utf-8") as f:
-            for line in f:
+            for number, line in enumerate(f, 1):
                 line = line.strip()
                 if not line:
                     continue
                 try:
-                    self._items.append(ReviewItem.from_dict(json.loads(line)))
-                except (json.JSONDecodeError, KeyError):
-                    continue
+                    item = ReviewItem.from_dict(loads_json(line))
+                    if item.id in ids:
+                        raise ValueError("duplicate review id")
+                except (ValueError, TypeError, KeyError):
+                    raise ValueError(f"invalid review queue record at line {number}; original file preserved") from None
+                ids.add(item.id)
+                loaded.append(item)
+        self._items = loaded
         self._loaded = True
 
-    def _save(self) -> None:
+    def _save(self, items: list[ReviewItem]) -> None:
         os.makedirs(os.path.dirname(self.path) or ".", exist_ok=True)
-        with open(self.path, "w", encoding="utf-8") as f:
-            for item in self._items:
-                f.write(json.dumps(item.to_dict(), ensure_ascii=False))
-                f.write("\n")
+        write_text_atomic(self.path, self._serialize(items))
+
+    @staticmethod
+    def _serialize(items: list[ReviewItem]) -> str:
+        validated = [ReviewItem.from_dict(item.to_dict()) for item in items]
+        if len({item.id for item in validated}) != len(validated):
+            raise ValueError("duplicate review id")
+        content = "".join(json.dumps(item.to_dict(), ensure_ascii=False, allow_nan=False) + "\n" for item in validated)
+        try:
+            content.encode("utf-8")
+        except UnicodeEncodeError:
+            raise ValueError("review items must contain valid Unicode") from None
+        return content
+
+    def _append(self, items: list[ReviewItem]) -> None:
+        content = self._serialize(items)
+        if not items:
+            return
+        os.makedirs(os.path.dirname(self.path) or ".", exist_ok=True)
+        if os.path.islink(self.path):
+            raise ValueError("review queue must not be a symbolic link")
+        prefix = ""
+        if os.path.exists(self.path) and os.path.getsize(self.path):
+            with open(self.path, "rb") as existing:
+                existing.seek(-1, os.SEEK_END)
+                if existing.read(1) != b"\n":
+                    prefix = "\n"
+        try:
+            fd = os.open(self.path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+            with os.fdopen(fd, "w", encoding="utf-8") as stream:
+                stream.write(prefix + content)
+        except OSError:
+            self._loaded = False
+            raise
+        self._items.extend(items)
 
     # ─────────────────────── 큐 조작
 
@@ -112,12 +177,7 @@ class ReviewQueue:
             evidence=list(detection.evidence),
             legal_basis=detection.legal_basis,
         )
-        self._items.append(item)
-        # append-only 로 단일 항목 추가 (성능)
-        os.makedirs(os.path.dirname(self.path) or ".", exist_ok=True)
-        with open(self.path, "a", encoding="utf-8") as f:
-            f.write(json.dumps(item.to_dict(), ensure_ascii=False))
-            f.write("\n")
+        self._append([item])
         return item
 
     def enqueue_review_records(
@@ -126,25 +186,15 @@ class ReviewQueue:
         """``AnonymizationResult.review_items()`` 결과를 일괄 추가."""
         self._load()
         items: list[ReviewItem] = []
-        # buffer + single open
-        os.makedirs(os.path.dirname(self.path) or ".", exist_ok=True)
-        with open(self.path, "a", encoding="utf-8") as f:
-            for r in records:
-                d = r.detection
-                item = ReviewItem(
-                    id=str(uuid.uuid4()),
-                    doc=document,
-                    label=d.label,
-                    text=d.text,
-                    span=[d.start, d.end],
-                    confidence=d.confidence,
-                    evidence=list(d.evidence),
-                    legal_basis=d.legal_basis,
-                )
-                self._items.append(item)
-                items.append(item)
-                f.write(json.dumps(item.to_dict(), ensure_ascii=False))
-                f.write("\n")
+        for r in records:
+            d = r.detection
+            item = ReviewItem(
+                id=str(uuid.uuid4()), doc=document, label=d.label, text=d.text,
+                span=[d.start, d.end], confidence=d.confidence,
+                evidence=list(d.evidence), legal_basis=d.legal_basis,
+            )
+            items.append(item)
+        self._append(items)
         return items
 
     # ─────────────────────── 조회
@@ -179,14 +229,17 @@ class ReviewQueue:
         note: str = "",
     ) -> bool:
         """항목에 verdict 부여. True 면 성공, False 면 ID 없음."""
+        if verdict not in (Verdict.OK, Verdict.FP, Verdict.FN):
+            raise ValueError("invalid review verdict")
         self._load()
-        for it in self._items:
+        for index, it in enumerate(self._items):
             if it.id == item_id:
-                it.verdict = verdict.value if isinstance(verdict, Verdict) else verdict
-                it.verdict_at = datetime.now(timezone.utc).isoformat()
-                it.verdict_by = by
-                it.verdict_note = note
-                self._save()  # 전체 재기록 — 마킹은 빈번하지 않음
+                updated = replace(it, verdict=verdict.value if isinstance(verdict, Verdict) else verdict,
+                                  verdict_at=datetime.now(timezone.utc).isoformat(), verdict_by=by, verdict_note=note)
+                candidate = list(self._items)
+                candidate[index] = updated
+                self._save(candidate)
+                self._items = candidate
                 return True
         return False
 

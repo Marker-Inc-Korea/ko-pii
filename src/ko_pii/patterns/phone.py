@@ -31,7 +31,7 @@ _INTL_PREFIX = r"(?:\+82|0082|82)[-.\s]?(?:\(0\)[-.\s]?)?"
 
 _MOBILE = re.compile(
     r"(?<![0-9+])"
-    r"(01[01679])"
+    r"(01[016789])"
     r"[-.\s]{0,3}"
     r"(\d{3,4})"
     r"[-.\s]{0,3}"
@@ -42,7 +42,7 @@ _MOBILE = re.compile(
 _MOBILE_INTL = re.compile(
     r"(?<![0-9])"
     + _INTL_PREFIX +
-    r"(1[01679])"  # leading 0 dropped under intl prefix
+    r"(1[016789])"  # leading 0 dropped under intl prefix
     r"[-.\s]{0,3}"
     r"(\d{3,4})"
     r"[-.\s]{0,3}"
@@ -100,7 +100,7 @@ _REGIONAL = re.compile(
 _PAREN_AREA = re.compile(
     r"(?<![0-9A-Za-z])"
     r"\("
-    r"(01[01679]|02|03[1-3]|04[1-4]|05[1-5]|06[1-4]|070)"
+    r"(01[016789]|02|03[1-3]|04[1-4]|05[1-5]|06[1-4]|070)"
     r"\)"
     r"[-.\s]{0,3}"
     r"(\d{3,4})"

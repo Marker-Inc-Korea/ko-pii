@@ -85,6 +85,8 @@ def _enrich_with_secondary_info(
         evidence=new_evidence,
         legal_basis=primary.legal_basis,
         extra=new_extra,
+        rule_id=primary.rule_id,
+        normalized=primary.normalized,
     )
 
 

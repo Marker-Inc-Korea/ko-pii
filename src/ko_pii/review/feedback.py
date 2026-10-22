@@ -22,6 +22,8 @@ import os
 from collections import Counter
 from dataclasses import dataclass, field
 
+from ko_pii.io_.atomic import write_text_atomic
+
 
 @dataclass
 class FeedbackSummary:
@@ -51,6 +53,8 @@ def apply_feedback(
         같은 토큰이 ``min_repeat`` 회 이상 FP 마킹되어야 후보로 등록 (오류 표시
         한 번에 사전이 오염되는 것 방지).
     """
+    if type(min_repeat) is not int or min_repeat < 1:
+        raise ValueError("min_repeat must be a positive integer")
     from ko_pii.review.queue import ReviewQueue
     q = ReviewQueue(queue_path)
     items = q.all()
@@ -84,26 +88,20 @@ def apply_feedback(
         text for (label, text), _n in fn_tokens.items() if label == "PERSON"
     )
 
+    # Always replace owned outputs, including empty results after retraction.
+    # Multiline values cannot safely represent one exclusion per line.
+    for values in (person_fps, summary.name_candidates):
+        if any(len(value.splitlines()) != 1 or not value.strip() or value.lstrip().startswith("#")
+               for value in values):
+            raise ValueError("feedback candidates must be single non-comment lines")
     os.makedirs(output_dir, exist_ok=True)
-
-    if person_fps:
-        with open(os.path.join(output_dir, "common_words_additions.txt"),
-                  "w", encoding="utf-8") as f:
-            f.write("# ko-pii 검토 큐에서 자동 생성된 일반 단어 후보\n")
-            f.write("# 검토 후 --person-exclusions-file 입력으로 사용하세요.\n")
-            for w in person_fps:
-                f.write(w + "\n")
-
-    if summary.name_candidates:
-        with open(os.path.join(output_dir, "names_to_add.txt"),
-                  "w", encoding="utf-8") as f:
-            f.write("# 사용자가 FN 으로 표시한 이름들\n")
-            f.write("# 사용자 사전 (사이트별 names.txt) 에 추가 후 person 검출 부스트로 활용 가능\n")
-            for n in summary.name_candidates:
-                f.write(n + "\n")
-
-    with open(os.path.join(output_dir, "summary.json"), "w", encoding="utf-8") as f:
-        json.dump(
+    write_text_atomic(os.path.join(output_dir, "common_words_additions.txt"),
+                      "# ko-pii generated candidates; review before applying\n"
+                      + "".join(w + "\n" for w in person_fps))
+    write_text_atomic(os.path.join(output_dir, "names_to_add.txt"),
+                      "# ko-pii generated name candidates; review before applying\n"
+                      + "".join(n + "\n" for n in summary.name_candidates))
+    write_text_atomic(os.path.join(output_dir, "summary.json"), json.dumps(
             {
                 "fp_count": summary.fp_count,
                 "ok_count": summary.ok_count,
@@ -113,7 +111,7 @@ def apply_feedback(
                 "name_candidates": summary.name_candidates,
                 "fp_by_label": summary.fp_by_label,
             },
-            f, ensure_ascii=False, indent=2,
-        )
+            ensure_ascii=False, indent=2,
+        ) + "\n")
 
     return summary

@@ -1,65 +1,46 @@
-"""처리 증명서 — 감사 추적용 텍스트 보고서.
-
-`AnonymizationResult` 를 받아 다음을 포함한 증명서를 생성한다:
-- 처리 일시·모드·전략
-- 카테고리별 처리 건수
-- 차단된 항목의 토큰 매핑 (원본 노출 없음)
-- 검토 대상 큐
-- 적용된 법적 근거 목록
-
-Legal basis: 개인정보보호법 제29조 (안전조치의무) — 처리 이력 기록.
-"""
+"""Processing record. Source values and document identifiers are opt-in."""
 from __future__ import annotations
 
 from datetime import datetime, timezone
 
 from ko_pii.anonymizer import AnonymizationResult
-from ko_pii.core.types import RiskLevel
-from ko_pii.reporting.summary import format_summary_text
+from ko_pii.reporting.explanation import explain
 
 
 def generate_certificate(
     result: AnonymizationResult,
     document_id: str = "(unspecified)",
-    include_review_details: bool = True,
+    include_review_details: bool = False,
+    *,
+    include_document_id: bool = False,
+    include_replacements: bool = False,
 ) -> str:
-    now = datetime.now(timezone.utc).isoformat()
-    parts: list[str] = []
-    parts.append("=" * 60)
-    parts.append("개인정보 처리 증명서 (ko-pii)")
-    parts.append("=" * 60)
-    parts.append(f"문서 식별자: {document_id}")
-    parts.append(f"생성 일시(UTC): {now}")
-    parts.append("")
-    parts.append(format_summary_text(result))
-    parts.append("")
+    """Build a value-free record by default, not a legal compliance certificate.
 
-    blocked = result.blocked_items()
-    if blocked:
-        parts.append("[차단/치환 처리 항목]")
-        for rec in blocked:
-            d = rec.detection
-            risk = RiskLevel(d.risk_level).name
-            token = rec.token or "(no-token)"
-            parts.append(
-                f"  - {d.label} @[{d.start}:{d.end}] → {token} "
-                f"(risk={risk}, conf={d.confidence:.2f})"
-            )
-        parts.append("")
-
-    review = result.review_items()
-    if review and include_review_details:
-        parts.append("[검토 대기 항목]")
-        for rec in review:
-            d = rec.detection
-            risk = RiskLevel(d.risk_level).name
-            parts.append(
-                f"  - {d.label} @[{d.start}:{d.end}] '{d.text}' "
-                f"(risk={risk}, conf={d.confidence:.2f})"
-            )
-        parts.append("")
-
-    parts.append("=" * 60)
-    parts.append("본 증명서는 개인정보보호법 제29조에 의거한 처리 기록입니다.")
-    parts.append("=" * 60)
+    Opt-in review details, replacement values and document identifiers can expose
+    PII. The in-memory result/Vault still contain sensitive data independently.
+    """
+    report = explain(result)
+    parts = ["=" * 60, "개인정보 처리 증명서 (ko-pii)",
+             f"생성 일시(UTC): {datetime.now(timezone.utc).isoformat()}",
+             f"처리 모드: {report['mode']}", f"총 검출: {report['detection_count']} 건"]
+    if include_document_id:
+        parts.append(f"문서 식별자: {document_id}")
+    if include_review_details or include_document_id or include_replacements:
+        parts.append("주의: 명시적으로 요청한 민감한 상세 정보가 포함될 수 있습니다.")
+    for action, heading in (("BLOCK", "차단/치환 처리 항목"),
+                            ("REVIEW", "검토 대기 항목"), ("ALLOW", "유지 항목")):
+        items = [(rec, row) for rec, row in zip(result.detections, report["findings"])
+                 if row["action"] == action]
+        if not items:
+            continue
+        parts.append(f"\n[{heading}]")
+        for rec, row in items:
+            parts.append(f"  - {row['label']} @{row['source_span']} "
+                         f"strategy={row['applied_strategy']} status={row['reason']}")
+            if action == "REVIEW" and include_review_details:
+                parts.append(f"    원문: {rec.detection.text}")
+            if action == "BLOCK" and include_replacements and rec.token:
+                parts.append(f"    치환값: {rec.token}")
+    parts.extend(["", "본 기록은 탐지·처리 내역이며, 미탐지 정보의 부재나 법적 익명성을 보증하지 않습니다.", "=" * 60])
     return "\n".join(parts)

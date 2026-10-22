@@ -88,6 +88,25 @@ redact (카테고리명 치환):
 
 ### 이런 것도 됩니다
 
+1.20.0부터 지원하는 [중첩 JSON·종류별 정책·원문 없는 설명 보고서](docs/STRUCTURED_PROCESSING.md):
+
+```python
+from ko_pii import Anonymizer, anonymize_json
+
+processed = anonymize_json(
+    {"customer": {"email": "user@예시.kr", "phone": "010-2345-6789"}},
+    anonymizer=Anonymizer(strategy="redact", strategies={"PHONE": "partial"}),
+)
+print(processed.data)
+print(processed.report())  # 원문·치환값·키 경로를 기본 출력하지 않음
+```
+
+입력 객체와 숫자/불리언/null은 보존합니다. JSON 키 자체는 처리하지 않으며, 부분 가림은
+정보 전체 제거가 아닙니다. 기존 문자열 API는 계속 사용할 수 있습니다.
+반복 배열·선택 필드는 `FieldRule`/`EACH`로 명시할 수 있으며, `ko-pii-compare-policies`는
+기존 Vault를 건드리지 않고 두 코어 설정의 처리 차이를 원문 없는 보고서로 보여줍니다.
+둘 다 놓친 항목의 정확도나 원문 전체의 안전성을 판정하는 기능은 아닙니다.
+
 - **조사 붙어있어도 잡힘** — "홍길동이" "홍길동에게" "홍길동의" → 조사 자동 분리 후 PERSON 검출
 - **한자 병기** — "홍길동(洪吉童)" → 한글+한자 모두 인식
 - **로마자 이름** — "Hong Gildong" → 한글로 정규화 후 매칭
@@ -95,7 +114,7 @@ redact (카테고리명 치환):
 - **CSV/XLSX 헤더 자동 인식** — "성명/주민번호/연락처" 헤더 → 자동으로 PERSON/RRN/PHONE 매핑
 - **공문서 날짜 자동 거부** — "시행일자: 2026-05-21" "감사기간: 3월~4월" → 생일 아님 (비-생일 키워드 30+)
 - **가명 표기 자동 거부** — "박씨" "김모씨" "○○○ 시민" → 이미 가명화됨 (PII 아님)
-- **결합 위험도 자동 평가** — 이름만으로는 PII 아닐 수 있지만, *이름 + 주민번호 + 주소* 가 같이 나오면 → CRITICAL (「개인정보 비식별 조치 가이드라인」 의 준식별자 결합 검증)
+- **관측 라벨의 결합 위험도** — 선택된 라벨 조합에 라이브러리 규칙을 적용합니다. RRN 라벨이 있으면 CRITICAL이며, 탐지 0건은 개인정보 부재나 법적 익명성의 판정이 아닙니다.
 - **감사 로그** — 호출자가 제공한 actor/context와 토큰 처리 이력을 JSONL로 기록
 
 ---
@@ -287,6 +306,14 @@ logging.info("신청인 홍길동 (880101-1234568) 처리 완료")
 
 ## 평가 결과
 
+**아래 비교는 과거 실행 기록이며 현재 최신 제품 간 순위가 아닙니다.**
+현재 Presidio는 한국 식별자 인식기를 포함합니다. 기존 비교의 활성 인식기·패키지 버전과
+모델 checkpoint가 완전히 고정된 실행 manifest가 없는 항목은 최신 비교 주장에 사용하지
+않습니다. OpenAI Privacy Filter의 현재 공식 모델 설명과 과거 기록의 파라미터 표기도
+다르므로 같은 모델이라고 가정하지 않습니다. 새 비교는 버전·설정·라벨 매핑을 고정해
+다시 측정해야 합니다. [현재 Presidio 지원 목록](https://github.com/data-privacy-stack/presidio/blob/main/docs/supported_entities.md),
+[현재 Privacy Filter 모델 설명](https://github.com/openai/privacy-filter).
+
 | 평가 도메인 | 문서 수 | ko-pii | openai/PF | Presidio |
 |---|---:|---:|---:|---:|
 | 생성 평가셋 (행정/서식체, 검증 gold) | 540 | **0.790** | 0.451 | 0.483 |
@@ -299,8 +326,8 @@ logging.info("신청인 홍길동 (880101-1234568) 처리 완료")
 | 시스템 | 지연/문서 | 처리량 | 문서당 외부 API 요금 | 특성 |
 |---|---:|---:|---:|---|
 | **ko-pii** | **0.19 ms** | **~5,350/s** | 없음 | 결정적 · 체크섬 검증 · 온프레미스 |
-| Presidio | 4.2 ms | ~238/s | 없음 | 한국 카테고리 다수 미지원 |
-| openai/privacy-filter | 481 ms | ~2/s | 없음 | 한국 카테고리 7종만 |
+| Presidio (당시 구성) | 4.2 ms | ~238/s | 없음 | 비교에 활성화한 라벨 범위에 한정 |
+| openai/privacy-filter (당시 구성) | 481 ms | ~2/s | 없음 | 당시 매핑한 라벨 범위에 한정 |
 
 이 실행 환경에서는 ko-pii 0.19ms, Presidio 4.2ms, openai/privacy-filter 481ms로
 측정됐습니다. 각 시스템의 활성 recognizer, 모델과 런타임 구조가 다르므로 이 수치는 동일
@@ -308,8 +335,8 @@ logging.info("신청인 홍길동 (880101-1234568) 처리 완료")
 [종합 비교표(한글)](docs/presentation/ko-pii-종합비교.md).
 외부 API 요금이 없다는 뜻이며 서버 CPU·저장공간·운영 비용이 0이라는 뜻은 아닙니다.
 
-- KDPII는 단일 매처(`match_forms_overlap`, `person_min_length=3`)로 전체 4,891문서를 [openai/privacy-filter](https://huggingface.co/openai/privacy-filter) (660M ML) · [Microsoft Presidio](https://github.com/microsoft/presidio)와 함께 재측정했습니다.
-- **공정 비교:** 위 전체 점수는 해외 도구가 *라벨 자체가 없는* 항목(AGE·POSITION·RRN 등)에서 0점이라 격차가 커진다. 각 도구가 **실제 지원하는 카테고리만**으로 좁혀도 ko-pii가 앞선다 — vs openai/PF **0.61 : 0.37**(그쪽 7라벨), vs Presidio **0.87 : 0.65**(그쪽 9라벨).
+- KDPII의 과거 비교는 단일 매처(`match_forms_overlap`, `person_min_length=3`)로 전체 4,891문서를 처리한 기록입니다. 당시 모델의 정확한 checkpoint 식별이 필요한 상태이므로 최신 모델 평가로 인용하지 않습니다.
+- 전체 점수에는 당시 구성에서 매핑하지 않았던 라벨의 영향이 포함됩니다. 당시 매핑 라벨로 좁힌 기록은 openai/PF 비교 **0.61 : 0.37**(7라벨), Presidio 비교 **0.87 : 0.65**(9라벨)입니다. 현재 지원 범위·최적 구성의 우열을 뜻하지 않습니다.
 - 생성 평가셋의 구조적 라벨은 EMAIL 0.998, PHONE 0.989, CARD 0.988, RRN 0.955로
   측정됐다. 이 값은 해당 gold·matcher 조건이며 보편적 보장이 아니다.
 - KDPII 라벨별 F1은 RRN·EMAIL·IP·FRN 1.000, PHONE 0.992인 반면 PERSON 0.135,
@@ -455,7 +482,7 @@ for record in result.review_items():
 # 2. 별도 JSONL 큐에 저장 → 사용자가 verdict 마킹
 from ko_pii.review.queue import ReviewQueue
 q = ReviewQueue("review.jsonl")
-q.enqueue_review_records(result.review_items(), document=text)
+q.enqueue_review_records(result.review_items(), document="internal-document-id")
 
 # 3. 누적 마킹 → 패치 파일 생성 (common_words 후보 / 이름 후보)
 from ko_pii.review.feedback import apply_feedback
@@ -471,6 +498,8 @@ apply_feedback(
 
 검토한 `common_words_additions.txt`는 패키지 소스를 수정하지 말고
 `person_exclusions` 또는 `--person-exclusions-file` 입력으로 사용합니다.
+1.20.0부터 판정 철회 시 기존 후보 파일도 갱신하며, 손상된 큐는 건너뛰지 않고 원본을 보존한
+채 오류로 반환합니다. [검토 기록·회귀 검사 계약](docs/REVIEW_AND_REGRESSION.md)을 참고하십시오.
 
 ### 개별 검출기 호출
 
@@ -773,7 +802,7 @@ python -m ko_pii.classifier.train ...   # 모델은 직접 학습
 네. `[file]` extras 설치 시 본문 + 표 + 머리말 + 꼬리말 + 메타데이터 모두 추출.
 
 **Q5. 다른 도구 (Presidio / openai) 와 뭐가 다르나요?**
-- **Presidio** — 영어 위주. 한국 특화 PII (RRN/FRN/여권 등) 부재
+- **Presidio** — 다국어·다국가 인식기를 조합하는 프레임워크이며 한국 주민번호·외국인번호·사업자번호·여권·운전면허번호도 지원합니다. 언어 엔진, 한국 인식기 활성화, 전화번호 지역 설정에 따라 결과가 달라집니다. ko-pii는 별도 모델 없이 한국어 문서 전처리를 제공하는 라이브러리이며, 한국 식별자 지원 자체가 독점적 차별점은 아닙니다.
 - **openai/privacy-filter** — 다국어 일반 PII. 한국 핵심 14 카테고리 라벨 없음
 - **ko-pii** — 한국 특화 33 카테고리, 체크섬 검증, 법적 근거 자동 부착
 

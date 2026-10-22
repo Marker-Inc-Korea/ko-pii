@@ -1,17 +1,10 @@
-"""결합 위험도 평가 — 검출 결과의 조합이 *함께* 식별 가능한가.
+"""선택된 탐지 라벨의 조합을 집계하는 위험도 휴리스틱.
 
-「개인정보 비식별 조치 가이드라인」(개인정보보호위원회) 분류:
-- **식별자 (identifier)**: 단독으로 개인 식별 가능. 무조건 차단.
-- **준식별자 (quasi-identifier)**: 단독은 식별 불가하나, 결합 시 식별 가능.
-- **민감속성 (sensitive attribute)**: 식별과는 별개로 보호 대상 정보.
-- **일반속성 (general attribute)**: 위 셋에 해당하지 않음.
-
-결합 위험도는 한 문서에 등장한 *서로 다른* 준식별자 종류의 수에 따라 증가:
-- 0~1 종류: 위험 LOW
-- 2~3 종류: 위험 MEDIUM (재식별 가능성 있음)
-- 4 이상: 위험 HIGH (거의 확실히 재식별 가능)
-
-식별자가 1개라도 있으면 자동 CRITICAL. 민감속성 등장 시 한 단계 가산.
+라벨 분류와 수치 기준은 이 라이브러리의 처리 정책이다. 실제 개인의 식별 가능성,
+법적 익명성 또는 개인정보 부재를 판정하지 않는다. 누락된 탐지는 평가할 수 없다.
+준식별자 종류 0~1개는 LOW, 2~3개는 MEDIUM, 4개 이상은 HIGH로 집계한다.
+식별자 라벨이 있으면 CRITICAL, 민감속성 라벨은 한 단계 가산한다.
+처리 모드의 차단 여부는 별도로 결정된다.
 """
 from __future__ import annotations
 
@@ -29,7 +22,7 @@ class AttributeClass(Enum):
     GENERAL = "general"
 
 
-# 라벨 → 속성 분류 매핑 (가이드라인 + 본 라이브러리 카테고리)
+# Library policy categories, not a legal classification of each source value.
 _LABEL_TO_CLASS: dict[str, AttributeClass] = {
     # 식별자 (단독 식별)
     "RRN": AttributeClass.IDENTIFIER,
@@ -86,7 +79,7 @@ class CombinedRiskReport:
     rationale: list[str] = field(default_factory=list)
 
     def is_re_identifiable(self) -> bool:
-        """True 이면 재식별 가능성이 충분 높음 (CRITICAL/HIGH)."""
+        """Observed-label heuristic is HIGH/CRITICAL, not an identifiability proof."""
         return self.combined_risk >= RiskLevel.HIGH
 
 
@@ -121,12 +114,12 @@ def score_combined_risk(
     if ids:
         rpt.combined_risk = RiskLevel.CRITICAL
         rpt.rationale.append(
-            f"식별자 {len(ids)}종 등장: {', '.join(sorted(ids))} → 즉시 식별 가능"
+            f"선택된 탐지에서 식별자 {len(ids)}종 관측: {', '.join(sorted(ids))} → 규칙상 CRITICAL"
         )
     elif len(quasi) >= 4:
         rpt.combined_risk = RiskLevel.HIGH
         rpt.rationale.append(
-            f"준식별자 {len(quasi)}종 결합 → 재식별 가능성 매우 높음 "
+            f"준식별자 {len(quasi)}종 관측 → 규칙상 HIGH "
             f"({', '.join(sorted(quasi))})"
         )
     elif len(quasi) >= 2:
@@ -136,10 +129,10 @@ def score_combined_risk(
         )
     elif len(quasi) == 1:
         rpt.combined_risk = RiskLevel.LOW
-        rpt.rationale.append("준식별자 1종 → 단독 식별 어려움")
+        rpt.rationale.append("준식별자 1종 관측 → 규칙상 LOW; 단독 식별 불가를 뜻하지 않음")
     else:
         rpt.combined_risk = RiskLevel.INFO
-        rpt.rationale.append("식별 정보 없음")
+        rpt.rationale.append("선택된 탐지 결과에서 식별자/준식별자 라벨을 찾지 못함; 원문에 없다는 보장은 아님")
 
     # 민감속성 등장 시 한 단계 가산 (CRITICAL 캡)
     if sensitive and rpt.combined_risk < RiskLevel.CRITICAL:

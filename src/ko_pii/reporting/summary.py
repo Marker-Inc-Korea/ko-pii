@@ -21,6 +21,8 @@ def format_summary_text(result: AnonymizationResult) -> str:
     lines: list[str] = []
     lines.append(f"처리 모드: {s.get('mode')}")
     lines.append(f"치환 전략: {s.get('strategy')}")
+    if s.get("strategies"):
+        lines.append(f"종류별 전략: {s['strategies']}")
     lines.append(f"총 검출: {s.get('total')} 건")
     lines.append("")
     lines.append(f"[결합 위험도] {s.get('combined_risk', '—')}")

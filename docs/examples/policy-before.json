@@ -1,0 +1,1 @@
+{"mode": "STRICT", "include": ["PHONE", "EMAIL"], "strategies": {"PHONE": "partial"}}

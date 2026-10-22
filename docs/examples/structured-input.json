@@ -1,0 +1,15 @@
+{
+  "note": "Synthetic demonstration values only.",
+  "customer": {
+    "name": "이상",
+    "rrn": "880101-1234568",
+    "phone": "010-2345-6789",
+    "email": "user@예시.kr"
+  },
+  "items": [
+    {"memo": "연락처 010-2345-6789", "quantity": 3},
+    {"memo": "이메일 user@예시.kr", "quantity": 1}
+  ],
+  "enabled": true,
+  "optional": null
+}

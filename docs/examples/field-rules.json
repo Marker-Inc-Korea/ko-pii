@@ -1,0 +1,4 @@
+[
+  {"path": ["users", null, "name"], "label": "PERSON"},
+  {"path": ["users", null, "phone"], "label": "PHONE", "required": false}
+]

@@ -25,6 +25,14 @@ _PATTERN = re.compile(
     r"(?![A-Za-z0-9])"
 )
 
+# Korean IDN labels with an ASCII final label. Unicode local parts and Unicode
+# TLDs are outside this subset: particles make their boundaries ambiguous.
+_IDN_LABEL = r"[A-Za-z0-9가-힣](?:[A-Za-z0-9가-힣\-]*[A-Za-z0-9가-힣])?"
+_IDN_PATTERN = re.compile(
+    r"(?<![A-Za-z0-9._%+\-가-힣])([A-Za-z0-9._%+\-]+@"
+    + _IDN_LABEL + r"(?:\." + _IDN_LABEL + r")*\.[A-Za-z]{2,63})(?![A-Za-z0-9\-])"
+)
+
 # 난독화 이메일(GAP 3): '[at]'/'(at)' · '[dot]'/'(dot)' 치환과 '@'/'.' 주변 공백 주입으로
 # 마스킹을 회피하는 우회.
 #   - "hong [at] gmail [dot] com"      → hong@gmail.com
@@ -125,6 +133,25 @@ def detect(text: str) -> Iterator[DetectionResult]:
                 "domain": domain,
                 "category": CATEGORY,
             },
+        ))
+
+    for m in _IDN_PATTERN.finditer(text):
+        value = m.group(1)
+        local, _, domain = value.rpartition("@")
+        if domain.isascii() or local.startswith(".") or local.endswith(".") or ".." in local:
+            continue
+        try:
+            ascii_domain = domain.encode("idna").decode("ascii")
+        except UnicodeError:
+            continue
+        if len(ascii_domain) > 253:
+            continue
+        candidates.append(DetectionResult(
+            label=LABEL, text=value, start=m.start(), end=m.end(),
+            risk_level=RiskLevel.MEDIUM, confidence=1.0,
+            evidence=["pattern:email_idn"], legal_basis=LEGAL_BASIS,
+            extra={"value": value, "local": local, "domain": domain,
+                   "ascii_domain": ascii_domain, "category": CATEGORY},
         ))
 
     # 난독화 이메일 — 표준 패턴에 안 잡힌 우회 형태. 표준 매치와 겹치면 건너뜀.
