@@ -36,6 +36,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Literal, Optional, TypeAlias
@@ -53,6 +54,45 @@ _AUDIT_FAILURE_POLICIES = frozenset({"best_effort", "raise"})
 _DEFAULT_FP_ITERATIONS = 100_000
 _FP_SCHEME_LEGACY = "sha256-v1"        # 강화 전 vault (불려온 경우 호환 유지)
 _FP_SCHEME_KDF = "pbkdf2-sha256-v2"    # 신규 vault 기본
+
+
+def _positive_iterations(value: Any) -> int:
+    if type(value) is not int or value < 1:
+        raise ValueError("Invalid vault fingerprint_iterations: expected a positive integer")
+    return value
+
+
+def _validate_identity(label: Any, original: Any) -> tuple[str, str]:
+    if not isinstance(label, str) or not label or any(c in label for c in "<>\r\n"):
+        raise ValueError("Invalid vault label")
+    if not isinstance(original, str):
+        raise ValueError("Invalid vault original: expected a string")
+    return label, original
+
+
+def _validate_entry_metadata(risk: Any, legal: Any, offset: Any, extra: Any) -> int:
+    if not isinstance(risk, int) or isinstance(risk, bool) or not 1 <= risk <= 5:
+        raise ValueError("Invalid vault risk_level")
+    if legal is not None and not isinstance(legal, str):
+        raise ValueError("Invalid vault legal_basis")
+    if type(offset) is not int or offset < -1:
+        raise ValueError("Invalid vault offset")
+    if not isinstance(extra, dict):
+        raise ValueError("Invalid vault extra: expected an object")
+    return risk
+
+
+def _unique_json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("Invalid vault JSON: duplicate object key")
+        result[key] = value
+    return result
+
+
+def _reject_json_constant(value: str) -> Any:
+    raise ValueError("Invalid vault JSON: non-finite number")
 
 
 @dataclass
@@ -113,7 +153,9 @@ class ReversibleVault:
             secret_key if secret_key is not None
             else os.environ.get("KPII_FINGERPRINT_KEY", "")
         )
-        self._fp_iterations: int = fingerprint_iterations or _DEFAULT_FP_ITERATIONS
+        self._fp_iterations: int = _positive_iterations(
+            _DEFAULT_FP_ITERATIONS if fingerprint_iterations is None else fingerprint_iterations
+        )
         self._fp_scheme: str = _FP_SCHEME_KDF          # 신규 vault = 강화 KDF
         self._fp_cache: dict[tuple[str, str], str] = {}  # (label,original)->fp 메모이즈
 
@@ -121,12 +163,19 @@ class ReversibleVault:
 
     def token_for(self, label: str, original: str) -> str:
         """Return a stable token for (label, original). Creates one on first use."""
+        _validate_identity(label, original)
         key = (label, original)
         existing = self._reverse.get(key)
         if existing is not None:
+            entry = self._entries.get(existing)
+            if entry is not None and (entry.token, entry.label, entry.original) != (existing, label, original):
+                raise ValueError("Inconsistent vault token mapping")
             return existing
-        self._counters[label] = self._counters.get(label, 0) + 1
-        token = f"<{label}_{self._counters[label]}>"
+        next_id = self._counters.get(label, 0) + 1
+        token = f"<{label}_{next_id}>"
+        if token in self._entries:
+            raise ValueError("Conflicting vault token mapping")
+        self._counters[label] = next_id
         self._reverse[key] = token
         return token
 
@@ -140,6 +189,7 @@ class ReversibleVault:
         extra: Optional[dict[str, Any]] = None,
     ) -> str:
         """Insert or update an entry; return the assigned token."""
+        _validate_entry_metadata(risk_level, legal_basis, offset, {} if extra is None else extra)
         key = (label, original)
         had_reverse_mapping = key in self._reverse
         previous_counter = self._counters.get(label)
@@ -263,42 +313,72 @@ class ReversibleVault:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "ReversibleVault":
-        if payload.get("schema_version") != SCHEMA_VERSION:
-            raise ValueError(
-                f"Unsupported vault schema_version: {payload.get('schema_version')}"
-            )
-        v = cls(salt=payload["salt"])
+        if not isinstance(payload, dict):
+            raise ValueError("Invalid vault: expected an object")
+        schema = payload.get("schema_version")
+        if type(schema) is not int or schema != SCHEMA_VERSION:
+            raise ValueError("Unsupported vault schema_version")
+        if not isinstance(payload.get("salt"), str):
+            raise ValueError("Invalid vault salt")
+        if "created_at" in payload and not isinstance(payload["created_at"], str):
+            raise ValueError("Invalid vault created_at")
+        scheme = payload.get("fingerprint_scheme", _FP_SCHEME_LEGACY)
+        if scheme not in (_FP_SCHEME_LEGACY, _FP_SCHEME_KDF):
+            raise ValueError("Unsupported vault fingerprint_scheme")
+        iterations = _positive_iterations(payload.get("fingerprint_iterations", _DEFAULT_FP_ITERATIONS))
+        entries = payload.get("entries", {})
+        if not isinstance(entries, dict):
+            raise ValueError("Invalid vault entries: expected an object")
+        v = cls(salt=payload["salt"], fingerprint_iterations=iterations)
         v.created_at = payload.get("created_at", v.created_at)
         # 강화 전(legacy) vault 는 fingerprint_scheme 필드가 없음 → SHA-256 v1 유지
         # (불려온 vault 의 hashed/FPE 출력 일관성 보존). secret_key 는 env 에서.
-        v._fp_scheme = payload.get("fingerprint_scheme", _FP_SCHEME_LEGACY)
-        v._fp_iterations = int(payload.get("fingerprint_iterations", v._fp_iterations))
-        for token, data in payload.get("entries", {}).items():
+        v._fp_scheme = scheme
+        for token, data in entries.items():
+            if not isinstance(token, str) or not isinstance(data, dict):
+                raise ValueError("Invalid vault entry")
+            label, original = _validate_identity(data.get("label"), data.get("original"))
+            prefix = f"<{label}_"
+            if not token.startswith(prefix) or not token.endswith(">"):
+                raise ValueError("Vault token does not match its label")
+            index = token[len(prefix):-1]
+            if re.fullmatch(r"[1-9][0-9]*", index) is None:
+                raise ValueError("Invalid vault token index")
+            try:
+                number = int(index)
+            except ValueError:
+                raise ValueError("Invalid vault token index") from None
+            if (label, original) in v._reverse:
+                raise ValueError("Duplicate vault identity mapping")
+            risk = data.get("risk_level")
+            legal = data.get("legal_basis")
+            offset = data.get("first_seen_offset", -1)
+            extra = data.get("extra", {})
+            risk = _validate_entry_metadata(risk, legal, offset, extra)
+            occurrences = data.get("occurrences", [])
+            if not isinstance(occurrences, list) or any(type(x) is not int or x < 0 for x in occurrences):
+                raise ValueError("Invalid vault occurrences")
             entry = VaultEntry(
                 token=token,
-                label=data["label"],
-                original=data["original"],
-                risk_level=data["risk_level"],
-                legal_basis=data.get("legal_basis"),
-                first_seen_offset=data.get("first_seen_offset", -1),
-                occurrences=list(data.get("occurrences", [])),
-                extra=dict(data.get("extra", {})),
+                label=label,
+                original=original,
+                risk_level=risk,
+                legal_basis=legal,
+                first_seen_offset=offset,
+                occurrences=list(occurrences),
+                extra=dict(extra),
             )
             v._entries[token] = entry
             v._reverse[(entry.label, entry.original)] = token
             # Maintain counters so future stores don't collide.
-            try:
-                n = int(token.rsplit("_", 1)[-1].rstrip(">"))
-            except ValueError:
-                continue
-            cur = v._counters.get(entry.label, 0)
-            if n > cur:
-                v._counters[entry.label] = n
+            v._counters[entry.label] = max(v._counters.get(entry.label, 0), number)
         return v
 
     @classmethod
     def loads(cls, payload: str) -> "ReversibleVault":
-        return cls.from_dict(json.loads(payload))
+        return cls.from_dict(json.loads(
+            payload, object_pairs_hook=_unique_json_object, parse_constant=_reject_json_constant,
+        ))
 
     @classmethod
     def load(cls, path: str) -> "ReversibleVault":

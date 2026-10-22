@@ -207,6 +207,10 @@ pip install "ko-pii[security]"   # Vault AES-256-GCM
 
 **Python 3.10 이상.** 코어는 표준 라이브러리만 사용.
 
+**1.20.1 업데이트:** 난독화 이메일 앞의 문장을 과잉 치환하던 문제와 손상된 Vault의
+토큰 매핑 충돌을 수정했습니다. 로컬 파트 내부 공백 복원은 명시적 선택으로 바뀌며,
+잘못된 Vault는 오류로 거절합니다. [호환성 및 적용 안내](docs/EMAIL_AND_VAULT_MIGRATION.md).
+
 ### 내 문서로 확인하고 업데이트 비교하기
 
 ```bash

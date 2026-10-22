@@ -80,6 +80,8 @@ DETECTORS = (
 # 영숫자 런(ASCII + 전각). 원본 재검사 필요 여부 판정용 — invisible 제거가 이 '런의 모양'
 # (길이 시퀀스)을 바꿨다면 두 PII 가 경계 융합/분리됐다는 뜻이라 원본도 봐야 한다.
 _PII_RUN = re.compile(r"[0-9A-Za-z０-９Ａ-Ｚａ-ｚ]+")
+# These line separators are removed by numeric anti-evasion normalization.
+_EMAIL_LINE_CONTROLS = re.compile(r"[\x0b\x0c\x1c-\x1e\x85]")
 
 
 def _run_shape(s: str) -> list[int]:
@@ -91,12 +93,15 @@ def _run_detectors(
     person_exclusions: frozenset[str],
     *,
     include_person: bool = True,
+    include_email: bool = True,
 ) -> list[DetectionResult]:
     raw: list[DetectionResult] = []
     for fn in DETECTORS:
         if fn is person.detect:
             if include_person:
                 raw.extend(person.detect(text, exclusions=person_exclusions))
+        elif fn is email.detect and not include_email:
+            continue
         else:
             raw.extend(fn(text))
     return raw
@@ -137,7 +142,8 @@ def detect_all(
         if norm != text:
             text, offset_map = norm, omap
 
-    raw = _run_detectors(text, normalized_exclusions)
+    separate_email = normalize and bool(_EMAIL_LINE_CONTROLS.search(source))
+    raw = _run_detectors(text, normalized_exclusions, include_email=not separate_email)
 
     if offset_map is not None:
         # 정규화가 텍스트를 바꿨다(전각 폴딩/보이지 않는 문자 제거 등).
@@ -158,8 +164,18 @@ def detect_all(
                     source,
                     normalized_exclusions,
                     include_person=False,
+                    include_email=not separate_email,
                 )
             )
+
+    if separate_email:
+        # Keep email line boundaries without weakening numeric control-injection
+        # detection. Replacement is one-to-one, so offsets still refer to source.
+        email_text, email_offsets = normalize_unicode(_EMAIL_LINE_CONTROLS.sub("\n", source))
+        email_results = list(email.detect(email_text))
+        email_results = remap_to_source(email_results, email_offsets, source)
+        raw.extend(email_results)
+        raw.extend(email.detect(source))
 
     if inc is not None:
         raw = [d for d in raw if d.label in inc]

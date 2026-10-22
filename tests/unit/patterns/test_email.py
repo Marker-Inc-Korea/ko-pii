@@ -57,7 +57,7 @@ class TestEmailObfuscated:
         assert results[0].extra["value"] == "user@example.org"
 
     def test_spaced_at_and_dot(self):
-        results = _detect_list("hong gildong @ naver . com")
+        results = list(detect("hong gildong @ naver . com", allow_spaced_local=True))
         assert len(results) == 1
         assert results[0].extra["value"] == "honggildong@naver.com"
 

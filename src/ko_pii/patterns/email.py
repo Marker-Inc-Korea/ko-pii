@@ -36,53 +36,62 @@ _IDN_PATTERN = re.compile(
 # 난독화 이메일(GAP 3): '[at]'/'(at)' · '[dot]'/'(dot)' 치환과 '@'/'.' 주변 공백 주입으로
 # 마스킹을 회피하는 우회.
 #   - "hong [at] gmail [dot] com"      → hong@gmail.com
-#   - "hong gildong @ naver . com"     → 로컬 공백·구분자 공백 주입
+#   - "hong gildong @ naver . com"     → 로컬 내부 공백은 명시적 opt-in
 # recall-safe 설계:
 #   - @ 등가물은 실제 '@' 또는 대괄호/소괄호로 감싼 at 만 허용(맨단어 ' at '는 산문 FP
 #     위험이 커 제외 — "meet at noon" 등).
 #   - dot 등가물도 실제 '.' 또는 괄호 감싼 dot 만. 도메인 라벨이 1개 이상 점으로 이어질
 #     때만 매치 → 'admin@host'(점 없음)·'10 . 5'(라벨 아님)는 미해당.
-_OBF_AT = r"(?:@|\[\s*at\s*\]|\(\s*at\s*\))"
-_OBF_DOT = r"(?:\.|\[\s*dot\s*\]|\(\s*dot\s*\))"
-_OBF_LOCAL = r"[A-Za-z0-9._%+\-]+(?:\s+[A-Za-z0-9._%+\-]+)*"
+_OBF_AT = r"(?:@|\[[ \t]*at[ \t]*\]|\([ \t]*at[ \t]*\))"
+_OBF_DOT = r"(?:\.|\[[ \t]*dot[ \t]*\]|\([ \t]*dot[ \t]*\))"
+_OBF_LOCAL = r"[A-Za-z0-9._%+\-]+"
 _OBF_LABEL = r"[A-Za-z0-9](?:[A-Za-z0-9\-]*[A-Za-z0-9])?"
-_OBFUSCATED = re.compile(
-    r"(?<![A-Za-z0-9._%+\-@])"
-    + _OBF_LOCAL
-    + r"\s*" + _OBF_AT + r"\s*"
-    + _OBF_LABEL
-    + r"(?:\s*" + _OBF_DOT + r"\s*" + _OBF_LABEL + r")+"
-    r"(?![A-Za-z0-9])",
-    re.IGNORECASE,
-)
+
+
+def _obfuscated_pattern(local: str) -> re.Pattern[str]:
+    return re.compile(
+        r"(?<![A-Za-z0-9._%+\-@])" + local
+        + r"[ \t]*" + _OBF_AT + r"[ \t]*" + _OBF_LABEL
+        + r"(?:[ \t]*" + _OBF_DOT + r"[ \t]*" + _OBF_LABEL + r")+"
+        r"(?![A-Za-z0-9])", re.IGNORECASE,
+    )
+
+
+_OBFUSCATED = _obfuscated_pattern(_OBF_LOCAL)
+_OBFUSCATED_SPACED = _obfuscated_pattern(_OBF_LOCAL + r"(?:[ \t]+" + _OBF_LOCAL + r")*")
 _AT_MARKER = re.compile(_OBF_AT, re.IGNORECASE)
 _DOMAIN_AFTER_AT = re.compile(
-    r"\s*" + _OBF_LABEL + r"(?:\s*" + _OBF_DOT + r"\s*" + _OBF_LABEL + r")+(?![A-Za-z0-9])",
+    r"[ \t]*" + _OBF_LABEL + r"(?:[ \t]*" + _OBF_DOT + r"[ \t]*" + _OBF_LABEL + r")+(?![A-Za-z0-9])",
     re.IGNORECASE,
 )
 # re.IGNORECASE also admits these four Unicode letters in [A-Z].
 _LOCAL_CHARS = frozenset(string.ascii_letters + string.digits + "._%+-İıſK")
 
 
-def _obfuscated_matches(text: str) -> Iterator[re.Match[str]]:
+def _obfuscated_matches(text: str, *, allow_spaced_local: bool = False) -> Iterator[re.Match[str]]:
     """Anchor on valid at/domain pairs instead of retrying every local word."""
     cursor = 0
     for at in _AT_MARKER.finditer(text):
         if at.start() < cursor or _DOMAIN_AFTER_AT.match(text, at.end()) is None:
             continue
         start = at.start()
-        while start > cursor and (text[start - 1] in _LOCAL_CHARS or text[start - 1].isspace()):
+        while start > cursor and text[start - 1] in " \t":
             start -= 1
-        while start < at.start() and text[start].isspace():
+        # A preceding prose word is not part of the local part by default.
+        allowed = _LOCAL_CHARS | {" ", "\t"} if allow_spaced_local else _LOCAL_CHARS
+        while start > cursor and text[start - 1] in allowed:
+            start -= 1
+        while start < at.start() and text[start] in " \t":
             start += 1
         # The original lookbehind forbids starting directly after another @.
         if start > 0 and text[start - 1] in _LOCAL_CHARS | {"@"}:
             while start < at.start() and text[start] in _LOCAL_CHARS:
                 start += 1
-            while start < at.start() and text[start].isspace():
+            while start < at.start() and text[start] in " \t":
                 start += 1
         if start < at.start():
-            match = _OBFUSCATED.match(text, start)
+            pattern = _OBFUSCATED_SPACED if allow_spaced_local else _OBFUSCATED
+            match = pattern.match(text, start)
             if match is not None:
                 cursor = match.end()
                 yield match
@@ -96,7 +105,7 @@ def _canonicalize(raw: str) -> str | None:
     """난독화 이메일 원문 → 표준 'local@domain'. 비정상이면 None."""
     s = _DEOBF_AT.sub("@", raw)
     s = _DEOBF_DOT.sub(".", s)
-    s = s.replace(" ", "")  # 잔여 공백(@ . 주변, 로컬 분할) 제거
+    s = s.replace(" ", "").replace("\t", "")
     local, sep, domain = s.rpartition("@")
     if not sep or not local or not domain:
         return None
@@ -107,7 +116,13 @@ def _canonicalize(raw: str) -> str | None:
     return s
 
 
-def detect(text: str) -> Iterator[DetectionResult]:
+def detect(text: str, *, allow_spaced_local: bool = False) -> Iterator[DetectionResult]:
+    """Detect emails without consuming preceding prose or crossing lines.
+
+    ``allow_spaced_local=True`` joins local-part words on the same line. Use
+    only for isolated email fields: it cannot distinguish those words from
+    surrounding English prose. The default recognizes the nearest local word.
+    """
     candidates: list[DetectionResult] = []
 
     for m in _PATTERN.finditer(text):
@@ -155,7 +170,7 @@ def detect(text: str) -> Iterator[DetectionResult]:
         ))
 
     # 난독화 이메일 — 표준 패턴에 안 잡힌 우회 형태. 표준 매치와 겹치면 건너뜀.
-    for m in _obfuscated_matches(text):
+    for m in _obfuscated_matches(text, allow_spaced_local=allow_spaced_local):
         canon = _canonicalize(m.group(0))
         if canon is None:
             continue

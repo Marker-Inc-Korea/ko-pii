@@ -111,7 +111,7 @@ class TestGap2SplitRRN:
 class TestGap3ObfuscatedEmail:
     @pytest.mark.parametrize("t,expected", [
         ("hong [at] gmail [dot] com", "hong@gmail.com"),
-        ("hong gildong @ naver . com", "honggildong@naver.com"),
+        ("hong @ naver . com", "hong@naver.com"),
         ("user (at) example (dot) org", "user@example.org"),
         ("문의 admin [at] korea (dot) kr 으로", "admin@korea.kr"),
     ])
