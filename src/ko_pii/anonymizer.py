@@ -164,6 +164,8 @@ class Anonymizer:
         if not to_block:
             return text
 
+        records_by_detection = {id(rec.detection): rec for rec in reversed(to_block)}
+
         if self.strategy == "tokenize":
             def repl(d: DetectionResult) -> str:
                 tok = self.vault.store(
@@ -175,10 +177,7 @@ class Anonymizer:
                     extra=dict(d.extra),
                 )
                 # Tag the record with the token assigned.
-                for rec in to_block:
-                    if rec.detection is d:
-                        rec.token = tok
-                        break
+                records_by_detection[id(d)].token = tok
                 return tok
             return apply_substitutions(
                 text, (r.detection for r in to_block), repl, trace=trace
@@ -202,10 +201,7 @@ class Anonymizer:
             def repl(d: DetectionResult) -> str:
                 fp = self.vault.fingerprint(d.label, d.text)
                 tok = f"<{d.label}:{fp[:12]}>"
-                for rec in to_block:
-                    if rec.detection is d:
-                        rec.token = tok
-                        break
+                records_by_detection[id(d)].token = tok
                 return tok
             return apply_substitutions(text, (r.detection for r in to_block), repl, trace=trace)
 
@@ -213,10 +209,7 @@ class Anonymizer:
             from ko_pii.modes.partial import mask_value
             def repl(d: DetectionResult) -> str:
                 masked = mask_value(d.label, d.text)
-                for rec in to_block:
-                    if rec.detection is d:
-                        rec.token = masked
-                        break
+                records_by_detection[id(d)].token = masked
                 return masked
             return apply_substitutions(text, (r.detection for r in to_block), repl, trace=trace)
 
@@ -234,10 +227,7 @@ class Anonymizer:
                 offset=d.start,
                 extra={**dict(d.extra), "fpe_value": new_val},
             )
-            for rec in to_block:
-                if rec.detection is d:
-                    rec.token = new_val
-                    break
+            records_by_detection[id(d)].token = new_val
             return new_val
         return apply_substitutions(text, (r.detection for r in to_block), repl_fpe, trace=trace)
 

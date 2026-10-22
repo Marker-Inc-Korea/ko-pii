@@ -71,6 +71,14 @@ _PATTERN_SPLIT = re.compile(
 # RRN 맥락 마커 — 분할 재조합의 체크섬 불일치 케이스를 방출할 근거.
 _RRN_MARKERS = ("주민등록번호", "주민번호", "주민 번호", "앞자리", "뒷자리", "주민")
 
+# Only the immediately preceding field label overrides the barcode heuristic.
+# A marker elsewhere in the document must not turn product codes into RRNs.
+_RRN_FIELD_PREFIX = re.compile(
+    r"(?:주민[ \t]*(?:등록[ \t]*)?번호|(?<![A-Za-z])RRN)"
+    r"[ \t]*(?:[:=][ \t]*)?\Z",
+    re.IGNORECASE,
+)
+
 # 재조합 연결 필러 — 두 숫자 조각을 잇는 한국어 표현. 필러 자체가 분할 시그니처라
 # 전역 마커가 없어도 방출 근거가 된다('880101 다시 1234567'). 유효 날짜 + 성별코드
 # 제약과 함께라 산문 FP 위험은 무시할 수준.
@@ -122,10 +130,11 @@ def _emit(m: re.Match[str], offset: int = 0) -> DetectionResult | None:
     if not checksum_ok and back[0] == "0" and _is_valid_corp_checksum(digits_only):
         return None
 
-    # GS1 한국 EAN-13 바코드(880~ 시작, 무구분자, 체크섬 불일치)는 RRN 이 아니다.
-    # 진짜 88년생 RRN 은 체크섬을 통과(checksum_ok)하므로 영향 없음(recall-safe).
+    # The 880 prefix is a barcode heuristic, not proof that a value is non-PII.
+    # Explicit field context retains the normal reduced-confidence RRN policy.
     real = m.group(0)[offset:]
-    if not checksum_ok and digits_only.startswith("880") and real == digits_only:
+    rrn_field = bool(_RRN_FIELD_PREFIX.search(m.string[max(0, m.start() - 40):m.start()]))
+    if not checksum_ok and digits_only.startswith("880") and real == digits_only and not rrn_field:
         return None
 
     evidence = ["pattern:rrn", f"date_valid:{birth.isoformat()}"]
@@ -134,6 +143,8 @@ def _emit(m: re.Match[str], offset: int = 0) -> DetectionResult | None:
         confidence = 1.0
     else:
         evidence.append("checksum:invalid_or_post_2020")
+        if rrn_field:
+            evidence.append("context:rrn_field")
         confidence = 0.7
 
     # span은 prefix를 제외한 실제 RRN 부분

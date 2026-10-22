@@ -133,8 +133,8 @@ _SCHEMA_AMBIGUOUS_HEADERS = frozenset({
 class SchemaColumnClassification:
     """Evidence for an exact schema-column classification.
 
-    ``map_columns`` intentionally keeps its legacy composite-header substring
-    behavior for CSV/XLSX ergonomics. SQL policy compilation must be stricter:
+    ``map_columns`` also supports a limited set of qualified field names.
+    SQL policy compilation must be stricter:
     a column such as ``product_name`` must never inherit the ``name`` mapping.
     This record therefore describes exact or whitespace/case-normalized matches
     only, and marks generic aliases with lower confidence for explicit review.
@@ -203,13 +203,45 @@ def classify_schema_columns(
     return classifications
 
 
-def map_columns(headers: Iterable[str]) -> dict[str, str]:
+_QUALIFIED_HEADER = re.compile(
+    r"^(?:신청인|민원인|기안자|수신자|당사자|환자|고객|사용자|직원|담당자|보호자)[\s_-]*(.+)$"
+    r"|^(?:applicant|patient|customer|user|employee)[\s_-]+(.+)$",
+    re.IGNORECASE,
+)
+
+
+def map_columns(
+    headers: Iterable[str], *, header_policy: Literal["conservative", "legacy"] = "conservative",
+) -> dict[str, str]:
     """각 헤더에 대해 추정 PII 라벨 반환 (없으면 키 부재).
 
     >>> map_columns(["성명", "주민번호", "메모"])
     {'성명': 'PERSON', '주민번호': 'RRN'}
+
+    By default, match aliases exactly (ignoring whitespace/case), or a known
+    subject qualifier followed by an exact alias, such as ``신청인 연락처``.
+    Unknown or mixed fields are left unmapped. Use an explicit ``column_map``
+    for domain-specific headers. ``header_policy="legacy"`` restores the old
+    first-substring behavior, including its possible false positives.
     """
-    mapping: dict[str, str] = {}
+    if header_policy not in {"conservative", "legacy"}:
+        raise ValueError(f"Unknown header_policy: {header_policy}")
+    mapping: dict[str, str]
+    if header_policy == "conservative":
+        names = list(headers)
+        mapping = {h: c.label for h, c in classify_schema_columns(names).items()}
+        for h in names:
+            if h in mapping or not isinstance(h, str):
+                continue
+            match = _QUALIFIED_HEADER.fullmatch(h.strip())
+            if match is not None:
+                field = match.group(1) or match.group(2)
+                classified = classify_schema_columns([field])
+                if field in classified:
+                    mapping[h] = classified[field].label
+        return mapping
+
+    mapping = {}
     for h in headers:
         norm = _normalize_header(h)
         if h in _HEADER_MAP:
@@ -287,6 +319,7 @@ def anonymize_records(
     mode: ProcessingMode = ProcessingMode.STRICT,
     strategy: str = "tokenize",
     vault: Optional[ReversibleVault] = None,
+    header_policy: Literal["conservative", "legacy"] = "conservative",
 ) -> tuple[list[dict[str, str]], ReversibleVault]:
     """레코드(표) 단위 가명화 — 같은 구조 유지.
 
@@ -297,7 +330,12 @@ def anonymize_records(
     column_map : optional dict
         ``{header: label}`` 매핑 명시. 미지정 시 ``map_columns`` 로 자동 추론.
     mode, strategy, vault :
-        :class:`Anonymizer` 와 동일.
+        ``AUDIT`` preserves cells and does not write to the Vault. In other
+        modes, mapped columns are explicit label assertions and bypass detector
+        thresholds. Unnamed overflow cells use :class:`Anonymizer` policies.
+    header_policy :
+        Automatic mapping policy (see :func:`map_columns`). An explicit
+        ``column_map`` takes precedence, including an empty mapping.
 
     Returns
     -------
@@ -305,6 +343,8 @@ def anonymize_records(
         같은 dict 구조의 가명화 결과 + 공유된 vault.
         매핑된 컬럼 *외* 의 값들은 원본 그대로 보존.
     """
+    if header_policy not in {"conservative", "legacy"}:
+        raise ValueError(f"Unknown header_policy: {header_policy}")
     if not records:
         return [], (vault if vault is not None else ReversibleVault())
 
@@ -314,7 +354,7 @@ def anonymize_records(
         all_keys: set[str] = set()
         for r in records:
             all_keys.update(k for k in r.keys() if isinstance(k, str))
-        column_map = map_columns(all_keys)
+        column_map = map_columns(all_keys, header_policy=header_policy)
 
     if vault is None:
         vault = ReversibleVault()
@@ -334,7 +374,7 @@ def anonymize_records(
                 ]
                 continue
             label = column_map.get(header)
-            if not label or not value:
+            if not label or not value or mode == ProcessingMode.AUDIT:
                 new_rec[header] = value
                 continue
             # 컬럼 매핑 = 명시적 라벨 단언 → 검출기 임계값 우회

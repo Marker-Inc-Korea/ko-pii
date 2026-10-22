@@ -18,6 +18,7 @@ from __future__ import annotations
 import re
 from typing import Iterator
 
+from ko_pii.core.overlap import _select_non_overlapping
 from ko_pii.core.types import DetectionResult, RiskLevel
 
 LABEL = "PHONE"
@@ -149,14 +150,6 @@ def _emit(m: re.Match[str], phone_type: str, international: bool = False) -> Det
     )
 
 
-def _overlaps(span: tuple[int, int], seen: set[tuple[int, int]]) -> bool:
-    s, e = span
-    for ss, ee in seen:
-        if s < ee and ss < e:
-            return True
-    return False
-
-
 def _phone_type_for_prefix(prefix: str) -> str:
     if prefix.startswith("01"):
         return "mobile"
@@ -166,63 +159,18 @@ def _phone_type_for_prefix(prefix: str) -> str:
 
 
 def detect(text: str) -> Iterator[DetectionResult]:
-    seen: set[tuple[int, int]] = set()
-
-    # 괄호 지역번호 표기 먼저 — 여는 괄호까지 포함한 전체 span 을 선점.
-    for m in _PAREN_AREA.finditer(text):
-        span = (m.start(), m.end())
-        if _overlaps(span, seen):
-            continue
-        seen.add(span)
-        yield _emit(m, _phone_type_for_prefix(m.group(1)))
-
-    # International forms first — they cover their domestic-looking core.
-    for m in _MOBILE_INTL.finditer(text):
-        span = (m.start(), m.end())
-        if _overlaps(span, seen):
-            continue
-        seen.add(span)
-        yield _emit(m, "mobile", international=True)
-
-    for m in _SEOUL_INTL.finditer(text):
-        span = (m.start(), m.end())
-        if _overlaps(span, seen):
-            continue
-        seen.add(span)
-        yield _emit(m, "landline", international=True)
-
-    for m in _REGIONAL_INTL.finditer(text):
-        span = (m.start(), m.end())
-        if _overlaps(span, seen):
-            continue
-        seen.add(span)
-        yield _emit(m, "voip" if m.group(1) == "70" else "landline", international=True)
-
-    for m in _MOBILE.finditer(text):
-        span = (m.start(), m.end())
-        if _overlaps(span, seen):
-            continue
-        seen.add(span)
-        yield _emit(m, "mobile")
-
-    for m in _REGIONAL.finditer(text):
-        span = (m.start(), m.end())
-        if _overlaps(span, seen):
-            continue
-        seen.add(span)
-        prefix = m.group(1)
-        yield _emit(m, "voip" if prefix == "070" else "landline")
-
-    for m in _SEOUL.finditer(text):
-        span = (m.start(), m.end())
-        if _overlaps(span, seen):
-            continue
-        seen.add(span)
-        yield _emit(m, "landline")
-
-    for m in _REPRESENTATIVE.finditer(text):
-        span = (m.start(), m.end())
-        if _overlaps(span, seen):
-            continue
-        seen.add(span)
-        yield _emit(m, "representative")
+    # Preserve pattern priority and emission order, not risk-based priority:
+    # parenthesized/international forms must own their domestic-looking core.
+    candidates: list[DetectionResult] = []
+    for pattern, international in (
+        (_PAREN_AREA, False), (_MOBILE_INTL, True), (_SEOUL_INTL, True),
+        (_REGIONAL_INTL, True), (_MOBILE, False), (_REGIONAL, False),
+        (_SEOUL, False), (_REPRESENTATIVE, False),
+    ):
+        for m in pattern.finditer(text):
+            prefix = ("0" if international else "") + m.group(1)
+            phone_type = (
+                "representative" if pattern is _REPRESENTATIVE else _phone_type_for_prefix(prefix)
+            )
+            candidates.append(_emit(m, phone_type, international=international))
+    yield from _select_non_overlapping(candidates)

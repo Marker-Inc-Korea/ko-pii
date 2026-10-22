@@ -7,8 +7,12 @@
 from __future__ import annotations
 
 import time
+from statistics import median
 
-from ko_pii import detect_all
+import pytest
+
+from ko_pii import Anonymizer, detect_all
+from ko_pii.patterns import email
 
 
 def _elapsed(text: str) -> float:
@@ -44,3 +48,29 @@ def test_double_pass_gated_by_alnum_shape() -> None:
     assert _run_shape("900101 1234567") != _run_shape("9001011234567")  # 영숫자 융합 → 더블
     assert _run_shape("가나다 라마바") == _run_shape("가나다라마바")      # 한글 → 단일
     assert _run_shape("안녕 하세요 반갑") == _run_shape("안녕하세요반갑")
+
+
+@pytest.mark.parametrize("strategy", ["redact", "tokenize"])
+def test_dense_phone_processing_stays_sub_quadratic(strategy: str) -> None:
+    def elapsed(count: int) -> float:
+        text = "010-1234-5678\n" * count
+        samples = []
+        for _ in range(3):
+            anon = Anonymizer(strategy=strategy, include=["PHONE"])
+            start = time.process_time()
+            result = anon.process(text)
+            samples.append(time.process_time() - start)
+            assert len(result.detections) == count
+        return median(samples)
+
+    small, large = elapsed(1_000), elapsed(4_000)
+    assert large < small * 8, f"dense {strategy} scaling: {small:.3f}s -> {large:.3f}s"
+
+
+@pytest.mark.parametrize("suffix", ["", "@", " [at] invalid-domain", " [at] example [dot] com"])
+def test_email_long_local_run_without_valid_domain_does_not_retry_each_word(suffix: str) -> None:
+    text = "word " * 10_000 + suffix
+    start = time.process_time()
+    found = list(email.detect(text))
+    assert time.process_time() - start < 1.0
+    assert len(found) == int(suffix.endswith("com"))

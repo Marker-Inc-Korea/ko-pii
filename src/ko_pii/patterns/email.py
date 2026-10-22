@@ -9,8 +9,10 @@ Legal basis: 개인정보보호법 제2조.
 from __future__ import annotations
 
 import re
+import string
 from typing import Iterator
 
+from ko_pii.core.overlap import _select_non_overlapping
 from ko_pii.core.types import DetectionResult, RiskLevel
 
 LABEL = "EMAIL"
@@ -45,6 +47,37 @@ _OBFUSCATED = re.compile(
     r"(?![A-Za-z0-9])",
     re.IGNORECASE,
 )
+_AT_MARKER = re.compile(_OBF_AT, re.IGNORECASE)
+_DOMAIN_AFTER_AT = re.compile(
+    r"\s*" + _OBF_LABEL + r"(?:\s*" + _OBF_DOT + r"\s*" + _OBF_LABEL + r")+(?![A-Za-z0-9])",
+    re.IGNORECASE,
+)
+# re.IGNORECASE also admits these four Unicode letters in [A-Z].
+_LOCAL_CHARS = frozenset(string.ascii_letters + string.digits + "._%+-İıſK")
+
+
+def _obfuscated_matches(text: str) -> Iterator[re.Match[str]]:
+    """Anchor on valid at/domain pairs instead of retrying every local word."""
+    cursor = 0
+    for at in _AT_MARKER.finditer(text):
+        if at.start() < cursor or _DOMAIN_AFTER_AT.match(text, at.end()) is None:
+            continue
+        start = at.start()
+        while start > cursor and (text[start - 1] in _LOCAL_CHARS or text[start - 1].isspace()):
+            start -= 1
+        while start < at.start() and text[start].isspace():
+            start += 1
+        # The original lookbehind forbids starting directly after another @.
+        if start > 0 and text[start - 1] in _LOCAL_CHARS | {"@"}:
+            while start < at.start() and text[start] in _LOCAL_CHARS:
+                start += 1
+            while start < at.start() and text[start].isspace():
+                start += 1
+        if start < at.start():
+            match = _OBFUSCATED.match(text, start)
+            if match is not None:
+                cursor = match.end()
+                yield match
 
 # 난독화 토큰([at]/[dot]/괄호/공백)을 표준형으로 환원.
 _DEOBF_AT = re.compile(r"\s*(?:\[\s*at\s*\]|\(\s*at\s*\))\s*", re.IGNORECASE)
@@ -67,7 +100,7 @@ def _canonicalize(raw: str) -> str | None:
 
 
 def detect(text: str) -> Iterator[DetectionResult]:
-    seen: list[tuple[int, int]] = []
+    candidates: list[DetectionResult] = []
 
     for m in _PATTERN.finditer(text):
         value = m.group(1)
@@ -77,8 +110,7 @@ def detect(text: str) -> Iterator[DetectionResult]:
             continue
         if ".." in local or ".." in domain:
             continue
-        seen.append((m.start(), m.end()))
-        yield DetectionResult(
+        candidates.append(DetectionResult(
             label=LABEL,
             text=value,
             start=m.start(),
@@ -93,19 +125,15 @@ def detect(text: str) -> Iterator[DetectionResult]:
                 "domain": domain,
                 "category": CATEGORY,
             },
-        )
+        ))
 
     # 난독화 이메일 — 표준 패턴에 안 잡힌 우회 형태. 표준 매치와 겹치면 건너뜀.
-    for m in _OBFUSCATED.finditer(text):
-        span = (m.start(), m.end())
-        if any(s < span[1] and span[0] < e for s, e in seen):
-            continue
+    for m in _obfuscated_matches(text):
         canon = _canonicalize(m.group(0))
         if canon is None:
             continue
         local, _, domain = canon.rpartition("@")
-        seen.append(span)
-        yield DetectionResult(
+        candidates.append(DetectionResult(
             label=LABEL,
             text=m.group(0),
             start=m.start(),
@@ -121,4 +149,5 @@ def detect(text: str) -> Iterator[DetectionResult]:
                 "category": CATEGORY,
                 "obfuscated": True,
             },
-        )
+        ))
+    yield from _select_non_overlapping(candidates)

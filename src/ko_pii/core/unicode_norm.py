@@ -139,7 +139,18 @@ _DIGIT_HOMOGLYPH: dict[str, str] = {
     "S": "5", "B": "8", "Z": "2", "G": "6",
 }
 _DIGIT_HG_CHARS = "".join(re.escape(c) for c in _DIGIT_HOMOGLYPH)
-_DIGIT_HG_TOKEN = re.compile(rf"[0-9{_DIGIT_HG_CHARS}][0-9{_DIGIT_HG_CHARS}\-\u2010-\u2015]*")
+_DIGIT_HG_TOKEN = re.compile(r"[A-Za-z0-9_|][A-Za-z0-9_|\-\u2010-\u2015]*")
+_DIGIT_HG_PRESENT = re.compile(rf"[{_DIGIT_HG_CHARS}]")
+_DIGIT_HG_ALLOWED = frozenset("0123456789-\u2010\u2011\u2012\u2013\u2014\u2015") | _DIGIT_HOMOGLYPH.keys()
+
+
+def _is_digit_homoglyph_token(token: str) -> bool:
+    # Inspect the whole ASCII identifier, not a numeric-looking suffix inside it.
+    return (
+        bool(_DIGIT_HG_PRESENT.search(token))
+        and all(c in _DIGIT_HG_ALLOWED for c in token)
+        and sum(c.isdigit() for c in token) >= 2
+    )
 
 
 def _fold_digit_homoglyphs(text: str) -> str:
@@ -147,9 +158,7 @@ def _fold_digit_homoglyphs(text: str) -> str:
 
     def repl(m: re.Match[str]) -> str:
         s = m.group(0)
-        digits = sum(c.isdigit() for c in s)
-        hg = sum(c in _DIGIT_HOMOGLYPH for c in s)
-        if digits >= 2 and hg >= 1:
+        if _is_digit_homoglyph_token(s):
             return "".join(_DIGIT_HOMOGLYPH.get(c, c) for c in s)
         return s
 
@@ -168,6 +177,10 @@ def needs_normalization(text: str) -> bool:
         (not text.isascii())
         or bool(_INVISIBLE.search(text))
         or bool(_spaced_collapse_positions(text))
+        or (
+            bool(_DIGIT_HG_PRESENT.search(text))
+            and any(_is_digit_homoglyph_token(m.group()) for m in _DIGIT_HG_TOKEN.finditer(text))
+        )
     )
 
 
@@ -184,8 +197,8 @@ def normalize_unicode(text: str) -> tuple[str, list[int]]:
     """NFKC 폴딩 + 보이지 않는 문자 제거.
 
     Returns ``(normalized, offset_map)``. ``offset_map[i]`` 는 ``normalized[i]``
-    에 대응하는 원본 ``text`` 위치. 변화가 없으면 ``normalized == text`` (offset_map
-    은 빈 리스트 — 호출측이 무시).
+    에 대응하는 원본 ``text`` 위치. 길이와 위치가 유지되는 빠른 경로에서는 빈 리스트를
+    반환한다. 이 경우에도 숫자 닮은꼴 폴딩으로 내용은 달라질 수 있다.
     """
     # 라틴 호몰로그 숫자 폴딩(1:1, 길이 불변 → offset 보존). 빠른 경로 전에 적용해야
     # 'l234567' 같은 ASCII-호몰로그 우회도 펴진다.

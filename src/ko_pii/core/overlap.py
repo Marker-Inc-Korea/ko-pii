@@ -11,9 +11,43 @@ detect_all / merge_detections / 치환(apply_substitutions) 경로가 **모두 �
 """
 from __future__ import annotations
 
+from bisect import bisect_left
 from typing import Iterable
 
 from ko_pii.core.types import DetectionResult
+
+
+def _select_non_overlapping(items: list[DetectionResult]) -> list[DetectionResult]:
+    """Keep the first eligible spans in input order in O(n log n) time.
+
+    An accepted interval overlaps a candidate iff its start is below the
+    candidate's end and its end is above the candidate's start. A Fenwick tree
+    stores prefix maxima of ends, indexed by compressed start coordinates.
+    This preserves the original strict inequalities, including empty spans.
+    """
+    starts = sorted({d.start for d in items})
+    positions = {start: i + 1 for i, start in enumerate(starts)}
+    ends: list[int | None] = [None] * (len(starts) + 1)
+    accepted: list[DetectionResult] = []
+    for d in items:
+        i = bisect_left(starts, d.end)
+        overlaps = False
+        while i:
+            end = ends[i]
+            if end is not None and end > d.start:
+                overlaps = True
+                break
+            i -= i & -i
+        if overlaps:
+            continue
+        accepted.append(d)
+        i = positions[d.start]
+        while i < len(ends):
+            end = ends[i]
+            if end is None or d.end > end:
+                ends[i] = d.end
+            i += i & -i
+    return accepted
 
 
 def resolve_overlaps(detections: Iterable[DetectionResult]) -> list[DetectionResult]:
@@ -26,10 +60,6 @@ def resolve_overlaps(detections: Iterable[DetectionResult]) -> list[DetectionRes
             d.start,
         ),
     )
-    accepted: list[DetectionResult] = []
-    for d in items:
-        if any(d.start < a.end and a.start < d.end for a in accepted):
-            continue
-        accepted.append(d)
+    accepted = _select_non_overlapping(items)
     accepted.sort(key=lambda d: (d.start, d.end))
     return accepted

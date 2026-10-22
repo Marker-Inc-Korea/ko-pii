@@ -406,7 +406,28 @@ print(anon_rows[0])
 # {'성명': '<PERSON_1>', '주민번호': '<RRN_1>', '연락처': '<PHONE_1>', '주소': '<ADDRESS_1>'}
 ```
 
-SQL 스키마처럼 오탐이 곧 쿼리 차단으로 이어지는 경로에서는 부분 문자열 매핑 대신
+1.19부터 자동 매핑은 공백·대소문자를 정규화한 완전 일치와 제한된 복합 헤더를
+사용합니다. `신청인 연락처`는 PHONE이지만 `상품이름`, `filename`, `product_name`은
+사람 이름으로 처리하지 않습니다. **미매핑 열은 그대로 남습니다.** 자동 추론만으로
+모든 개인정보 열을 찾았다고 간주하지 말고, 실제 열을 확인해 `column_map`을 지정하십시오.
+
+```python
+from ko_pii import ProcessingMode
+from ko_pii.tabular import map_columns
+
+print(map_columns(["상품이름", "신청인 연락처"]))  # {'신청인 연락처': 'PHONE'}
+anon_rows, vault = anonymize_records(rows, column_map={"성명": "PERSON", "연락처": "PHONE"})
+unchanged, audit_vault = anonymize_records(rows, mode=ProcessingMode.AUDIT)
+assert unchanged == rows and len(audit_vault) == 0
+```
+
+`AUDIT`는 셀과 전달한 Vault를 변경하지 않습니다. 다른 모드에서는 매핑된 열 전체를
+탐지 임계값과 무관하게 처리하는 기존 동작을 유지합니다. 표 API는 탐지 보고서를 반환하지
+않으므로 값별 판정은 `Anonymizer.process()`로 확인합니다. 기존 부분 문자열 매칭이
+꼭 필요한 경우 두 함수에 `header_policy="legacy"`를 지정할 수 있으나, 기존 오탐도
+되살아나므로 명시적 매핑을 권장합니다.
+
+SQL 스키마처럼 오탐이 곧 쿼리 차단으로 이어지는 경로에서는 복합 헤더 추론 대신
 근거와 신뢰도를 반환하는 strict API를 사용합니다. `product_name`은 `name`으로 분류되지
 않고, 단독 `name`은 자동 차단이 아니라 낮은 신뢰도의 검토 대상으로 표시됩니다.
 
