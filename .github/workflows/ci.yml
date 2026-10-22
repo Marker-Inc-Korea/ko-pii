@@ -37,7 +37,10 @@ jobs:
         run: python -m pip install -e ".[dev,file,security]"
 
       - name: Run tests
-        run: python -m pytest -q
+        run: python -m pytest -q --ignore=tests/property
+
+      - name: Generated invariants (reproducible, no external data)
+        run: python -m pytest -q tests/property --hypothesis-show-statistics
 
   portable:
     name: Portable CLI (${{ matrix.os }})

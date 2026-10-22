@@ -5,6 +5,7 @@ import re
 from typing import Iterable, Optional
 
 from ko_pii.core.types import DetectionResult
+from ko_pii.core.trace import OverlapTrace
 from ko_pii.labels import validate_label_filter
 from ko_pii.core.overlap import resolve_overlaps as _resolve_overlaps
 from ko_pii.core.unicode_norm import (
@@ -114,6 +115,7 @@ def detect_all(
     *,
     normalize: bool = True,
     person_exclusions: Optional[Iterable[str]] = None,
+    trace: OverlapTrace | None = None,
 ) -> list[DetectionResult]:
     """Run every detector and return a merged, conflict-resolved list.
 
@@ -129,6 +131,9 @@ def detect_all(
 
     ``person_exclusions``: 이 호출에서 PERSON 으로 검출하지 않을 도메인 용어.
     패키지 내장 사전을 수정하지 않으며 다른 호출에 영향을 주지 않는다.
+
+    ``trace`` optionally collects bounded common-overlap metadata. Use a fresh
+    OverlapTrace per input; it does not trace detector-internal rejections.
     """
     if not isinstance(text, str):
         raise TypeError(f"detect_all() expects str, got {type(text).__name__}")
@@ -182,10 +187,9 @@ def detect_all(
     if exc:
         raw = [d for d in raw if d.label not in exc]
 
-    resolved = _resolve_overlaps(raw)
-    for detection in resolved:
+    for detection in raw:
         detection.rule_id = f"ko-pii.{detection.label.lower()}.v1"
-    return resolved
+    return _resolve_overlaps(raw, trace=trace)
 
 
 # 겹침 해소는 core.overlap.resolve_overlaps 단일 구현 사용 (위 import 의 _resolve_overlaps).

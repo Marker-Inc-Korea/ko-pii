@@ -5,6 +5,23 @@
 
 ## [Unreleased]
 
+## [1.21.0] - 2026-10-22
+
+### Added
+
+- JSON/JSONL의 `field_person_exclusions`와 CLI `--field-person-exclusions`로
+  정확한 필드에만 PERSON 제외어를 적용합니다. 기존 전역 제외어와 합산하며 다른 라벨,
+  형제 필드, 다음 호출에는 영향을 주지 않고 명시적 필드 라벨 단언을 우회하지 않습니다.
+- `RegexDetector` / `CallableDetector`를 기존 `secondary_detector`에 연결할 수 있습니다.
+  기존 라벨, 원문 좌표/일치, 위험도, 유한 신뢰도 및 입력/결과 수를 검증합니다.
+  사용자 정의 코드는 신뢰된 애플리케이션 코드로 한정하며 실행 샌드박스를 제공하지 않습니다.
+- 이메일 ASCII/한글 도메인/난독화 경로의 안정적인 `subrule_id`와 선택적 겹침 추적을
+  추가합니다. `Anonymizer(trace_limit=...)`, `explain(..., include_trace=True)`, CLI
+  `--trace-limit`로 사용하며 원문 없이 제외 사유와 한 개의 겹친 후보, 잘림 여부를 기록합니다.
+  탐지기 내부 탈락, 병합 정책의 제외, 모든 미탐을 설명하는 기능은 아닙니다.
+- Hypothesis는 개발 의존성으로만 추가합니다. Unicode 원문/출력 좌표, 이메일 문장 경계,
+  Vault 왕복, 겹침 알고리즘과 필드 격리의 생성형 불변조건 테스트를 CI에서 실행합니다.
+
 ## [1.20.1] - 2026-10-22
 
 ### Fixed
@@ -587,7 +604,8 @@ Phase 9 — 실데이터 평가 + 룰 정제.
 
 전체 Phase 1~11 개발 히스토리는 git log 및 `docs/` 참조.
 
-[Unreleased]: https://github.com/Marker-Inc-Korea/ko-pii/compare/v1.13.0...HEAD
+[Unreleased]: https://github.com/Marker-Inc-Korea/ko-pii/compare/v1.21.0...HEAD
+[1.21.0]: https://github.com/Marker-Inc-Korea/ko-pii/compare/v1.20.1...v1.21.0
 [1.13.0]: https://github.com/Marker-Inc-Korea/ko-pii/compare/v1.12.1...v1.13.0
 [1.12.1]: https://github.com/Marker-Inc-Korea/ko-pii/compare/v1.12.0...v1.12.1
 [1.12.0]: https://github.com/Marker-Inc-Korea/ko-pii/compare/v1.11.3...v1.12.0

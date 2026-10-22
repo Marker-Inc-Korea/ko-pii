@@ -21,6 +21,7 @@ from ko_pii.analytics.combined_risk import (
 )
 from ko_pii.core.modes import Action, ProcessingMode, policy_for
 from ko_pii.core.types import DetectionResult, RiskLevel
+from ko_pii.core.trace import OverlapTrace, validate_trace_limit
 from ko_pii.detect import detect_all
 from ko_pii.labels import validate_label_filter
 from ko_pii.modes._apply import AppliedSpan, apply_substitutions
@@ -46,6 +47,7 @@ class AnonymizationResult:
     summary: dict[str, Any] = field(default_factory=dict)
     combined_risk: Optional[CombinedRiskReport] = None
     substitutions: list[AppliedSpan] = field(default_factory=list)
+    overlap_trace: OverlapTrace | None = None
 
     def review_items(self) -> list[DetectionRecord]:
         return [r for r in self.detections if r.action == Action.REVIEW]
@@ -74,6 +76,9 @@ class Anonymizer:
     strategies :
         Optional per-label overrides for ``strategy``. Detection thresholds still
         follow ``mode``; overrides do not turn REVIEW/ALLOW into BLOCK.
+    trace_limit :
+        Collect up to this many value-free common-overlap events per call.
+        Zero (default) disables collection; the maximum is 1000.
     """
 
     def __init__(
@@ -89,7 +94,10 @@ class Anonymizer:
         person_exclusions: Optional[Iterable[str]] = None,
         *,
         strategies: Mapping[str, str] | None = None,
+        trace_limit: int = 0,
     ) -> None:
+        validate_trace_limit(trace_limit)
+        self.trace_limit = trace_limit
         self.strategies = MappingProxyType(validate_strategies(strategy, strategies))
         self.mode = mode
         self.policy = policy_for(mode)
@@ -107,11 +115,17 @@ class Anonymizer:
     # ------------------------------------------------------------ public
 
     def process(self, text: str) -> AnonymizationResult:
+        return self._process_with_exclusions(text, self.person_exclusions)
+
+    def _process_with_exclusions(self, text: str, exclusions: frozenset[str]) -> AnonymizationResult:
+        # Structured fields supply a per-call union, never mutate shared policy.
+        trace = OverlapTrace(self.trace_limit) if self.trace_limit else None
         primary = detect_all(
             text,
             include=self.include,
             exclude=self.exclude,
-            person_exclusions=self.person_exclusions,
+            person_exclusions=exclusions,
+            trace=trace,
         )
         # Optional secondary detector (ML 어댑터 등) 가 있으면 결과 병합
         if self.secondary_detector is not None:
@@ -121,7 +135,7 @@ class Anonymizer:
                 secondary = [s for s in secondary if s.label in self.include]
             if self.exclude:
                 secondary = [s for s in secondary if s.label not in self.exclude]
-            if self.person_exclusions:
+            if exclusions:
                 # Filter before overlap resolution. An excluded PERSON must not
                 # displace an overlapping primary ADDRESS or identifier.
                 secondary = [
@@ -131,17 +145,20 @@ class Anonymizer:
                         detection.label == "PERSON"
                         and is_person_excluded(
                             detection.text,
-                            self.person_exclusions,
+                            exclusions,
                         )
                     )
                 ]
             detections = merge_detections(
                 primary, secondary, mode=MergeMode(self.merge_mode),
                 role_split_labels=self.role_split_labels,
+                trace=trace,
             )
         else:
             detections = primary
-        return self._process_detections(text, detections)
+        result = self._process_detections(text, detections)
+        result.overlap_trace = trace
+        return result
 
     def strategy_for(self, label: str) -> str:
         """Return the configured transformation, without changing mode thresholds."""

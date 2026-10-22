@@ -25,6 +25,7 @@ RAG 연동 (검색 결과 PII 마스킹 — 검색 → 마스킹 → LLM):
 from typing import TYPE_CHECKING, Any
 
 from ko_pii.integrations.base import SecondaryDetector, MockSecondaryDetector
+from ko_pii.integrations.custom import CallableDetector, RegexDetector
 from ko_pii.integrations.hybrid import merge_detections, MergeMode
 
 if TYPE_CHECKING:
@@ -32,6 +33,8 @@ if TYPE_CHECKING:
 
 __all__ = [
     "SecondaryDetector",
+    "CallableDetector",
+    "RegexDetector",
     "MockSecondaryDetector",
     "merge_detections",
     "MergeMode",

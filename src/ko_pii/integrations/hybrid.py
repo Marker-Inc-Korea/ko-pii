@@ -20,6 +20,7 @@ from enum import Enum
 from typing import Iterable, Optional
 
 from ko_pii.core.types import DetectionResult
+from ko_pii.core.trace import OverlapTrace
 # 겹침 해소는 core.overlap 단일 구현 사용 — detect_all 과 동일 우선순위로 통일해
 # 병합 경로에서 늦게 시작하는 고위험 PII(주민·전화)가 누출되던 회귀를 차단.
 from ko_pii.core.overlap import resolve_overlaps as _resolve_overlaps
@@ -87,6 +88,7 @@ def _enrich_with_secondary_info(
         extra=new_extra,
         rule_id=primary.rule_id,
         normalized=primary.normalized,
+        subrule_id=primary.subrule_id,
     )
 
 
@@ -95,6 +97,7 @@ def merge_detections(
     secondary: Iterable[DetectionResult],
     mode: MergeMode = MergeMode.UNION,
     role_split_labels: Optional[Iterable[str]] = None,
+    *, trace: OverlapTrace | None = None,
 ) -> list[DetectionResult]:
     """primary + secondary 검출 결과를 ``mode`` 에 따라 병합.
 
@@ -121,7 +124,7 @@ def merge_detections(
             p for p in primary_list if p.label not in delegated
         ]
         out += [s for s in secondary_list if s.label in delegated]
-        return _resolve_overlaps(out)
+        return _resolve_overlaps(out, trace=trace, stage="hybrid")
 
     if mode == MergeMode.INTERSECTION:
         # 양쪽 모두 찾은 것만 인정
@@ -131,7 +134,7 @@ def merge_detections(
                 if _spans_overlap(p, s) and _same_label(p, s):
                     out.append(_enrich_with_secondary_info(p, s))
                     break
-        return _resolve_overlaps(out)
+        return _resolve_overlaps(out, trace=trace, stage="hybrid")
 
     if mode == MergeMode.ENRICH_PRIMARY:
         # primary 우선, secondary 는 primary 가 *놓친* 영역만 추가
@@ -146,7 +149,7 @@ def merge_detections(
                     if _spans_overlap(p, s) and _same_label(p, s):
                         out[i] = _enrich_with_secondary_info(p, s)
                         break
-        return _resolve_overlaps(out)
+        return _resolve_overlaps(out, trace=trace, stage="hybrid")
 
     if mode == MergeMode.CROSS_VALIDATION:
         # 일치 = high confidence / 불일치 = secondary 결과는 REVIEW 카테고리로
@@ -171,17 +174,18 @@ def merge_detections(
                     evidence=list(s.evidence) + ["uncorroborated:primary_missed"],
                     legal_basis=s.legal_basis,
                     extra={**dict(s.extra), "cross_val": "secondary_only"},
+                    rule_id=s.rule_id, normalized=s.normalized, subrule_id=s.subrule_id,
                 )
                 out.append(lowered)
-        return _resolve_overlaps(out)
+        return _resolve_overlaps(out, trace=trace, stage="hybrid")
 
     if mode == MergeMode.FALLBACK_SECONDARY:
         # primary 결과만 반환 — secondary 는 *호출 시점에서* REVIEW 만
         # 다시 평가하도록 사용 (Anonymizer 가 처리)
-        return _resolve_overlaps(primary_list)
+        return _resolve_overlaps(primary_list, trace=trace, stage="hybrid")
 
     # UNION (기본)
-    return _resolve_overlaps(primary_list + secondary_list)
+    return _resolve_overlaps(primary_list + secondary_list, trace=trace, stage="hybrid")
 
 
 # _resolve_overlaps 는 상단 import 의 core.overlap.resolve_overlaps (정본).

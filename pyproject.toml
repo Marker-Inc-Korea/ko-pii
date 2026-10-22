@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ko-pii"
-version = "1.20.1"
+version = "1.21.0"
 description = "한국어 PII 검출 + 가역 가명화 라이브러리 (ML 없이 룰 기반)"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -44,7 +44,7 @@ dependencies = []
 
 [project.optional-dependencies]
 # 개발
-dev = ["pytest>=7.0", "pytest-cov>=4.0"]
+dev = ["pytest>=7.0", "pytest-cov>=4.0", "hypothesis>=6.100,<7"]
 # 입력 포맷 — HWP 5.x, PDF
 file = ["olefile>=0.46", "pdfplumber>=0.10", "pypdf>=3.0"]
 # Vault 암호화 — AES-GCM

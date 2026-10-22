@@ -14,6 +14,7 @@ from ko_pii.core.types import DetectionResult, RiskLevel
 from ko_pii.labels import validate_label_filter
 from ko_pii.reporting.explanation import explain
 from ko_pii.field_rules import FieldRule, bounded_rules, resolve_rules
+from ko_pii.patterns.person import normalize_exclusions
 
 
 @dataclass(frozen=True)
@@ -46,11 +47,11 @@ class StructuredResult:
     source_line: int | None = None
     field_rule_summary: list[dict[str, Any]] = field(default_factory=list)
 
-    def report(self, *, include_paths: bool = False) -> dict[str, Any]:
+    def report(self, *, include_paths: bool = False, include_trace: bool = False) -> dict[str, Any]:
         """Paths are opt-in because object keys can themselves contain PII."""
         rows = []
         for index, item in enumerate(self.fields):
-            row = {"field_index": index, **explain(item.result)}
+            row = {"field_index": index, **explain(item.result, include_trace=include_trace)}
             if include_paths:
                 row["path"] = item.path
             rows.append(row)
@@ -61,6 +62,49 @@ class StructuredResult:
 
 def _pointer(parent: str, key: str) -> str:
     return parent + "/" + key.replace("~", "~0").replace("/", "~1")
+
+
+def _field_exclusions(config: Mapping[str, Iterable[str]] | None) -> dict[str, frozenset[str]]:
+    if config is None:
+        return {}
+    if not isinstance(config, Mapping) or len(config) > 128:
+        raise ValueError("field_person_exclusions must be a mapping of at most 128 JSON Pointers")
+    result = {}
+    for path, terms in config.items():
+        if (not isinstance(path, str) or len(path) > 4096 or (path and not path.startswith("/"))
+                or re.search(r"~(?![01])", path)):
+            raise ValueError("field_person_exclusions contains an invalid JSON Pointer")
+        if isinstance(terms, (str, bytes)):
+            raise ValueError("field person exclusions must be lists of terms, not strings")
+        bounded: list[str] = []
+        try:
+            for term in terms:
+                if not isinstance(term, str) or not term.strip() or len(term) > 256 or len(bounded) >= 256:
+                    raise ValueError("field person exclusions require at most 256 nonempty terms of at most 256 characters")
+                bounded.append(term)
+        except TypeError:
+            raise ValueError("field person exclusions must be iterable strings") from None
+        normalized = normalize_exclusions(bounded)
+        if any(not normalize_exclusions([term]) for term in bounded) or any(len(term) > 256 for term in normalized):
+            raise ValueError("normalized field person exclusions must be nonempty and at most 256 characters")
+        result[path] = normalized
+    return result
+
+
+def _validate_exclusions(data: Any, config: dict[str, frozenset[str]]) -> None:
+    for path in config:
+        value = data
+        for segment in path.split("/")[1:] if path else ():
+            key = segment.replace("~1", "/").replace("~0", "~")
+            if isinstance(value, dict) and key in value:
+                value = value[key]
+            elif (isinstance(value, list) and re.fullmatch(r"0|[1-9][0-9]*", key)
+                  and len(key) <= 10 and int(key) < len(value)):
+                value = value[int(key)]
+            else:
+                raise ValueError("field_person_exclusions contains a path absent from the document")
+        if value is not None and not isinstance(value, str):
+            raise ValueError("field person exclusions apply only to string or null fields")
 
 
 def _labels(field_labels: Mapping[str, str] | None, anon: Anonymizer) -> dict[str, str]:
@@ -138,6 +182,7 @@ def anonymize_json(
     field_labels: Mapping[str, str] | None = None,
     limits: StructuredLimits | None = None,
     field_rules: Iterable[FieldRule] | None = None,
+    field_person_exclusions: Mapping[str, Iterable[str]] | None = None,
 ) -> StructuredResult:
     """Copy and process JSON values with one shared Anonymizer/Vault.
 
@@ -145,11 +190,16 @@ def anonymize_json(
     is transformed regardless of detection thresholds (except in AUDIT mode).
     Integers become strings only when transformed. Keys are preserved. No claim
     is made about PII in keys, ordinary numbers, or undetected string values.
+
+    ``field_person_exclusions`` adds exact normalized PERSON terms only at the
+    specified existing string/null JSON Pointers. Explicit assertions still win.
     """
     anon = anonymizer if anonymizer is not None else Anonymizer()
     policy = limits or StructuredLimits()
     labels = _labels(field_labels, anon)
     _validate(data, labels, policy)
+    exclusions = _field_exclusions(field_person_exclusions)
+    _validate_exclusions(data, exclusions)
     rules = bounded_rules(field_rules)
     for rule in rules:
         _labels({"": rule.label}, anon)
@@ -169,7 +219,8 @@ def anonymize_json(
             fields.append(StructuredField(path, result))
             return value if anon.mode == ProcessingMode.AUDIT else result.text
         if type(value) is str:
-            result = anon.process(value)
+            result = (anon._process_with_exclusions(value, anon.person_exclusions | exclusions[path])
+                      if path in exclusions else anon.process(value))
             fields.append(StructuredField(path, result))
             return result.text
         if type(value) is dict:
@@ -211,6 +262,7 @@ def anonymize_jsonl(
     field_labels: Mapping[str, str] | None = None,
     limits: StructuredLimits | None = None,
     field_rules: Iterable[FieldRule] | None = None,
+    field_person_exclusions: Mapping[str, Iterable[str]] | None = None,
 ) -> list[StructuredResult]:
     """Validate the entire bounded input before processing; no partial return.
 
@@ -222,6 +274,7 @@ def anonymize_jsonl(
         raise ValueError("JSONL input exceeds character limits")
     anon = anonymizer if anonymizer is not None else Anonymizer()
     labels = _labels(field_labels, anon)
+    exclusions = _field_exclusions(field_person_exclusions)
     rules = bounded_rules(field_rules)
     for rule in rules:
         _labels({"": rule.label}, anon)
@@ -236,6 +289,7 @@ def anonymize_jsonl(
             _validate(data, labels, policy)
             resolved, _ = resolve_rules(data, labels, rules)
             _validate(data, resolved, policy)
+            _validate_exclusions(data, exclusions)
         except ValueError:
             raise ValueError(f"invalid JSONL document at line {number}") from None
         documents.append((number, data))
@@ -243,7 +297,8 @@ def anonymize_jsonl(
         raise ValueError("JSONL input must contain at least one document")
     results = []
     for number, data in documents:
-        result = anonymize_json(data, anonymizer=anon, field_labels=labels, limits=policy, field_rules=rules)
+        result = anonymize_json(data, anonymizer=anon, field_labels=labels, limits=policy,
+                                field_rules=rules, field_person_exclusions=exclusions)
         result.source_line = number
         results.append(result)
     return results

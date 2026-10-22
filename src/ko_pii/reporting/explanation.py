@@ -8,17 +8,17 @@ from ko_pii.anonymizer import AnonymizationResult
 from ko_pii.core.modes import Action, ProcessingMode
 from ko_pii.labels import ALL_LABELS
 from ko_pii.policy import STRATEGIES
+from ko_pii.core.trace import RULE_IDS, SUBRULE_IDS
 
-_RULE_IDS = {f"ko-pii.{label.lower()}.v1" for label in ALL_LABELS} | {"field.asserted.v1"}
 _CHECKS = frozenset({"checksum:valid", "checksum:invalid_or_post_2020", "checksum:luhn_valid",
                      "obfuscated:deobfuscated", "field:asserted"})
 
 
-def explain(result: AnonymizationResult) -> dict[str, Any]:
+def explain(result: AnonymizationResult, *, include_trace: bool = False) -> dict[str, Any]:
     """Export only allowlisted metadata; text, tokens, evidence and extra stay local.
 
-    Rule IDs identify detector families, not every internal regex. Only retained
-    detections are available: this is not a trace of discarded overlap candidates.
+    Rule IDs identify families; subrule IDs cover the documented email paths.
+    Optional traces cover common overlap resolution, not every rejection/miss.
     """
     spans = {(s.start, s.end): s for s in result.substitutions}
     rows = []
@@ -35,7 +35,8 @@ def explain(result: AnonymizationResult) -> dict[str, Any]:
             reason = "substituted"
         rows.append({
             "label": d.label if d.label in ALL_LABELS else "UNKNOWN",
-            "rule_id": d.rule_id if d.rule_id in _RULE_IDS else None,
+            "rule_id": d.rule_id if d.rule_id in RULE_IDS else None,
+            "subrule_id": d.subrule_id if d.subrule_id in SUBRULE_IDS else None,
             "source_span": [d.start, d.end],
             "output_span": [span.output_start, span.output_end] if span else None,
             "normalized": bool(d.normalized),
@@ -47,7 +48,7 @@ def explain(result: AnonymizationResult) -> dict[str, Any]:
             "reason": reason,
         })
     mode = result.summary.get("mode")
-    return {
+    report = {
         "schema_version": 1,
         "contract": "ko-pii-explanation-v1",
         "scope": "selected_detections_only",
@@ -58,3 +59,6 @@ def explain(result: AnonymizationResult) -> dict[str, Any]:
         "substitution_count": sum(row["output_span"] is not None for row in rows),
         "findings": rows,
     }
+    if include_trace:
+        report["overlap_trace"] = result.overlap_trace.report() if result.overlap_trace is not None else None
+    return report

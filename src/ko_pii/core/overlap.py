@@ -15,9 +15,12 @@ from bisect import bisect_left
 from typing import Iterable
 
 from ko_pii.core.types import DetectionResult
+from ko_pii.core.trace import OverlapTrace
 
 
-def _select_non_overlapping(items: list[DetectionResult]) -> list[DetectionResult]:
+def _select_non_overlapping(
+    items: list[DetectionResult], *, trace: OverlapTrace | None = None, stage: str = "primary",
+) -> list[DetectionResult]:
     """Keep the first eligible spans in input order in O(n log n) time.
 
     An accepted interval overlaps a candidate iff its start is below the
@@ -27,30 +30,34 @@ def _select_non_overlapping(items: list[DetectionResult]) -> list[DetectionResul
     """
     starts = sorted({d.start for d in items})
     positions = {start: i + 1 for i, start in enumerate(starts)}
-    ends: list[int | None] = [None] * (len(starts) + 1)
+    ends: list[DetectionResult | None] = [None] * (len(starts) + 1)
     accepted: list[DetectionResult] = []
     for d in items:
         i = bisect_left(starts, d.end)
-        overlaps = False
+        blocker = None
         while i:
             end = ends[i]
-            if end is not None and end > d.start:
-                overlaps = True
+            if end is not None and end.end > d.start:
+                blocker = end
                 break
             i -= i & -i
-        if overlaps:
+        if trace is not None:
+            trace.record(d, blocker, stage)
+        if blocker is not None:
             continue
         accepted.append(d)
         i = positions[d.start]
         while i < len(ends):
             end = ends[i]
-            if end is None or d.end > end:
-                ends[i] = d.end
+            if end is None or d.end > end.end:
+                ends[i] = d
             i += i & -i
     return accepted
 
 
-def resolve_overlaps(detections: Iterable[DetectionResult]) -> list[DetectionResult]:
+def resolve_overlaps(
+    detections: Iterable[DetectionResult], *, trace: OverlapTrace | None = None, stage: str = "primary",
+) -> list[DetectionResult]:
     items = sorted(
         detections,
         key=lambda d: (
@@ -60,6 +67,6 @@ def resolve_overlaps(detections: Iterable[DetectionResult]) -> list[DetectionRes
             d.start,
         ),
     )
-    accepted = _select_non_overlapping(items)
+    accepted = _select_non_overlapping(items, trace=trace, stage=stage)
     accepted.sort(key=lambda d: (d.start, d.end))
     return accepted

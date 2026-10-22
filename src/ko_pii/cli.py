@@ -85,7 +85,10 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--field-label", action="append", default=[], metavar="POINTER=LABEL",
                    help="Assert the label of an exact JSON Pointer (JSON modes only).")
     p.add_argument("--field-rules", help="JSON array of typed field rules; null path segments select array items.")
+    p.add_argument("--field-person-exclusions", help="JSON object of exact field pointers to PERSON exclusion lists.")
     p.add_argument("--explain", help="Write value-free versioned JSON decision metadata.")
+    p.add_argument("--trace-limit", type=int, default=0,
+                   help="Opt-in overlap trace events per text/string field (0-1000); requires --explain.")
     p.add_argument("--report-include-sensitive", action="store_true",
                    help="Include raw review values, replacements and input path in --report. Do not share.")
     p.add_argument(
@@ -317,7 +320,7 @@ def _validate_batch_args(
     args: argparse.Namespace,
 ) -> None:
     unsupported = []
-    if (args.format != "text" or args.strategy_for or args.field_label or args.field_rules
+    if (args.format != "text" or args.strategy_for or args.field_label or args.field_rules or args.field_person_exclusions
             or args.explain or args.report_include_sensitive):
         unsupported.append("structured/policy/explanation options")
     if args.audit_log is not None:
@@ -342,7 +345,8 @@ def _validate_batch_args(
 
 def _validate_paths(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
     paths = [("input", args.input)] if args.input != "-" else []
-    for name in ("output", "vault", "report", "audit_log", "explain", "person_exclusions_file", "field_rules"):
+    for name in ("output", "vault", "report", "audit_log", "explain", "person_exclusions_file", "field_rules",
+                 "field_person_exclusions"):
         value = getattr(args, name)
         if value is not None and not (name == "output" and value == "-"):
             if not value:
@@ -482,6 +486,7 @@ def _run_single(
             merge_mode=args.merge_mode,
             person_exclusions=_load_person_exclusions(args.person_exclusions_file),
             strategies=args._strategies,
+            trace_limit=args.trace_limit,
         )
         if audit and anon.vault is not None:
             anon.vault.attach_audit(
@@ -498,17 +503,19 @@ def _run_single(
             summary = dict(result.summary)
             detection_count = len(result.detections)
             if args.explain:
-                explanation = explain(result)
+                explanation = explain(result, include_trace=bool(args.trace_limit))
         else:
             from ko_pii.structured import StructuredLimits, anonymize_json, anonymize_jsonl, loads_json
             limits = StructuredLimits(max_chars=args.max_text_chars)
             if args.format == "json":
                 documents = [anonymize_json(loads_json(text, limits=limits), anonymizer=anon,
-                                            field_labels=args._field_labels, limits=limits, field_rules=args._field_rules)]
+                                            field_labels=args._field_labels, limits=limits, field_rules=args._field_rules,
+                                            field_person_exclusions=args._field_person_exclusions)]
                 output_text = json.dumps(documents[0].data, ensure_ascii=False, indent=2) + "\n"
             else:
                 documents = anonymize_jsonl(text, anonymizer=anon, field_labels=args._field_labels,
-                                           limits=limits, field_rules=args._field_rules)
+                                           limits=limits, field_rules=args._field_rules,
+                                           field_person_exclusions=args._field_person_exclusions)
                 output_text = "".join(json.dumps(doc.data, ensure_ascii=False) + "\n" for doc in documents)
             detection_count = sum(len(f.result.detections) for doc in documents for f in doc.fields)
             active_vault = anon.vault if ({anon.strategy, *anon.strategies.values()}
@@ -518,7 +525,8 @@ def _run_single(
                        "field_rules": [{"source_line": doc.source_line, "rules": doc.field_rule_summary}
                                        for doc in documents]}
             if args.explain:
-                explanation = {"schema_version": 1, "documents": [doc.report() for doc in documents]}
+                explanation = {"schema_version": 1,
+                               "documents": [doc.report(include_trace=bool(args.trace_limit)) for doc in documents]}
         if audit:
             try:
                 audit.record_anonymize(
@@ -620,8 +628,10 @@ def main(argv: Optional[list[str]] = None) -> int:
     except ValueError as exc:
         return _report_failure(args, exc, code="invalid_label_filter" if not args.strategy_for and not args.field_label
                                else "invalid_processing_policy")
-    if args.format == "text" and (args.field_label or args.field_rules):
-        parser.error("--field-label/--field-rules require --format json or jsonl")
+    if args.format == "text" and (args.field_label or args.field_rules or args.field_person_exclusions):
+        parser.error("field options require --format json or jsonl")
+    if not 0 <= args.trace_limit <= 1000 or (args.trace_limit and not args.explain):
+        parser.error("--trace-limit requires --explain and must be between 0 and 1000")
     if args.format != "text" and (args.report or args.report_include_sensitive):
         parser.error("JSON modes use --explain instead of --report")
     if args.report_include_sensitive and not args.report:
@@ -652,6 +662,13 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     _validate_paths(parser, args)
     try:
+        args._field_person_exclusions = None
+        if args.field_person_exclusions:
+            from ko_pii.structured import loads_json, _field_exclusions
+            exclusions_config = loads_json(_read_structured_input(args.field_person_exclusions, args._read_policy))
+            if not isinstance(exclusions_config, dict):
+                raise ValueError("field person exclusions configuration must be a JSON object")
+            args._field_person_exclusions = _field_exclusions(exclusions_config)
         args._field_rules = ()
         if args.field_rules:
             from ko_pii.field_rules import rules_from_json

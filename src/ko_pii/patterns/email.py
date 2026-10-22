@@ -141,6 +141,7 @@ def detect(text: str, *, allow_spaced_local: bool = False) -> Iterator[Detection
             risk_level=RiskLevel.MEDIUM,
             confidence=1.0,
             evidence=["pattern:email"],
+            subrule_id="email.ascii.v1",
             legal_basis=LEGAL_BASIS,
             extra={
                 "value": value,
@@ -165,6 +166,7 @@ def detect(text: str, *, allow_spaced_local: bool = False) -> Iterator[Detection
             label=LABEL, text=value, start=m.start(), end=m.end(),
             risk_level=RiskLevel.MEDIUM, confidence=1.0,
             evidence=["pattern:email_idn"], legal_basis=LEGAL_BASIS,
+            subrule_id="email.korean_domain.v1",
             extra={"value": value, "local": local, "domain": domain,
                    "ascii_domain": ascii_domain, "category": CATEGORY},
         ))
@@ -183,6 +185,7 @@ def detect(text: str, *, allow_spaced_local: bool = False) -> Iterator[Detection
             risk_level=RiskLevel.MEDIUM,
             confidence=1.0,
             evidence=["pattern:email", "obfuscated:deobfuscated"],
+            subrule_id="email.obfuscated.v1",
             legal_basis=LEGAL_BASIS,
             extra={
                 "value": canon,

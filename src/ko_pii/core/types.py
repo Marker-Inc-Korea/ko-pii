@@ -26,6 +26,7 @@ class DetectionResult:
     extra: dict[str, object] = field(default_factory=dict)
     rule_id: Optional[str] = None
     normalized: bool = False
+    subrule_id: Optional[str] = None
 
     @property
     def length(self) -> int:
