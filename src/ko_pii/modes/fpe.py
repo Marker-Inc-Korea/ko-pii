@@ -3,11 +3,11 @@
 원본 PII 와 *같은 구조* (자릿수·구분자 위치·하이픈) 를 유지하면서 값만 바꾼다.
 데이터 분석·통계 호환성이 필요할 때 사용 (예: RRN 컬럼 길이·체크섬 형태 유지).
 
-- 결정적: 같은 입력 + 같은 vault salt → 같은 출력
-- 가역적이지는 않음 (rainbow table 공격 회피). 복원이 필요하면 ``tokenize`` 사용.
+- 결정적: 같은 입력 + 같은 Vault 지문 설정(키·salt·scheme·반복 횟수) → 같은 출력
+- 원문은 Vault에 저장된다. 출력의 형식만으로 원문을 복원하는 암호 방식은 아니다.
 
 알고리즘:
-1. ``(label, original)`` 의 salted SHA-256 fingerprint 를 얻는다.
+1. ``(label, original)`` 의 Vault fingerprint 를 얻는다 (신규 기본값: PBKDF2).
 2. fingerprint 를 카테고리별 길이·형식에 맞춰 변환:
    - 숫자 자릿: hex → digit (mod 10)
    - 알파벳: A-Z 범위 매핑
@@ -16,6 +16,8 @@
 
 본 모듈은 *진정한 FPE* (FF1/FF3) 가 아니라 **형식 보존 결정적 매핑** — 길이와
 구조만 보존. 강한 암호학적 가역성이 필요하면 별도 FF1 구현 필요.
+비표준 숫자 표기는 정규화되므로 길이·구분자가 바뀔 수 있다. 지원하지 않는 형식이나
+변환 후 값이 그대로인 경우에는 원문 길이의 별표로 전체 마스킹한다.
 
 Legal basis: 「가명정보 처리 가이드라인」 (개인정보보호위원회) — 형식 보존
 가명화는 데이터 효용 보존을 위한 권장 기법.
@@ -23,9 +25,11 @@ Legal basis: 「가명정보 처리 가이드라인」 (개인정보보호위원
 from __future__ import annotations
 
 import re
+import unicodedata
 from typing import Iterable, Optional
 
 from ko_pii.core.types import DetectionResult
+from ko_pii.core.unicode_norm import normalize_unicode
 from ko_pii.modes._apply import apply_substitutions
 from ko_pii.vault.reversible import ReversibleVault
 
@@ -110,7 +114,7 @@ def _fpe_phone(original: str, fp: str) -> str:
     result_chars = []
     di = 0
     for ch in original:
-        if ch.isdigit():
+        if ch.isdecimal():
             result_chars.append(new_digits[di])
             di += 1
         else:
@@ -136,7 +140,7 @@ def _fpe_card(original: str, fp: str) -> str:
     result_chars = []
     di = 0
     for ch in original:
-        if ch.isdigit():
+        if ch.isdecimal():
             result_chars.append(new_digits[di])
             di += 1
         else:
@@ -179,6 +183,8 @@ def _fpe_default(original: str, fp: str) -> str:
         elif ch.isascii() and ch.isalpha():
             chars.append(alpha_pool[ai] if ch.isupper() else alpha_pool[ai].lower())
             ai += 1
+        elif ch.isalpha():
+            chars.append("*")
         else:
             chars.append(ch)  # 구분자 등은 그대로
     return "".join(chars)
@@ -193,6 +199,20 @@ _FPE_BY_LABEL = {
     "EMAIL": _fpe_email,
     "PASSPORT": _fpe_passport,
 }
+
+
+def _pseudonymize_value(label: str, original: str, fp: str) -> str:
+    """Share normalization and fail-closed fallback across every FPE entry point."""
+    if label in {"RRN", "FRN", "PHONE", "FAX", "CARD", "ACCOUNT"}:
+        normalized, _ = normalize_unicode(original)
+    else:
+        # Numeric homoglyph folding must not rewrite an email's domain letters.
+        normalized = unicodedata.normalize("NFKC", original)
+    fn = _FPE_BY_LABEL.get(label, _fpe_default)
+    result = fn(normalized, fp)
+    if not result or result in {original, normalized}:
+        return "*" * len(original)
+    return result
 
 
 def fpe(
@@ -210,8 +230,7 @@ def fpe(
 
     def replace(d: DetectionResult) -> str:
         fp = v.fingerprint(d.label, d.text)
-        fn = _FPE_BY_LABEL.get(d.label, _fpe_default)
-        new_value = fn(d.text, fp)
+        new_value = _pseudonymize_value(d.label, d.text, fp)
         # Store the mapping for audit
         v.store(
             label=d.label,

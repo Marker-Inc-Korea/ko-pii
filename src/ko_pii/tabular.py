@@ -278,10 +278,9 @@ def _force_anonymize_cell(value: str, label: str, strategy: str,
         fp = vault.fingerprint(label, value)
         return f"<{label}:{fp[:12]}>"
     if strategy == "fpe":
-        from ko_pii.modes.fpe import _FPE_BY_LABEL, _fpe_default
+        from ko_pii.modes.fpe import _pseudonymize_value
         fp = vault.fingerprint(label, value)
-        fn = _FPE_BY_LABEL.get(label, _fpe_default)
-        new_val = fn(value, fp)
+        new_val = _pseudonymize_value(label, value, fp)
         vault.store(label, value, int(risk), legal_basis=legal_basis_for(label),
                     extra={"fpe_value": new_val})
         return new_val

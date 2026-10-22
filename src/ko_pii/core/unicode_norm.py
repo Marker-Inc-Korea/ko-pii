@@ -193,6 +193,16 @@ def _is_conjoining_jamo(ch: str) -> bool:
     )
 
 
+def _fold_numeric_text(text: str, offsets: list[int]) -> tuple[str, list[int]]:
+    """Apply ASCII numeric folds after Unicode folds, composing source offsets."""
+    text = _fold_digit_homoglyphs(text)
+    drop = _spaced_collapse_positions(text)
+    if not drop:
+        return text, offsets
+    kept = [i for i in range(len(text)) if i not in drop]
+    return "".join(text[i] for i in kept), [offsets[i] if offsets else i for i in kept]
+
+
 def normalize_unicode(text: str) -> tuple[str, list[int]]:
     """NFKC 폴딩 + 보이지 않는 문자 제거.
 
@@ -200,24 +210,17 @@ def normalize_unicode(text: str) -> tuple[str, list[int]]:
     에 대응하는 원본 ``text`` 위치. 길이와 위치가 유지되는 빠른 경로에서는 빈 리스트를
     반환한다. 이 경우에도 숫자 닮은꼴 폴딩으로 내용은 달라질 수 있다.
     """
-    # 라틴 호몰로그 숫자 폴딩(1:1, 길이 불변 → offset 보존). 빠른 경로 전에 적용해야
-    # 'l234567' 같은 ASCII-호몰로그 우회도 펴진다.
-    text = _fold_digit_homoglyphs(text)
-    # 자릿수 분할 공백 제거 대상 위치(원본 기준). 이 공백들은 invisible 처럼 스킵하되
-    # offset_map 은 보존해 redact span 이 원본 전체(공백 포함)를 덮게 한다.
-    drop_spaces = _spaced_collapse_positions(text)
     # 빠른 경로: 이미 NFKC 이고 보이지 않는/결합 문자도 없으면 그대로 (no-op).
     # 결합표시는 이미 NFKC 일 수 있어(1+◌́ 는 합성형 없음) 별도 검사 — 빠진 채
     # 건너뛰면 숫자에 붙은 결합표시가 PII 를 쪼개 누출된다.
     if (
-        not drop_spaces
-        and not _INVISIBLE.search(text)
+        not _INVISIBLE.search(text)
         and not _COMBINING.search(text)
         and not _FOLD_DIGIT.search(text)
         and not _CONJOINING_JAMO_RE.search(text)
         and unicodedata.is_normalized("NFKC", text)
     ):
-        return text, []
+        return _fold_numeric_text(text, [])
 
     out: list[str] = []
     omap: list[int] = []
@@ -226,11 +229,6 @@ def normalize_unicode(text: str) -> tuple[str, list[int]]:
     while i < n:
         ch = text[i]
         if _INVISIBLE.match(ch):
-            i += 1
-            continue
-        # 자릿수 분할 우회 구간 안의 ASCII 공백 — invisible 처럼 스킵(omap 미추가).
-        # 다음 글자가 자기 원본 위치로 매핑되므로 redact span 이 원본 공백까지 덮는다.
-        if ch == " " and i in drop_spaces:
             i += 1
             continue
         # 기본 문자 + 뒤따르는 결합표시/한글 자모를 한 클러스터로 묶어 NFKC.
@@ -252,7 +250,7 @@ def normalize_unicode(text: str) -> tuple[str, list[int]]:
             out.append(_CHAR_FOLD.get(fc, fc))
             omap.append(i)
         i = j
-    return "".join(out), omap
+    return _fold_numeric_text("".join(out), omap)
 
 
 def remap_to_source(

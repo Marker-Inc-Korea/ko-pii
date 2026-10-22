@@ -214,11 +214,10 @@ class Anonymizer:
             return apply_substitutions(text, (r.detection for r in to_block), repl, trace=trace)
 
         # fpe
-        from ko_pii.modes.fpe import _FPE_BY_LABEL, _fpe_default
+        from ko_pii.modes.fpe import _pseudonymize_value
         def repl_fpe(d: DetectionResult) -> str:
             fp = self.vault.fingerprint(d.label, d.text)
-            fn = _FPE_BY_LABEL.get(d.label, _fpe_default)
-            new_val = fn(d.text, fp)
+            new_val = _pseudonymize_value(d.label, d.text, fp)
             self.vault.store(
                 label=d.label,
                 original=d.text,

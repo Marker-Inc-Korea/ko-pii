@@ -19,6 +19,7 @@ import re
 from typing import Callable, Iterable
 
 from ko_pii.core.types import DetectionResult
+from ko_pii.core.unicode_norm import normalize_unicode
 from ko_pii.modes._apply import apply_substitutions
 
 MASK = "*"
@@ -115,7 +116,7 @@ def _mask_email(text: str) -> str:
 def _mask_card(text: str) -> str:
     """``1234-5678-9012-3456`` → ``1234-****-****-3456`` (BIN + 마지막 4)."""
     digits = re.sub(r"\D", "", text)
-    if len(digits) < 8:
+    if len(digits) <= 8:
         return MASK * len(text)
     # 길이 보존하면서 중간만 가림
     has_hyphen = "-" in text
@@ -157,7 +158,7 @@ def _mask_address(text: str) -> str:
 def _mask_account(text: str) -> str:
     """계좌: 앞 4 + 끝 4 노출, 중간 마스킹."""
     digits = re.sub(r"\D", "", text)
-    if len(digits) < 8:
+    if len(digits) <= 8:
         return MASK * len(text)
     return f"{digits[:4]}{MASK*(len(digits)-8)}{digits[-4:]}"
 
@@ -298,13 +299,14 @@ def partial(
     """Apply category-aware partial masking to each detection span."""
 
     def replace(d: DetectionResult) -> str:
-        masker = _MASKERS.get(d.label, _mask_default)
-        return masker(d.text)
+        return mask_value(d.label, d.text)
 
     return apply_substitutions(text, detections, replace)
 
 
 def mask_value(label: str, value: str) -> str:
     """Stand-alone helper: ``mask_value("RRN", "880101-1234568")`` → ``880101-1******``."""
+    if label in {"RRN", "FRN", "PHONE", "FAX", "CARD", "ACCOUNT"}:
+        value, _ = normalize_unicode(value)
     masker = _MASKERS.get(label, _mask_default)
     return masker(value)
