@@ -18,6 +18,7 @@
 
 ## 선택적 연동
 
+- [LangChain/LlamaIndex의 RAG 처리 경계](RAG_BOUNDARIES.md)
 - [Presidio](integration_presidio.md)
 - [MCP](integration_mcp.md)
 - [외부 모델 어댑터](integration_openai_privacy_filter.md)

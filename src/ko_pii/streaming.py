@@ -71,6 +71,8 @@ class PreForwardAnonymizer:
         self._ensure_open()
         if not isinstance(chunk, str):
             raise TypeError(f"feed() expects str, got {type(chunk).__name__}")
+        if not chunk:
+            return self.status
         if self._chars + len(chunk) > self.max_chars:
             self._chunks.clear()
             self._chars = 0

@@ -437,6 +437,7 @@ def _run_batch(args: argparse.Namespace) -> int:
         read_policy=args._read_policy,
         extraction_timeout=args.extraction_timeout,
         allow_empty=args.allow_empty,
+        protected_paths=([args.person_exclusions_file] if args.person_exclusions_file else []),
     )
     if args.json_summary:
         import dataclasses

@@ -28,6 +28,9 @@ from __future__ import annotations
 from typing import Any, Iterable, Optional, Union
 
 from ko_pii import Anonymizer, ProcessingMode
+from ko_pii.labels import validate_label_filter
+from ko_pii.integrations._rag import mask_metadata
+from copy import deepcopy
 
 
 def _require() -> Any:
@@ -68,8 +71,8 @@ def KoPiiNodePostprocessor(
     """
     base = _require()
     mode_enum = ProcessingMode[mode] if isinstance(mode, str) else mode
-    _inc = list(include) if include else None
-    _exc = list(exclude) if exclude else None
+    _inc = validate_label_filter(include, name="include")
+    _exc = validate_label_filter(exclude, name="exclude")
 
     # base 는 런타임에 결정되는 외부 클래스(BaseNodePostprocessor) — 동적 서브클래싱.
     class _KoPiiNodePostprocessor(base):  # type: ignore[valid-type, misc]
@@ -85,11 +88,14 @@ def KoPiiNodePostprocessor(
                 mode=mode_enum, strategy=strategy,
                 include=_inc, exclude=_exc, vault=vault,
             )
-            for nws in nodes:
+            result = deepcopy(nodes)
+            for nws in result:
                 node = getattr(nws, "node", nws)
                 text = getattr(node, "text", None)
-                if text:
-                    node.text = anon.process(text).text
-            return nodes
+                if not isinstance(text, str):
+                    raise TypeError("KoPiiNodePostprocessor requires text nodes")
+                node.text = anon.process(text).text
+                node.metadata = mask_metadata(node.metadata, anon)
+            return result
 
     return _KoPiiNodePostprocessor()

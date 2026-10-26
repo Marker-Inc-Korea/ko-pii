@@ -4,6 +4,7 @@ import io
 import json
 import re
 import sys
+import tarfile
 from pathlib import Path
 from urllib.parse import unquote
 
@@ -121,3 +122,24 @@ def test_research_corpus_is_rejected_in_source_archive():
         check(names + ["ko_pii-1.22.1/data/kdpii/test.json"])
     with pytest.raises(ValueError, match="missing"):
         check(names[:-1])
+
+
+@pytest.mark.parametrize("name,kind", [("../escape", tarfile.REGTYPE),
+                                      ("pkg/link", tarfile.SYMTYPE)])
+def test_sdist_runner_rejects_unsafe_members(tmp_path, name, kind):
+    module = load_script("check_sdist")
+    archive = tmp_path / "source.tar.gz"
+    with tarfile.open(archive, "w:gz") as output:
+        info = tarfile.TarInfo(name)
+        info.type = kind
+        info.linkname = "../../outside" if kind == tarfile.SYMTYPE else ""
+        output.addfile(info)
+    with pytest.raises(ValueError, match="relative regular"):
+        module.extract_source(archive, tmp_path / "unpacked")
+
+
+def test_ci_checks_sdist_and_keeps_research_gate():
+    checks = workflow("checks.yml")
+    assert any("--run-research" in step.get("run", "") for step in checks["jobs"]["test"]["steps"])
+    assert any("check_sdist.py" in step.get("run", "") for step in checks["jobs"]["quality"]["steps"])
+    assert any("test_mcp_server.py" in step.get("run", "") for step in checks["jobs"]["rag"]["steps"])

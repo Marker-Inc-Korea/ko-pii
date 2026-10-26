@@ -10,6 +10,7 @@ python -m venv .venv
 source .venv/bin/activate
 python -m pip install -e ".[dev,file,security]" "ruff==0.12.1" "mypy==1.17.1" "build==1.5.0" "twine==7.0.0"
 python -m pytest -q
+python -m pytest -q --run-research -m research
 python -m ruff check src tests scripts examples
 python -m mypy
 python scripts/audit_research.py
@@ -19,7 +20,7 @@ python -m twine check dist/*
 
 Windows 가상환경 활성화는 `.venv\Scripts\Activate.ps1`입니다.
 테스트 수와 실행 시간은 환경·선택 의존성에 따라 달라지므로 고정 숫자를 통과 조건으로
-삼지 않습니다. RAG 어댑터는 `.[dev,langchain,llamaindex]` 설치 환경에서 따로 검사합니다.
+삼지 않습니다. RAG/MCP 어댑터는 `.[dev,langchain,llamaindex,mcp]` 환경에서 따로 검사합니다.
 torch 기반 선택 모듈 전체를 기본 CI가 검증한다는 뜻은 아닙니다.
 
 ## 설치본 검증
@@ -30,6 +31,7 @@ dev/file/security extras를 설치하고 아래 검사를 실행하세요. `PYTH
 ```bash
 python -m pytest --import-mode=importlib -o pythonpath= -q
 python scripts/check_examples.py --require-installed
+python scripts/check_sdist.py dist --python /absolute/path/to/installed-wheel/python
 ```
 
 두 번째 명령은 README의 Python 예제가 실행 파일과 같은지 확인하고 Python·텍스트 CLI·
@@ -62,6 +64,11 @@ python -m ko_pii.eval.benchmark -n 60 --seed 0 --min-micro-precision 0.68 --min-
 지원 기준을 늘릴 때 별도 파일을 추가하고 생성 버전과 패키지 해시를 남기세요.
 
 ## 연구 자료
+
+기본 pytest는 연구 데이터가 필요한 10개 테스트를 건너뜁니다. `--run-research`로
+명시하면 필요한 데이터가 없을 때 실패하며 Git checkout CI는 이 검사를 실행합니다.
+sdist는 연구 데이터를 배포하지 않으며, 별도 임시 디렉터리에서 제품 테스트와 예제를
+실행해 checkout의 데이터에 우연히 의존하지 않는지 확인합니다.
 
 `data/`의 과거 스크립트는 현재 제품 코드와 지원 범위가 다릅니다.
 [연구 목록](research/README.md)은 구문 오류가 남은 파일까지 공개합니다.

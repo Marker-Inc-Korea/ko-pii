@@ -27,6 +27,7 @@ def test_whitespace_normalized():
         assert_no_text_leakage(["hello  world"], ["hello world"])
 
 
+@pytest.mark.research
 def test_kdpii_original_pii_leakage_negligible():
     """KDPII 원본 train/test 의 *PII 보유* 중복 문장이 무시 가능해야 (NER 학습이 쓴 분할).
 
@@ -36,7 +37,7 @@ def test_kdpii_original_pii_leakage_negligible():
     """
     kd = Path(__file__).resolve().parents[3] / "data" / "kdpii"
     if not (kd / "train.json").exists():
-        pytest.skip("KDPII 데이터 없음")
+        pytest.fail("KDPII data missing; --run-research requires repository corpora")
     train = json.load(open(kd / "train.json", encoding="utf-8"))
     test = json.load(open(kd / "test.json", encoding="utf-8"))
     tr_pii = [d["sentence"] for d in train if d.get("PII_set")]

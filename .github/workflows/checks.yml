@@ -30,7 +30,7 @@ jobs:
         run: python -m pip install -e ".[dev,file,security]"
 
       - name: Run tests
-        run: python -m pytest -q --ignore=tests/property
+        run: python -m pytest -q --run-research --ignore=tests/property
 
       - name: Generated invariants (reproducible, no external data)
         run: python -m pytest -q tests/property --hypothesis-show-statistics
@@ -58,7 +58,7 @@ jobs:
           tests/unit/test_structured.py tests/unit/test_processing_policy.py
           tests/unit/test_field_rules.py tests/unit/test_policy_preview.py
           tests/unit/test_structured_policy_preview.py
-          tests/unit/test_profile.py
+          tests/unit/test_profile.py tests/unit/test_audit_boundaries.py
           tests/unit/integrations/test_literal.py
           tests/unit/integrations/test_secondary_validation.py
           tests/unit/review/test_review_integrity.py
@@ -92,7 +92,7 @@ jobs:
           if-no-files-found: ignore
 
   rag:
-    name: Optional RAG adapters
+    name: Optional RAG and MCP adapters
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -100,8 +100,8 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
-      - run: python -m pip install ".[dev,langchain,llamaindex]"
-      - run: python -m pytest --import-mode=importlib -o pythonpath= -q tests/unit/integrations/test_rag_adapters.py
+      - run: python -m pip install ".[dev,langchain,llamaindex,mcp]"
+      - run: python -m pytest --import-mode=importlib -o pythonpath= -q tests/unit/integrations/test_rag_adapters.py tests/unit/integrations/test_mcp_server.py
 
   quality:
     name: Static checks and distributions
@@ -133,8 +133,9 @@ jobs:
         run: |
           python -m venv /tmp/ko-pii-wheel
           /tmp/ko-pii-wheel/bin/python -m pip install "$(echo dist/*.whl)[dev,file,security]"
-          /tmp/ko-pii-wheel/bin/python -m pytest --import-mode=importlib -o pythonpath= -q
+          /tmp/ko-pii-wheel/bin/python -m pytest --import-mode=importlib -o pythonpath= -q --run-research
           /tmp/ko-pii-wheel/bin/python scripts/check_examples.py --require-installed
+          python scripts/check_sdist.py dist --python /tmp/ko-pii-wheel/bin/python
       - name: Seal tested distributions
         run: python scripts/release_bundle.py seal --version "$(python -c 'import ko_pii; print(ko_pii.__version__)')" --commit "${{ github.sha }}"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

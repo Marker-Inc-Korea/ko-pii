@@ -23,6 +23,9 @@ from __future__ import annotations
 from typing import Any, Iterable, Optional, Tuple, Union
 
 from ko_pii import Anonymizer, ProcessingMode
+from ko_pii.labels import validate_label_filter
+from ko_pii.integrations._rag import mask_metadata
+from copy import deepcopy
 
 
 def _require() -> Tuple[Any, Any]:
@@ -63,8 +66,8 @@ def KoPiiRedactor(
     """
     Runnable, Document = _require()
     mode_enum = ProcessingMode[mode] if isinstance(mode, str) else mode
-    _inc = list(include) if include else None
-    _exc = list(exclude) if exclude else None
+    _inc = validate_label_filter(include, name="include")
+    _exc = validate_label_filter(exclude, name="exclude")
 
     # Runnable 은 런타임에 결정되는 외부 클래스 — 동적 서브클래싱.
     class _KoPiiRedactor(Runnable):  # type: ignore[valid-type, misc]
@@ -78,13 +81,13 @@ def KoPiiRedactor(
             if isinstance(obj, str):
                 return anon.process(obj).text
             if isinstance(obj, Document):
-                return Document(
-                    page_content=anon.process(obj.page_content).text,
-                    metadata=obj.metadata,
-                )
+                copied = deepcopy(obj)
+                copied.page_content = anon.process(obj.page_content).text
+                copied.metadata = mask_metadata(obj.metadata, anon)
+                return copied
             if isinstance(obj, (list, tuple)):
                 return type(obj)(self._redact(o, anon) for o in obj)
-            return obj
+            raise TypeError("KoPiiRedactor accepts strings, Documents, or lists/tuples of them")
 
         def invoke(
             self, input: Any, config: Any = None, **kwargs: Any

@@ -47,14 +47,15 @@ print(result.text)
 ## 4가지 병합 모드
 
 ### 1. `union` (기본)
-양쪽 검출 결과를 *합산*. overlap 시 위험도 높은 쪽 우선. 가장 일반적.
+양쪽 검출 결과를 *합산*. Anonymizer에서는 현재 정책의 BLOCK 후보를 먼저 보존하고,
+같은 차단 여부 안에서 위험도·신뢰도·길이를 비교합니다. 낮은 신뢰도의 보조 후보가
+기존 BLOCK 후보를 ALLOW/REVIEW로 밀어내지 않도록 합니다.
 
 ```python
 anon = Anonymizer(secondary_detector=pf, merge_mode="union")
 ```
 
-**장점:** Recall ↑ (한 쪽이 놓친 것도 catch)
-**적합:** 표준 운영 환경
+한쪽만 찾은 후보도 고려하지만 겹침 제거와 정책 임계값이 있어 recall 증가를 보장하지 않습니다.
 
 ### 2. `intersection`
 양쪽 *모두* 잡은 것만 인정. high-confidence detection.
@@ -63,11 +64,13 @@ anon = Anonymizer(secondary_detector=pf, merge_mode="union")
 anon = Anonymizer(secondary_detector=pf, merge_mode="intersection")
 ```
 
-**장점:** Precision ↑↑ (FP 거의 0)
-**적합:** 엄격한 컴플라이언스 환경 (의료·금융 등)
+공통 후보만 남기므로 한쪽만 찾은 실제 개인정보를 놓칠 수 있습니다. 두 탐지기가 같은
+오탐을 내면 그대로 남으므로 오탐이 거의 없다는 보장이나 규정 준수 판단에 쓰지 않습니다.
 
 ### 3. `cross_validation`
-양쪽 합산하되, *한 쪽만 잡은 것* 은 신뢰도 페널티.
+primary는 유지하고 secondary 단독 후보는 신뢰도에 0.7을 곱합니다. 일치 후보는 보강합니다.
+이후 모드의 임계값을 적용하므로 단독 후보가 반드시 REVIEW가 되지는 않습니다.
+예를 들어 HIGH/1.0은 감점 후 0.7이어서 STRICT에서는 BLOCK입니다.
 
 ```python
 anon = Anonymizer(secondary_detector=pf, merge_mode="cross_validation")
@@ -75,6 +78,14 @@ anon = Anonymizer(secondary_detector=pf, merge_mode="cross_validation")
 
 **장점:** Recall + 신뢰도 등급 분리
 **적합:** 검토 큐 워크플로우 (사람이 한 쪽만 검출된 것 우선 검토)
+
+### Python API의 `fallback_secondary`
+
+현재 정책에서 REVIEW인 primary만 재평가합니다. 같은 라벨로 primary 범위 전체를
+덮는 secondary가 더 높은 신뢰도를 제시하면 primary의 신뢰도를 갱신합니다.
+부분 일치·다른 라벨·secondary 단독 결과는 채택하지 않습니다. primary의 값과 범위는
+유지하며 최종 동작은 모드 정책에 따릅니다. 저수준 `merge_detections`에서는 `policy`를
+생략한 fallback의 기준이 STRICT입니다. 다른 모드의 호출자는 정책을 명시하세요.
 
 ### 4. `enrich_primary`
 ko-pii 결과 우선, Privacy Filter 는 *놓친 영역만* 보강.

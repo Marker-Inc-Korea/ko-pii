@@ -1,7 +1,8 @@
 """겹침 해소 — 단일 정본 구현.
 
-detect_all / merge_detections / 치환(apply_substitutions) 경로가 **모두 같은 우선순위**로
-겹침을 해소하도록 한 곳에 둔다. 과거 각 경로가 별도 구현을 갖고 우선순위가 달라
+detect_all / merge_detections / 치환(apply_substitutions)의 겹침 선택 구현을 한 곳에 둔다.
+Anonymizer 병합은 현재 정책의 BLOCK 후보를 우선하고 나머지 순서는 공유한다.
+과거 각 경로가 별도 구현을 갖고 우선순위가 달라
 (특히 integrations/hybrid 의 start-우선 정렬) **늦게 시작하는 고위험 PII(주민·전화)가
 먼저 시작한 저위험 span(과매칭 주소·URL)에 가려 평문 누출**되는 회귀가 가능했다.
 
@@ -16,6 +17,7 @@ from typing import Iterable
 
 from ko_pii.core.types import DetectionResult
 from ko_pii.core.trace import OverlapTrace
+from ko_pii.core.modes import Action, ModePolicy
 
 
 def _select_non_overlapping(
@@ -57,10 +59,14 @@ def _select_non_overlapping(
 
 def resolve_overlaps(
     detections: Iterable[DetectionResult], *, trace: OverlapTrace | None = None, stage: str = "primary",
+    policy: ModePolicy | None = None,
 ) -> list[DetectionResult]:
+    # At the transformation boundary, non-blocking guesses must not displace
+    # a candidate that the caller's policy would actually mask.
     items = sorted(
         detections,
         key=lambda d: (
+            -(policy is not None and policy.decide(d.risk_level, d.confidence) == Action.BLOCK),
             -int(d.risk_level),
             -d.confidence,
             -(d.end - d.start),

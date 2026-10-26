@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ko-pii"
-version = "1.22.1"
+version = "1.22.2"
 description = "한국어 PII 검출 + 가역 가명화 라이브러리 (ML 없이 룰 기반)"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -54,7 +54,7 @@ ml = ["transformers>=4.40", "torch>=2.0"]
 # Microsoft Presidio plugin
 presidio = ["presidio-analyzer>=2.2", "presidio-anonymizer>=2.2"]
 # MCP (Model Context Protocol) 서버
-mcp = ["mcp>=1.0"]
+mcp = ["mcp>=1.0,<2"]
 # RAG 연동 — 검색 노드/문서 PII 마스킹 (core 패키지만, 경량)
 llamaindex = ["llama-index-core>=0.10"]
 langchain = ["langchain-core>=0.1"]
@@ -67,7 +67,7 @@ all = [
     "cryptography>=41.0",
     "transformers>=4.40", "torch>=2.0",
     "presidio-analyzer>=2.2", "presidio-anonymizer>=2.2",
-    "mcp>=1.0",
+    "mcp>=1.0,<2",
     "llama-index-core>=0.10", "langchain-core>=0.1",
     "scikit-learn>=1.0",
 ]
@@ -113,6 +113,7 @@ include = [
 testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "-ra"
+markers = ["research: requires separately licensed repository corpora"]
 
 [tool.mypy]
 python_version = "3.10"

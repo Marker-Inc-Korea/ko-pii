@@ -25,10 +25,11 @@ ko-pii 의 기능을 *함수* 처럼 호출할 수 있다.
 제공 도구 (LLM 이 호출 가능):
 - ``detect_pii(text)`` — PII 검출만 (가명화 X)
 - ``anonymize(text, mode, strategy)`` — 가명화 + 결과 본문 반환
-- ``reveal(token, vault_id)`` — 토큰에서 원본 복원 (권한 검사 후)
+- ``reveal(token, vault_id)`` — 토큰에서 원본 복원 (호스트의 별도 승인/권한 검사 필요)
 - ``combined_risk(text)`` — 결합 위험도 평가
 
-본 서버는 *로컬 stdio* 만 사용 — 외부 네트워크 X. PII 데이터 외부 유출 없음.
+서버 자체는 로컬 stdio를 사용한다. 호스트가 모델에 보내는 입력/도구 응답은
+통제하지 않는다. detect_pii와 reveal은 원문을 반환하며 전송 전 필터가 아니다.
 """
 from __future__ import annotations
 
@@ -51,11 +52,11 @@ except ImportError:
 
 
 def _ensure_mcp() -> None:
-    if not _HAS_MCP:
+    if not _HAS_MCP or not callable(getattr(Server, "call_tool", None)):
         raise ImportError(
-            "MCP 서버는 'mcp' 패키지가 필요합니다.\n"
+            "MCP 서버는 'mcp>=1.0,<2' 패키지가 필요합니다.\n"
             "  pip install ko-pii[mcp]\n"
-            "또는 pip install mcp"
+            "또는 pip install 'mcp>=1.0,<2'"
         )
 
 

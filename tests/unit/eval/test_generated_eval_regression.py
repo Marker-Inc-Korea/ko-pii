@@ -1,7 +1,7 @@
 """회귀 게이트 — 커밋된 합성 평가셋(data/generated_eval.jsonl)으로 ko-pii F1 하한 검증.
 
 ko-pii 는 결정적이므로 이 평가셋에 대한 점수는 안정적이다. 룰/사전 변경이 검출
-성능을 떨어뜨리면 이 테스트가 CI 에서 실패해 회귀를 막는다. (CI 는 `pytest -q` 실행)
+성능을 떨어뜨리면 이 테스트가 CI 에서 실패한다. (`pytest --run-research`로 실행)
 
 기준값(측정): 전체 F1 ≈ 0.790. 사소한 변동 여유를 두고 하한을 0.78 로 둔다.
 """
@@ -18,6 +18,7 @@ from ko_pii.eval.kdpii import match_forms_overlap
 
 DATA = Path(__file__).resolve().parents[3] / "data" / "generated_eval.jsonl"
 PML = 3  # person_min_length
+pytestmark = pytest.mark.research
 
 
 def _load():

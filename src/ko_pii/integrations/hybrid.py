@@ -3,7 +3,7 @@
 병합 모드:
 - ``UNION``: 양쪽 검출 결과 *합산* (overlap 해소) — 가장 일반적 (Method A)
 - ``INTERSECTION``: 양쪽 모두 찾은 것만 인정 (높은 신뢰도, Method B 일부)
-- ``CROSS_VALIDATION``: 일치=BLOCK / 불일치=REVIEW (Method B 완전)
+- ``CROSS_VALIDATION``: 일치 시 보강, secondary 단독 결과는 신뢰도 감점 후 모드 정책 적용
 - ``ENRICH_PRIMARY``: primary 우선, secondary 가 *놓친 영역* 만 보강 (Method C)
 - ``FALLBACK_SECONDARY``: primary 의 REVIEW 만 secondary 에 위임 (Method D)
 - ``ROLE_SPLIT``: **역할 분담** — 퍼지 카테고리(이름·주소·직책 등)는 secondary(ML)가
@@ -12,14 +12,16 @@
   결과가 모든 도메인에서 union 보다 우수함을 보장하지는 않는다.
 
 Overlap 해소: ``core.overlap.resolve_overlaps`` 단일 구현 사용
-(위험도 → 확신도 → 길이 순, ``detect_all`` 과 동일 — 늦게 시작하는 고위험 PII 누출 차단).
+(위험도 → 확신도 → 길이 순; policy가 있으면 그 전에 BLOCK 후보를 우선).
 """
 from __future__ import annotations
 
 from enum import Enum
+from dataclasses import replace
 from typing import Iterable, Optional
 
 from ko_pii.core.types import DetectionResult
+from ko_pii.core.modes import Action, ModePolicy, ProcessingMode, policy_for
 from ko_pii.core.trace import OverlapTrace
 from ko_pii.labels import validate_label_filter
 # 겹침 해소는 core.overlap 단일 구현 사용 — detect_all 과 동일 우선순위로 통일해
@@ -109,7 +111,7 @@ def merge_detections(
     secondary: Iterable[DetectionResult],
     mode: str = MergeMode.UNION,
     role_split_labels: Optional[Iterable[str]] = None,
-    *, trace: OverlapTrace | None = None,
+    *, trace: OverlapTrace | None = None, policy: ModePolicy | None = None,
 ) -> list[DetectionResult]:
     """primary + secondary 검출 결과를 ``mode`` 에 따라 병합.
 
@@ -118,6 +120,10 @@ def merge_detections(
     role_split_labels :
         ``ROLE_SPLIT`` 모드에서 secondary 가 담당할 라벨 집합.
         미지정 시 :data:`DEFAULT_ROLE_SPLIT_LABELS` (퍼지 10종).
+    policy :
+        Optional transformation policy for block-first overlap resolution.
+        FALLBACK_SECONDARY uses STRICT when omitted; it raises confidence only
+        for REVIEW primary spans fully covered by a same-label secondary span.
 
     Returns
     -------
@@ -126,6 +132,9 @@ def merge_detections(
     mode, validated_labels = validate_merge_config(mode, role_split_labels)
     primary_list = list(primary)
     secondary_list = list(secondary)
+
+    def resolve(items: Iterable[DetectionResult]) -> list[DetectionResult]:
+        return _resolve_overlaps(items, trace=trace, stage="hybrid", policy=policy)
 
     if mode == MergeMode.ROLE_SPLIT:
         # 역할 분담 — 위임 라벨은 secondary 로 *교체*(primary 의 해당 라벨 폐기),
@@ -137,7 +146,7 @@ def merge_detections(
             p for p in primary_list if p.label not in delegated
         ]
         out += [s for s in secondary_list if s.label in delegated]
-        return _resolve_overlaps(out, trace=trace, stage="hybrid")
+        return resolve(out)
 
     if mode == MergeMode.INTERSECTION:
         # 양쪽 모두 찾은 것만 인정
@@ -147,7 +156,7 @@ def merge_detections(
                 if _spans_overlap(p, s) and _same_label(p, s):
                     out.append(_enrich_with_secondary_info(p, s))
                     break
-        return _resolve_overlaps(out, trace=trace, stage="hybrid")
+        return resolve(out)
 
     if mode == MergeMode.ENRICH_PRIMARY:
         # primary 우선, secondary 는 primary 가 *놓친* 영역만 추가
@@ -162,11 +171,10 @@ def merge_detections(
                     if _spans_overlap(p, s) and _same_label(p, s):
                         out[i] = _enrich_with_secondary_info(p, s)
                         break
-        return _resolve_overlaps(out, trace=trace, stage="hybrid")
+        return resolve(out)
 
     if mode == MergeMode.CROSS_VALIDATION:
-        # 일치 = high confidence / 불일치 = secondary 결과는 REVIEW 카테고리로
-        # (이 모드는 정책 결정을 Anonymizer 에서 함 — 여기서는 결과만 합산)
+        # The penalty is not an action override: STRICT can still block 1.0 * 0.7.
         out = list(primary_list)
         for s in secondary_list:
             corroborated = False
@@ -190,15 +198,26 @@ def merge_detections(
                     rule_id=s.rule_id, normalized=s.normalized, subrule_id=s.subrule_id,
                 )
                 out.append(lowered)
-        return _resolve_overlaps(out, trace=trace, stage="hybrid")
+        return resolve(out)
 
     if mode == MergeMode.FALLBACK_SECONDARY:
-        # primary 결과만 반환 — secondary 는 *호출 시점에서* REVIEW 만
-        # 다시 평가하도록 사용 (Anonymizer 가 처리)
-        return _resolve_overlaps(primary_list, trace=trace, stage="hybrid")
+        selected_policy = policy or policy_for(ProcessingMode.STRICT)
+        out = []
+        for p in primary_list:
+            if selected_policy.decide(p.risk_level, p.confidence) == Action.REVIEW:
+                confirmations = [s for s in secondary_list if s.label == p.label
+                                 and s.start <= p.start and s.end >= p.end
+                                 and s.confidence > p.confidence]
+                if confirmations:
+                    best = max(confirmations, key=lambda s: s.confidence)
+                    # Preserve the primary span; partial matches cannot endorse
+                    # the entire value and secondary-only guesses are ignored.
+                    p = replace(_enrich_with_secondary_info(p, best), confidence=best.confidence)
+            out.append(p)
+        return resolve(out)
 
     # UNION (기본)
-    return _resolve_overlaps(primary_list + secondary_list, trace=trace, stage="hybrid")
+    return resolve(primary_list + secondary_list)
 
 
 # _resolve_overlaps 는 상단 import 의 core.overlap.resolve_overlaps (정본).

@@ -266,6 +266,7 @@ def process_paths(
     read_policy: Optional[FileReadPolicy] = None,
     extraction_timeout: float = 30.0,
     allow_empty: bool = False,
+    protected_paths: Iterable[str] = (),
 ) -> BatchSummary:
     """입력 파일·디렉토리·glob 들을 일괄 처리.
 
@@ -273,6 +274,7 @@ def process_paths(
     -----
     워커 수와 관계없이 파일마다 별도 Anonymizer/Vault를 사용합니다. 문서 간 토큰
     일관성이나 감사 가능한 가역 Vault가 필요하면 단일 파일 API를 사용하십시오.
+    protected_paths의 설정 파일과 예정 출력이 충돌하면 모든 쓰기 전에 거부합니다.
     """
     from ko_pii.patterns.person import normalize_exclusions
 
@@ -282,6 +284,7 @@ def process_paths(
     if workers < 1 or not math.isfinite(extraction_timeout) or extraction_timeout <= 0:
         raise ValueError("workers and extraction timeout must be positive")
     input_values = list(inputs)
+    protected = [os.path.realpath(path) for path in protected_paths]
     output_root = os.path.realpath(output_dir)
     for value in input_values:
         if Path(os.path.realpath(value)).is_relative_to(output_root):
@@ -310,6 +313,11 @@ def process_paths(
                 out_path = f"{stem}_{h}_{number}{ext}"
                 number += 1
         seen_out.add(out_path.casefold())
+        for path in protected:
+            if (os.path.realpath(out_path) == path or
+                    (os.path.exists(out_path) and os.path.exists(path)
+                     and os.path.samefile(out_path, path))):
+                raise ValueError("batch output conflicts with a protected configuration file")
         args_list.append((
             f,
             out_path,

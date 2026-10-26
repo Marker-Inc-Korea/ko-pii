@@ -163,7 +163,7 @@ class Anonymizer:
             detections = merge_detections(
                 primary, secondary, mode=mode,
                 role_split_labels=delegated,
-                trace=trace,
+                trace=trace, policy=self.policy,
             )
         else:
             detections = primary

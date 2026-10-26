@@ -43,7 +43,7 @@ from ko_pii.structured import StructuredLimits, StructuredResult, anonymize_json
 from ko_pii.field_rules import EACH, FieldRule
 from ko_pii.profile import PolicyProfile
 
-__version__ = "1.22.1"  # pyproject.toml 과 동기화 (tests/unit/test_version.py 가드)
+__version__ = "1.22.2"  # pyproject.toml 과 동기화 (tests/unit/test_version.py 가드)
 
 __all__ = [
     "Anonymizer",

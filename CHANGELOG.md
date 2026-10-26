@@ -5,6 +5,41 @@
 
 ## [Unreleased]
 
+## [1.22.2] - 2026-10-26
+
+### Fixed
+
+- Anonymizer 병합에서 현재 정책의 BLOCK 후보가 낮은 신뢰도 ALLOW/REVIEW 후보에
+  밀리지 않도록 했습니다. 같은 차단 여부 안에서는 기존 위험도·신뢰도·길이 순서를 유지합니다.
+- LlamaIndex는 검색 노드를 복사한 뒤 처리하며, LangChain은 Document ID를 보존합니다.
+  본문과 metadata의 JSON 문자열 값을 같은 Vault로 처리합니다. 미지원 입력/metadata
+  객체와 마스킹이 필요한 metadata 키는 조용히 통과시키지 않고 거부합니다.
+- `fallback_secondary`는 REVIEW primary를 완전히 덮는 같은 라벨의 더 높은 신뢰도
+  결과를 사용하도록 구현했습니다. 부분 일치나 secondary 단독 후보는 채택하지 않습니다.
+- 배치 출력이 PERSON 제외 설정과 충돌하면 쓰기를 시작하기 전에 실패합니다.
+  빈 스트리밍 청크는 버퍼 목록에 누적하지 않습니다.
+- MCP 2.x의 호환되지 않는 서버 API가 설치되던 문제를 막기 위해 extra를
+  `mcp>=1.0,<2`로 제한하고, 지원하지 않는 SDK에는 설치 안내를 반환합니다.
+
+### Documentation And Validation
+
+- MCP 도구 호출은 전송 전 필터가 아니며 detect/reveal이 원문을 반환함을 명시했습니다.
+  원문이 LLM 또는 공급자 학습에 노출되지 않는다는 잘못된 설명을 제거했습니다.
+- `cross_validation`은 기존의 신뢰도 감점 후 정책 적용을 유지합니다. 단독 후보가
+  무조건 REVIEW라는 설명을 정정하고 STRICT 0.7 임계값 경계 테스트를 추가했습니다.
+- 소스 배포본만 있는 임시 디렉터리에서 제품 테스트와 설치 예제를 검증합니다.
+  연구 데이터 테스트는 `--run-research`로 분리하며 Git checkout CI에서는 계속 필수입니다.
+- 실제 RAG 라이브러리와 MCP 1.x SDK의 합성 호출 계약 및 실패 경계를 CI에 추가했습니다.
+  외부 모델, 실제 개인정보, 고객 문서는 사용하지 않습니다.
+
+### Migration
+
+- RAG metadata는 bounded JSON 값만 받으며 숫자/ID/질의/템플릿까지 자동 보호하지 않습니다.
+  LangChain dict 입력은 먼저 처리할 필드를 선택해야 합니다. 상세 범위는
+  [RAG 안내](docs/RAG_BOUNDARIES.md)를 참고하세요.
+- 이 릴리스는 알려진 출력·연동 오류 수정이며 기본 규칙의 정확도 개선이나 법적
+  익명성 보장이 아닙니다. 과거 외부 평가와 데이터 권리 미확정 사항도 해소됐다고 주장하지 않습니다.
+
 ## [1.22.1] - 2026-10-26
 
 ### Maintenance
