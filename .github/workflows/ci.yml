@@ -85,8 +85,8 @@ jobs:
                   for failure in list(case.findall("failure")) + list(case.findall("error")):
                       if count >= 10:
                           break
-                      message = (case.get("classname", "") + "::" + case.get("name", "") + "\n"
-                                 + (failure.text or failure.get("message", "")))[:12000]
+                      identity = (case.get("classname", "") + "::" + case.get("name", ""))[:300]
+                      message = identity + "\n" + (failure.text or failure.get("message", ""))[-3000:]
                       message = message.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
                       print("::error::" + message)
                       count += 1

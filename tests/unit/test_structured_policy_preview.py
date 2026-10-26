@@ -138,7 +138,8 @@ def test_no_observed_spans_is_not_safety_approval(data):
     assert report["scope"] == "union_of_observed_spans_not_gold"
 
 
-@pytest.mark.parametrize("data", ["x" * 100_001, [""] * 1001, "\ud800", {"\ud800": ""}, float("nan"), {1: "x"}])
+@pytest.mark.parametrize("data", ["x" * 100_001, [""] * 1001, "\ud800", {"\ud800": ""}, float("nan"), {1: "x"}],
+                         ids=["long-text", "many-fields", "surrogate-value", "surrogate-key", "nonfinite", "invalid-key"])
 def test_bounds_and_invalid_json_values(data):
     with pytest.raises(ValueError):
         compare_json_policies(data, before={}, after={})
