@@ -192,7 +192,7 @@ ko-pii-compare-policies docs/examples/policy-input.txt \
 
 허용 설정은 mode/strategy/strategies/include/exclude/person_exclusions입니다. 각 설정을
 독립된 메모리 Vault에서 실행하며 기존 Vault, 감사 저장소, 모델 어댑터를 받지 않습니다.
-사용자의 입력/설정 파일은 바꾸지 않고 지정한 보고서만 저장합니다. 현재는 UTF-8 평문
+사용자의 입력/설정 파일은 바꾸지 않고 지정한 보고서만 저장합니다. 기본은 UTF-8 평문
 미리보기이며 API 입력 100,000자, 관측 위치 2,000개 한도입니다. CLI는 파일당 400,000바이트
 한도도 적용합니다. 원문만 `-`로 표준 입력을 받을 수 있고 설정은 JSON 파일이어야 합니다.
 
@@ -206,6 +206,57 @@ requested_strategy/applied_strategy와 실제 출력 잔존 상태를 비교합�
 탐지되지 않았다는 뜻입니다. `replaced`도 원문 범위의 치환이지 재식별 불가능 판정은 아닙니다.
 AUDIT처럼 치환하지 않은 결과는 applied_strategy가 null입니다. 정확도와 코드 회귀는 별도의
 정답 라벨을 가진 `ko-pii-evaluate`로 확인하십시오.
+
+### JSON 필드별 정책 미리보기
+
+1.22에서 추가했습니다. `python -m pip install --upgrade ko-pii`로 설치합니다.
+기존 설정 객체와 `PolicyProfile`/프로필 JSON을 모두 사용할 수 있습니다.
+
+```python
+from ko_pii.policy_preview import compare_json_policies
+
+before = {"include": ["PERSON"], "field_labels": {"/customer": "PERSON"}}
+after = {**before, "field_person_exclusions": {"/product": ["홍길동"]}}
+preview = compare_json_policies(
+    {"product": "성명: 홍길동", "customer": "홍길동"}, before=before, after=after,
+)
+assert preview["changed_by_label"] == {"PERSON": 1}
+assert preview["changes"][0]["after"]["output_state"] == "not_detected"
+assert preview["fields"][1]["after_output_counts"] == {"replaced": 1}
+```
+
+상품 필드의 제외어만 바뀌며 고객 필드의 명시적 PERSON 단언은 유지됩니다.
+제외어 추가는 개인정보 제거 강화가 아니라 탐지 감소일 수 있음을 보고서로 확인합니다.
+
+```bash
+ko-pii-compare-policies docs/examples/policy-json-input.json --format json \
+  --before docs/examples/policy-json-before.json \
+  --after docs/examples/policy-json-after.json --output /tmp/ko-pii-json-preview.json
+```
+
+기존 코어 설정에 `field_labels`, `field_rules`, `field_person_exclusions`를 추가로
+받습니다. Python API의 `field_rules`도 JSON 설정 형태의 목록을 사용합니다.
+예를 들어 `{"path": ["users", null, "id"], "label": "ACCOUNT", "required": false}`는
+배열의 존재하는 id 필드만 단언합니다. Python에서는 `null`/`false` 대신 `None`/`False`입니다.
+누락된 필수 경로, 잘못된 라벨, include/exclude와 충돌하는 단언은 오류입니다.
+
+보고서 계약은 `ko-pii-structured-policy-preview-v1`입니다. 실제 `anonymize_json` 결과를
+비교하고 각 설정에 새 메모리 Vault를 사용합니다. 필드별/전체 관측 건수와 변경 건수를
+제공하며 원문, 치환값, 설정 원문은 포함하지 않습니다. 키/경로도 기본 제외합니다.
+`include_paths=True` 또는 `--include-paths`는 민감한 JSON 키를 그대로 노출할 수 있습니다.
+
+`field_index`는 입력 순서의 모든 문자열/정수 잎을 기준으로 한 0부터 시작하는 번호입니다.
+양쪽 모두 처리하지 않은 정수는 보고 행에서 빠져 번호에 빈 구간이 생길 수 있습니다.
+단언이 한쪽에만 있는 정수는 `before_screened`/`after_screened`로 구분하며 처리하지 않은
+쪽의 `not_detected`는 검사 후 개인정보가 없다는 뜻이 아닙니다. 좌표는 각 필드 안의
+Python 문자 위치이고 정수 단언에는 십진 문자열 기준을 사용합니다.
+키, 일반 숫자, bool/null, 양쪽 모두 놓친 문자열의 안전성은 평가하지 않습니다.
+
+단일 JSON 값만 지원하며 JSONL 비교는 지원하지 않습니다. 최대 깊이 64, 노드 10,000개,
+키/값/정수 문자열 합계 100,000자, 문자열/정수 잎 1,000개, 전체 관측 위치 2,000개입니다.
+CLI는 직렬화된 입력과 각 설정 파일에도 400,000바이트/100,000자 한도를 적용합니다.
+순환 객체, 중복 JSON 키, 비유한 수, 잘못된 Unicode를 거부합니다.
+한도 초과를 부분 성공으로 보고하지 않으며 실패 시 기존 입력과 보고서는 바꾸지 않습니다.
 
 ## 보고서 계약과 민감 정보
 

@@ -1,0 +1,5 @@
+{
+  "include": ["PERSON"],
+  "field_labels": {"/customer": "PERSON"},
+  "field_person_exclusions": {"/product": ["홍길동"]}
+}

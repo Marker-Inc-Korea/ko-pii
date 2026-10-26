@@ -107,6 +107,13 @@ print(processed.report())  # 원문·치환값·키 경로를 기본 출력하�
 기존 Vault를 건드리지 않고 두 코어 설정의 처리 차이를 원문 없는 보고서로 보여줍니다.
 둘 다 놓친 항목의 정확도나 원문 전체의 안전성을 판정하는 기능은 아닙니다.
 
+1.22에는 알려진 값의 `LiteralDetector`, Python·CLI에서 재사용하는 `PolicyProfile`,
+문서 유형·문자 변형별 평가 집계를 추가했습니다. 직접 연결한 보조 탐지기의 원문 일치와
+병합 설정도 검증하며 `ko-pii-compare-policies --format json`으로 필드별 정책을 비교합니다.
+[프로필·알려진 값 사용법](docs/POLICY_PROFILES.md),
+[조건별 평가](docs/DOMAIN_EVALUATION.md#조건별-집계와-출처-고정),
+[JSON 정책 미리보기](docs/STRUCTURED_PROCESSING.md#json-필드별-정책-미리보기)를 참고하세요.
+
 - **조사 붙어있어도 잡힘** — "홍길동이" "홍길동에게" "홍길동의" → 조사 자동 분리 후 PERSON 검출
 - **한자 병기** — "홍길동(洪吉童)" → 한글+한자 모두 인식
 - **로마자 이름** — "Hong Gildong" → 한글로 정규화 후 매칭

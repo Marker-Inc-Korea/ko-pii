@@ -57,6 +57,46 @@ UTF-8 JSONL의 한 줄이 문서 하나입니다. `id`, `text`, `spans`를 모�
 표본 구성이 잘못되면 결과도 의미가 없습니다. 이 명령은 운영 승인이나 법적 익명성 판정은
 수행하지 않습니다.
 
+## 조건별 집계와 출처 고정
+
+1.22부터 각 JSONL 문서에 `"metadata":{"domain":"form","variant":"fullwidth"}`를
+선택적으로 추가할 수 있습니다. `domain`과 `variant`는 각각 최대 128종의 짧은 분류명이며
+키 값에는 이름/주소 같은 원문을 넣지 마세요. 값은 64자 이내의 문자·숫자·밑줄·점·하이픈만
+허용합니다. 누락된 분류는 `null` 그룹으로 집계합니다. 분류 자체를 자동 추측하지 않습니다.
+
+```bash
+ko-pii-evaluate docs/examples/evaluation-slices.jsonl --labels PHONE \
+  --output-mode STRICT --output-strategy redact --output slices.json
+```
+
+이 6건은 전각/zero-width/하이픈 제거/조사/음성 예제의 **합성 회귀 확인용**이며
+독립 외부 성능 벤치마크가 아닙니다. 보고서의 `slices.domain`과 `slices.variant`에는
+문서 수, TP/FP/FN, 라벨별 precision/recall/F1, 선택한 경우 출력 잔존 집계가 있습니다.
+문서별 F1 평균이 아니라 카운트를 합산합니다. 정답이 없는 그룹의 recall은 `null`이며
+두 분류 차원의 문서가 중복되므로 차원 간 수치를 합산하지 않습니다.
+
+분류 배정은 데이터셋 해시에 포함합니다. 같은 텍스트라도 분류를 바꿨다면 이전 보고서와
+직접 회귀 비교하지 않습니다. 기존 metadata 없는 파일의 해시 형식은 유지합니다.
+K-PII-Bench 어댑터도 원본의 명시적 `domain`/`variant`를 보존하며 파일명으로 추측하지
+않습니다. `template_id` 같은 개별 식별자별 통계는 이번 버전에서 만들지 않습니다.
+
+외부 데이터의 수정 전후를 혼동하지 않으려면 로컬 manifest를 함께 둡니다.
+
+```json
+{"schema_version":1,"source_sha256":"실제-JSONL-파일의-64자리-SHA256","revision":"고정한-commit-id","split":"test-shard-01"}
+```
+
+```bash
+sha256sum my-documents.jsonl
+ko-pii-evaluate my-documents.jsonl --provenance manifest.json --output report.json
+```
+
+위 해시 자리에 첫 명령으로 확인한 실제 값을 적습니다. 평가는 한 번 읽은 UTF-8 입력
+스냅샷을 사용하며 원본의 정확한 SHA-256이 다르면 보고서 쓰기 전에 실패합니다.
+`revision`/`split`은 호출자의 선언이고 GitHub에 접속해 검증한 값이 아닙니다.
+보고서에 `upstream_revision_verified: false`를 명시하며 서로 다른 provenance의
+baseline 비교는 거부합니다. 데이터 다운로드·라이선스 확인·정답 품질 보증은 하지 않습니다.
+
 ## 최종 출력도 확인하기
 
 1.18부터 정답으로 표시한 구간과 실제 치환 좌표를 대조할 수 있습니다.

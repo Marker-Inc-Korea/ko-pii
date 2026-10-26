@@ -78,7 +78,7 @@ class TestAnonymizerWithSecondary:
         """include 필터가 secondary 에도 적용."""
         mock = MockSecondaryDetector([
             _det("PERSON", 0, 3, "AAA"),
-            _det("EMAIL", 5, 15, "a@b.com"),
+            _det("EMAIL", 5, 12, "a@b.com"),
         ])
         anon = Anonymizer(
             mode=ProcessingMode.STRICT,

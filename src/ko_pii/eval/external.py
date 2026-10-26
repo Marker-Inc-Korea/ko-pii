@@ -8,7 +8,7 @@ from typing import Any
 
 from ko_pii.eval.domain import (
     LabeledDocument, MAX_DATASET_BYTES, MAX_DOCUMENTS, MAX_DOCUMENT_CHARS,
-    MAX_SPANS, _read_json_file,
+    MAX_SPANS, _read_json_file, _slice_value,
 )
 from ko_pii.eval.synth import GoldDocument, GoldSpan
 from ko_pii.structured import loads_json
@@ -31,6 +31,10 @@ def load_k_pii_bench(path: str | Path) -> tuple[list[LabeledDocument], dict[str,
     KR_LOCATION -> ADDRESS is a declared alignment, not semantic equivalence.
     """
     raw = _read_json_file(path, MAX_DATASET_BYTES)
+    return _load_k_pii_bench_text(raw)
+
+
+def _load_k_pii_bench_text(raw: str) -> tuple[list[LabeledDocument], dict[str, Any]]:
     documents = []
     seen_ids: set[str] = set()
     mapped: Counter[str] = Counter()
@@ -72,7 +76,8 @@ def load_k_pii_bench(path: str | Path) -> tuple[list[LabeledDocument], dict[str,
                     spans.append(GoldSpan(target, start, end, text[start:end]))
             seen_ids.add(doc_id)
             safe_id = hashlib.sha256(doc_id.encode("utf-8")).hexdigest()
-            documents.append(LabeledDocument(safe_id, GoldDocument(text, spans)))
+            documents.append(LabeledDocument(safe_id, GoldDocument(text, spans),
+                                              _slice_value(item.get("domain")), _slice_value(item.get("variant"))))
             if len(documents) > MAX_DOCUMENTS:
                 raise ValueError
         except (ValueError, TypeError, KeyError):

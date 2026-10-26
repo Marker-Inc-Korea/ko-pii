@@ -45,13 +45,13 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "-m", "--mode",
         choices=[m.value for m in ProcessingMode],
-        default=ProcessingMode.STRICT.value,
+        default=None,
         help="Processing mode (default: STRICT).",
     )
     p.add_argument(
         "-s", "--strategy",
         choices=["tokenize", "redact", "asterisk", "hashed", "partial", "fpe"],
-        default="tokenize",
+        default=None,
         help="Substitution strategy (default: tokenize).",
     )
     p.add_argument(
@@ -80,6 +80,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--format", choices=["text", "json", "jsonl"], default="text",
                    help="Input/output format; JSON modes preserve keys and process values.")
+    p.add_argument("--policy", help="Local versioned PolicyProfile JSON; cannot be combined with policy flags.")
     p.add_argument("--strategy-for", action="append", default=[], metavar="LABEL=STRATEGY",
                    help="Override a label's transformation (repeatable, single-file mode).")
     p.add_argument("--field-label", action="append", default=[], metavar="POINTER=LABEL",
@@ -151,13 +152,13 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument(
         "--privacy-filter-device",
-        default="cpu",
+        default=None,
         help="Device for Privacy Filter (cpu/cuda/mps). Default: cpu.",
     )
     p.add_argument(
         "--merge-mode",
         choices=["union", "intersection", "cross_validation", "enrich_primary"],
-        default="union",
+        default=None,
         help="How to combine ko-pii with secondary detector (default: union).",
     )
     # 추가 입력 인자
@@ -346,7 +347,7 @@ def _validate_batch_args(
 def _validate_paths(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
     paths = [("input", args.input)] if args.input != "-" else []
     for name in ("output", "vault", "report", "audit_log", "explain", "person_exclusions_file", "field_rules",
-                 "field_person_exclusions"):
+                 "field_person_exclusions", "policy"):
         value = getattr(args, name)
         if value is not None and not (name == "output" and value == "-"):
             if not value:
@@ -476,7 +477,7 @@ def _run_single(
             from ko_pii.integrations import get_privacy_filter_adapter
             secondary = get_privacy_filter_adapter(device=args.privacy_filter_device)
 
-        anon = Anonymizer(
+        anon = args._profile.make_anonymizer(vault=vault, trace_limit=args.trace_limit) if args._profile else Anonymizer(
             mode=ProcessingMode(args.mode),
             strategy=args.strategy,
             vault=vault,
@@ -619,6 +620,19 @@ def main(argv: Optional[list[str]] = None) -> int:
     if args.input is None:
         parser.error("input is required (or use --labels to list categories)")
 
+    args._profile = None
+    if args.policy is not None:
+        if args.batch or args.policy == "-":
+            parser.error("--policy requires a local settings file in single-file mode")
+        if (any(getattr(args, name) is not None for name in (
+                "mode", "strategy", "include", "exclude", "person_exclusions_file",
+                "field_rules", "field_person_exclusions", "merge_mode", "privacy_filter_device"))
+                or args.strategy_for or args.field_label or args.with_privacy_filter):
+            parser.error("--policy cannot be combined with processing-policy or model flags")
+    args.mode = args.mode if args.mode is not None else ProcessingMode.STRICT.value
+    args.strategy = args.strategy if args.strategy is not None else "tokenize"
+    args.merge_mode = args.merge_mode if args.merge_mode is not None else "union"
+    args.privacy_filter_device = args.privacy_filter_device if args.privacy_filter_device is not None else "cpu"
     args._stage = "configuration"
     try:
         validate_label_filter(_split_csv(args.include), name="include")
@@ -674,6 +688,19 @@ def main(argv: Optional[list[str]] = None) -> int:
             from ko_pii.field_rules import rules_from_json
             from ko_pii.structured import loads_json
             args._field_rules = rules_from_json(loads_json(_read_structured_input(args.field_rules, args._read_policy)))
+        if args.policy:
+            from ko_pii.profile import PolicyProfile
+            args._profile = PolicyProfile.from_json(_read_structured_input(
+                args.policy, FileReadPolicy(max_file_bytes=400_000, max_text_chars=100_000),
+            ))
+            if args.format == "text" and args._profile.structured:
+                raise ValueError("profile field settings require --format json or jsonl")
+            settings = args._profile.settings
+            args.mode, args.strategy = settings["mode"], settings["strategy"]
+            options = args._profile.structured_options()
+            args._field_labels = options["field_labels"]
+            args._field_rules = options["field_rules"]
+            args._field_person_exclusions = options["field_person_exclusions"]
         args._stage = "extraction"
         if args.format == "text":
             text, args._coverage = _read_input(args.input, args._read_policy, args.extraction_timeout)

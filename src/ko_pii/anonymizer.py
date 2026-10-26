@@ -22,6 +22,8 @@ from ko_pii.analytics.combined_risk import (
 from ko_pii.core.modes import Action, ProcessingMode, policy_for
 from ko_pii.core.types import DetectionResult, RiskLevel
 from ko_pii.core.trace import OverlapTrace, validate_trace_limit
+from ko_pii.core.validation import validated_detection
+from ko_pii.integrations.hybrid import merge_detections, validate_merge_config
 from ko_pii.detect import detect_all
 from ko_pii.labels import validate_label_filter
 from ko_pii.modes._apply import AppliedSpan, apply_substitutions
@@ -97,6 +99,9 @@ class Anonymizer:
         trace_limit: int = 0,
     ) -> None:
         validate_trace_limit(trace_limit)
+        selected_mode, delegated = validate_merge_config(merge_mode, role_split_labels)
+        if secondary_detector is not None and not callable(getattr(secondary_detector, "detect", None)):
+            raise ValueError("secondary_detector must provide a callable detect method")
         self.trace_limit = trace_limit
         self.strategies = MappingProxyType(validate_strategies(strategy, strategies))
         self.mode = mode
@@ -106,10 +111,9 @@ class Anonymizer:
         self.include = validate_label_filter(include, name="include")
         self.exclude = validate_label_filter(exclude, name="exclude")
         self.secondary_detector = secondary_detector
-        self.merge_mode = merge_mode
+        self.merge_mode = selected_mode.value
         # role_split 모드에서 secondary 가 담당할 라벨 (None=기본 퍼지 10종)
-        self.role_split_labels = (frozenset(role_split_labels)
-                                  if role_split_labels is not None else None)
+        self.role_split_labels = delegated
         self.person_exclusions = normalize_exclusions(person_exclusions)
 
     # ------------------------------------------------------------ public
@@ -119,6 +123,7 @@ class Anonymizer:
 
     def _process_with_exclusions(self, text: str, exclusions: frozenset[str]) -> AnonymizationResult:
         # Structured fields supply a per-call union, never mutate shared policy.
+        mode, delegated = validate_merge_config(self.merge_mode, self.role_split_labels)
         trace = OverlapTrace(self.trace_limit) if self.trace_limit else None
         primary = detect_all(
             text,
@@ -129,8 +134,14 @@ class Anonymizer:
         )
         # Optional secondary detector (ML 어댑터 등) 가 있으면 결과 병합
         if self.secondary_detector is not None:
-            from ko_pii.integrations.hybrid import MergeMode, merge_detections
-            secondary = list(self.secondary_detector.detect(text))
+            secondary: list[DetectionResult] = []
+            try:
+                for detection in self.secondary_detector.detect(text):
+                    secondary.append(validated_detection(detection, text))
+            except Exception:
+                # Adapter exceptions may echo input. No substitutions or Vault
+                # writes have happened yet, including for otherwise valid rows.
+                raise ValueError("secondary detector failed or returned invalid source-bound results") from None
             if self.include:
                 secondary = [s for s in secondary if s.label in self.include]
             if self.exclude:
@@ -150,8 +161,8 @@ class Anonymizer:
                     )
                 ]
             detections = merge_detections(
-                primary, secondary, mode=MergeMode(self.merge_mode),
-                role_split_labels=self.role_split_labels,
+                primary, secondary, mode=mode,
+                role_split_labels=delegated,
                 trace=trace,
             )
         else:

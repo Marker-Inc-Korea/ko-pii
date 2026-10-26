@@ -3,32 +3,16 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import replace
-import math
 import re
 
 from ko_pii.core.types import DetectionResult, RiskLevel
-from ko_pii.labels import ALL_LABELS
+from ko_pii.core.validation import validated_detection
 
 
 def _validate_result(result: DetectionResult, text: str) -> DetectionResult:
-    if not isinstance(result, DetectionResult):
-        raise ValueError("custom detector must return DetectionResult objects")
-    if not isinstance(result.label, str) or result.label not in ALL_LABELS:
-        raise ValueError("custom detector must use an existing ko-pii label")
-    if (type(result.start) is not int or type(result.end) is not int
-            or not 0 <= result.start < result.end <= len(text)):
-        raise ValueError("custom detector returned an invalid source span")
-    if not isinstance(result.text, str) or result.text != text[result.start:result.end]:
-        raise ValueError("custom detector text must equal the source slice")
-    if not isinstance(result.risk_level, RiskLevel):
-        raise ValueError("custom detector risk_level must be RiskLevel")
-    if (type(result.confidence) not in (int, float) or not 0 <= result.confidence <= 1
-            or not math.isfinite(result.confidence)):
-        raise ValueError("custom detector confidence must be finite and between 0 and 1")
     # Copy only the supported decision fields. Free-form metadata is not needed
     # to apply a custom rule and can accidentally carry unrelated source data.
-    return DetectionResult(result.label, result.text, result.start, result.end,
-                           result.risk_level, float(result.confidence))
+    return validated_detection(result, text, preserve_metadata=False)
 
 
 class CallableDetector:

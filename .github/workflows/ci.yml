@@ -63,8 +63,13 @@ jobs:
           tests/unit/test_portable_cli.py tests/unit/test_failure_boundaries.py
           tests/unit/test_structured.py tests/unit/test_processing_policy.py
           tests/unit/test_field_rules.py tests/unit/test_policy_preview.py
+          tests/unit/test_structured_policy_preview.py
+          tests/unit/test_profile.py
+          tests/unit/integrations/test_literal.py
+          tests/unit/integrations/test_secondary_validation.py
           tests/unit/review/test_review_integrity.py
           tests/unit/eval/test_external.py
+          tests/unit/eval/test_slices.py
 
   rag:
     name: Optional RAG adapters

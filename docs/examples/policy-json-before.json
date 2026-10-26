@@ -1,0 +1,4 @@
+{
+  "include": ["PERSON"],
+  "field_labels": {"/customer": "PERSON"}
+}

@@ -21,6 +21,7 @@ from typing import Iterable, Optional
 
 from ko_pii.core.types import DetectionResult
 from ko_pii.core.trace import OverlapTrace
+from ko_pii.labels import validate_label_filter
 # 겹침 해소는 core.overlap 단일 구현 사용 — detect_all 과 동일 우선순위로 통일해
 # 병합 경로에서 늦게 시작하는 고위험 PII(주민·전화)가 누출되던 회귀를 차단.
 from ko_pii.core.overlap import resolve_overlaps as _resolve_overlaps
@@ -42,6 +43,17 @@ DEFAULT_ROLE_SPLIT_LABELS: frozenset[str] = frozenset({
     "PERSON", "ADDRESS", "POSITION", "EDUCATION", "MAJOR",
     "NATIONALITY", "AGE", "DT_BIRTH", "HEIGHT", "WEIGHT",
 })
+
+
+def validate_merge_config(
+    mode: str, labels: Iterable[str] | None,
+) -> tuple[MergeMode, frozenset[str] | None]:
+    try:
+        selected = MergeMode(mode)
+        validated = validate_label_filter(labels, name="role_split_labels")
+    except (TypeError, ValueError):
+        raise ValueError("invalid merge_mode or role_split_labels; use registered modes and labels") from None
+    return selected, frozenset(validated) if validated is not None else None
 
 
 def _spans_overlap(a: DetectionResult, b: DetectionResult) -> bool:
@@ -95,7 +107,7 @@ def _enrich_with_secondary_info(
 def merge_detections(
     primary: Iterable[DetectionResult],
     secondary: Iterable[DetectionResult],
-    mode: MergeMode = MergeMode.UNION,
+    mode: str = MergeMode.UNION,
     role_split_labels: Optional[Iterable[str]] = None,
     *, trace: OverlapTrace | None = None,
 ) -> list[DetectionResult]:
@@ -111,6 +123,7 @@ def merge_detections(
     -------
     list[DetectionResult] — overlap 해소되고 정렬된 결과.
     """
+    mode, validated_labels = validate_merge_config(mode, role_split_labels)
     primary_list = list(primary)
     secondary_list = list(secondary)
 
@@ -118,7 +131,7 @@ def merge_detections(
         # 역할 분담 — 위임 라벨은 secondary 로 *교체*(primary 의 해당 라벨 폐기),
         # 나머지 라벨은 primary 만. 합산(union)이 아니라 교체라는 점이 핵심:
         # 약한 쪽의 FP 가 강한 쪽의 검출을 오염시키지 않는다.
-        delegated = (frozenset(role_split_labels) if role_split_labels is not None
+        delegated = (validated_labels if validated_labels is not None
                      else DEFAULT_ROLE_SPLIT_LABELS)
         out: list[DetectionResult] = [
             p for p in primary_list if p.label not in delegated

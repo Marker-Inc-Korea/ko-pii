@@ -1,0 +1,6 @@
+{"id":"p1","text":"010-2345-6789","spans":[{"label":"PHONE","start":0,"end":13}],"metadata":{"domain":"form","variant":"clean"}}
+{"id":"p2","text":"01023456789","spans":[{"label":"PHONE","start":0,"end":11}],"metadata":{"domain":"chat","variant":"no-hyphen"}}
+{"id":"p3","text":"０１０-２３４５-６７８９","spans":[{"label":"PHONE","start":0,"end":13}],"metadata":{"domain":"form","variant":"fullwidth"}}
+{"id":"p4","text":"010-23\u200b45-6789","spans":[{"label":"PHONE","start":0,"end":14}],"metadata":{"domain":"chat","variant":"zero-width"}}
+{"id":"p5","text":"010-2345-6789로","spans":[{"label":"PHONE","start":0,"end":13}],"metadata":{"domain":"chat","variant":"particle"}}
+{"id":"n1","text":"시행일자: 2026-10-26 / 상품명: ABC-2026","spans":[],"metadata":{"domain":"form","variant":"negative"}}
