@@ -1,0 +1,169 @@
+name: Reusable validation
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.12", "3.14"]
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install (core + dev + file + security)
+        run: python -m pip install -e ".[dev,file,security]"
+
+      - name: Run tests
+        run: python -m pytest -q --ignore=tests/property
+
+      - name: Generated invariants (reproducible, no external data)
+        run: python -m pytest -q tests/property --hypothesis-show-statistics
+
+  portable:
+    name: Portable CLI (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    env:
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - run: python -m pip install ".[dev,file,security]"
+      - run: >-
+          python -m pytest --import-mode=importlib -o pythonpath= -q
+          --junitxml=portable-results.xml
+          tests/unit/test_portable_cli.py tests/unit/test_failure_boundaries.py
+          tests/unit/test_structured.py tests/unit/test_processing_policy.py
+          tests/unit/test_field_rules.py tests/unit/test_policy_preview.py
+          tests/unit/test_structured_policy_preview.py
+          tests/unit/test_profile.py
+          tests/unit/integrations/test_literal.py
+          tests/unit/integrations/test_secondary_validation.py
+          tests/unit/review/test_review_integrity.py
+          tests/unit/eval/test_external.py
+          tests/unit/eval/test_slices.py
+          tests/contracts/test_previous_release.py
+      - name: Annotate portable test failures
+        if: failure()
+        shell: python
+        run: |
+          from pathlib import Path
+          from xml.etree import ElementTree
+
+          path = Path("portable-results.xml")
+          if path.exists():
+              count = 0
+              for case in ElementTree.parse(path).iter("testcase"):
+                  for failure in list(case.findall("failure")) + list(case.findall("error")):
+                      if count >= 10:
+                          break
+                      identity = (case.get("classname", "") + "::" + case.get("name", ""))[:300]
+                      message = identity + "\n" + (failure.text or failure.get("message", ""))[-3000:]
+                      message = message.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+                      print("::error::" + message)
+                      count += 1
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: portable-tests-${{ matrix.os }}
+          path: portable-results.xml
+          if-no-files-found: ignore
+
+  rag:
+    name: Optional RAG adapters
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - run: python -m pip install ".[dev,langchain,llamaindex]"
+      - run: python -m pytest --import-mode=importlib -o pythonpath= -q tests/unit/integrations/test_rag_adapters.py
+
+  quality:
+    name: Static checks and distributions
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install static analysis tools
+        run: >-
+          python -m pip install -e ".[dev,file,security]"
+          "ruff==0.12.1" "mypy==1.17.1" "build==1.5.0" "twine==7.0.0"
+      - name: Lint
+        run: python -m ruff check src tests scripts examples
+      - name: Type check
+        run: python -m mypy
+      - name: Audit historical research files
+        run: python scripts/audit_research.py
+      - name: Build distributions from source archive
+        run: |
+          python -m build
+          python -m twine check dist/*
+          python scripts/check_distributions.py dist
+      - name: Test installed wheel and documented examples
+        run: |
+          python -m venv /tmp/ko-pii-wheel
+          /tmp/ko-pii-wheel/bin/python -m pip install "$(echo dist/*.whl)[dev,file,security]"
+          /tmp/ko-pii-wheel/bin/python -m pytest --import-mode=importlib -o pythonpath= -q
+          /tmp/ko-pii-wheel/bin/python scripts/check_examples.py --require-installed
+      - name: Seal tested distributions
+        run: python scripts/release_bundle.py seal --version "$(python -c 'import ko_pii; print(ko_pii.__version__)')" --commit "${{ github.sha }}"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ko-pii-distributions
+          path: |
+            dist/*
+            distribution-manifest.json
+          if-no-files-found: error
+
+  regression:
+    name: Synthetic regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install
+        run: python -m pip install .
+      - name: Enforce measured synthetic floor
+        run: |
+          for seed in 0 1 2 3; do
+            python -m ko_pii.eval.benchmark -n 60 --seed "$seed" \
+              --min-micro-precision 0.68 \
+              --min-micro-recall 0.95 \
+              --min-micro-f1 0.80 \
+              --min-macro-f1 0.60
+          done

@@ -1,0 +1,529 @@
+{
+  "schema_version": 1,
+  "scope": "git-tracked data/ files",
+  "entries": [
+    {
+      "path": "data/build_eval_corpus.py",
+      "bytes": 189575,
+      "sha256": "6f25047873d94c3efb003cc0e2a8a2946d2dd33fbd6f144972ab6f29ff725786",
+      "status": "blocked",
+      "reason": "SyntaxError",
+      "line": 66,
+      "source": "Historical repository artifact; inspect associated README/script",
+      "license": "No blanket data license inferred from package MIT"
+    },
+    {
+      "path": "data/build_external_eval_v2.py",
+      "bytes": 9514,
+      "sha256": "1ed4ec6d1f4a765305d4278e50b1405534babf3e839e0490bfcc426366538fa5",
+      "status": "legacy-parseable",
+      "reason": "Syntax only; dependencies, paths and results not certified.",
+      "source": "Historical repository artifact; inspect associated README/script",
+      "license": "No blanket data license inferred from package MIT"
+    },
+    {
+      "path": "data/corpus/aihub_569/multiple_choice.txt",
+      "bytes": 1196948,
+      "sha256": "4de527cb00d6f5f8699a72e7280d3ce738b32e5ac1f38e34de001f6686eefdea",
+      "status": "historical-data",
+      "reason": "Not a current package evaluation.",
+      "source": "AI Hub derivative; see historical fetch scripts",
+      "license": "Redistribution permission not established by this inventory"
+    },
+    {
+      "path": "data/corpus/aihub_569/span_extraction.txt",
+      "bytes": 1045081,
+      "sha256": "a955fc0cd0af6d18550cdb860e0a2f6146d1cc92092316bce98aed24c82fc6c5",
+      "status": "historical-data",
+      "reason": "Not a current package evaluation.",
+      "source": "AI Hub derivative; see historical fetch scripts",
+      "license": "Redistribution permission not established by this inventory"
+    },
+    {
+      "path": "data/corpus/aihub_569/span_extraction_how.txt",
+      "bytes": 1124117,
+      "sha256": "457f90cc4ffa710a3116fa6aa0663ccea5b8145cbfa15fc047975ecd33be0f6f",
+      "status": "historical-data",
+      "reason": "Not a current package evaluation.",
+      "source": "AI Hub derivative; see historical fetch scripts",
+      "license": "Redistribution permission not established by this inventory"
+    },
+    {
+      "path": "data/corpus/aihub_569/tableqa.txt",
+      "bytes": 1291489,
+      "sha256": "bcc68cfe187710cb470dea643223db92b380953d526e52fcbdf4be61ff1c9db2",
+      "status": "historical-data",
+      "reason": "Not a current package evaluation.",
+      "source": "AI Hub derivative; see historical fetch scripts",
+      "license": "Redistribution permission not established by this inventory"
+    },
+    {
+      "path": "data/corpus/aihub_569/text_entailment.txt",
+      "bytes": 1266527,
+      "sha256": "f7fd5d71bb8bb5aac46faae1c4a56abea8eed4d46553523e234684755e3734a3",
+      "status": "historical-data",
+      "reason": "Not a current package evaluation.",
+      "source": "AI Hub derivative; see historical fetch scripts",
+      "license": "Redistribution permission not established by this inventory"
+    },
+    {
+      "path": "data/corpus/aihub_569/unanswerable.txt",
+      "bytes": 1396197,
+      "sha256": "a1eed9ed348c9f925078967a038470ffdfe9e3e85733e86eb40722214bf22406",
+      "status": "historical-data",
+      "reason": "Not a current package evaluation.",
+      "source": "AI Hub derivative; see historical fetch scripts",
+      "license": "Redistribution permission not established by this inventory"
+    },
+    {
+      "path": "data/corpus/aihub_71845/국립아시아문화전당.txt",
+      "bytes": 3093322,
+      "sha256": "dd366d020fb7b27795cb68e249a647ff7af4e5d8b60481d0743fcb48ae3173dc",
+      "status": "historical-data",
+      "reason": "Not a current package evaluation.",
+      "source": "AI Hub derivative; see historical fetch scripts",
+      "license": "Redistribution permission not established by this inventory"
+    },
+    {
+      "path": "data/corpus/aihub_71845/중앙행정기관.txt",
+      "bytes": 2145528,
+      "sha256": "b3c28f41dcd690654229b954914705e70e62ad13ee16eb541964a6811f4cf569",
+      "status": "historical-data",
+      "reason": "Not a current package evaluation.",
+      "source": "AI Hub derivative; see historical fetch scripts",
+      "license": "Redistribution permission not established by this inventory"
+    },
+    {
+      "path": "data/corpus/aihub_71845/지방행정기관.txt",
+      "bytes": 2394558,
+      "sha256": "48cb73ae34c09b190705099fba24725c6af025f48f2d43cf11fa9c03110a0add",
+      "status": "historical-data",
+      "reason": "Not a current package evaluation.",
+      "source": "AI Hub derivative; see historical fetch scripts",
+      "license": "Redistribution permission not established by this inventory"
+    },
+    {
+      "path": "data/corpus/eval_corpus.jsonl",
+      "bytes": 184190,
+      "sha256": "c86366bc0bd88484ec4eb911185a9343b3d25f7d05569ce1c95159c5ca2989a2",
+      "status": "historical-data",
+      "reason": "Not a current package evaluation.",
+      "source": "Historical repository artifact; inspect associated README/script",
+      "license": "No blanket data license inferred from package MIT"
+    },
+    {
+      "path": "data/corpus/external_inject_v2.jsonl",
+      "bytes": 934010,
+      "sha256": "0e59baa56617789267c1933e9d270304674dda7681e859a320167f08c029347c",
+      "status": "historical-data",
+      "reason": "Not a current package evaluation.",
+      "source": "Historical repository artifact; inspect associated README/script",
+      "license": "No blanket data license inferred from package MIT"
+    },
+    {
+      "path": "data/corpus/injected_pii_corpus.jsonl",
+      "bytes": 340276,
+      "sha256": "db9929f055691f493830d043e2ad46de5bb2cb6e8cd4d934866c29379590aa90",
+      "status": "historical-data",
+      "reason": "Not a current package evaluation.",
+      "source": "Historical repository artifact; inspect associated README/script",
+      "license": "No blanket data license inferred from package MIT"
+    },
+    {
+      "path": "data/corpus/korea_kr.txt",
+      "bytes": 98876,
+      "sha256": "d7f8740b8842cbb0340601631a47d0d2d757192670aa016429ff75e4e922a050",
+      "status": "historical-data",
+      "reason": "Not a current package evaluation.",
+      "source": "Historical repository artifact; inspect associated README/script",
+      "license": "No blanket data license inferred from package MIT"
+    },
+    {
+      "path": "data/corpus/wikipedia.txt",
+      "bytes": 60619,
+      "sha256": "1d37bdd0b203b1edf0bee46109efcb753d25523a99fd0202ddb9440bc2b6b10e",
+      "status": "historical-data",
+      "reason": "Not a current package evaluation.",
+      "source": "Historical repository artifact; inspect associated README/script",
+      "license": "No blanket data license inferred from package MIT"
+    },
+    {
+      "path": "data/eval/eval_injected_corpus.py",
+      "bytes": 4111,
+      "sha256": "43754bd54aaf8b06dc1f61dc657ba6d94f18ff2ce9ef6e5346e3539d3e91c501",
+      "status": "legacy-parseable",
+      "reason": "Syntax only; dependencies, paths and results not certified.",
+      "source": "Historical repository artifact; inspect associated README/script",
+      "license": "No blanket data license inferred from package MIT"
+    },
+    {
+      "path": "data/eval/eval_naver_changwon_ner.py",
+      "bytes": 7787,
+      "sha256": "22afba4a975df54703f4dfe880f3b44100767b2b079d5cab38eec048397f1c63",
+      "status": "legacy-parseable",
+      "reason": "Syntax only; dependencies, paths and results not certified.",
+      "source": "Historical repository artifact; inspect associated README/script",
+      "license": "No blanket data license inferred from package MIT"
+    },
+    {
+      "path": "data/eval/eval_openai_klue_ner.py",
+      "bytes": 4714,
+      "sha256": "07911887f9d9b730b2ad0062db073adcc3b27f09e9ead24d63d91a98d5928a6b",
+      "status": "legacy-parseable",
+      "reason": "Syntax only; dependencies, paths and results not certified.",
+      "source": "Historical repository artifact; inspect associated README/script",
+      "license": "No blanket data license inferred from package MIT"
+    },
+    {
+      "path": "data/eval/eval_openai_synth.py",
+      "bytes": 2436,
+      "sha256": "1c4c87b4f5c6f1a9da0850fac92b406f9c4abb13cde438125f348865f452c469",
+      "status": "legacy-parseable",
+      "reason": "Syntax only; dependencies, paths and results not certified.",
+      "source": "Historical repository artifact; inspect associated README/script",
+      "license": "No blanket data license inferred from package MIT"
+    },
+    {
+      "path": "data/eval/eval_openmed_all.py",
+      "bytes": 12794,
+      "sha256": "bfbc8df0ae8c2b60b95b2f16ca10e2cf9e40e7d2934b5cc82718517be5326913",
+      "status": "legacy-parseable",
+      "reason": "Syntax only; dependencies, paths and results not certified.",
+      "source": "Historical repository artifact; inspect associated README/script",
+      "license": "No blanket data license inferred from package MIT"
+    },
+    {
+      "path": "data/eval/eval_presidio_all.py",
+      "bytes": 12000,
+      "sha256": "090e289c2e08b3a1c7fab2441ea6d494034872f51ac6cac12460d5f262cf1cad",
+      "status": "legacy-parseable",
+      "reason": "Syntax only; dependencies, paths and results not certified.",
+      "source": "Historical repository artifact; inspect associated README/script",
+      "license": "No blanket data license inferred from package MIT"
+    },
+    {
+      "path": "data/generated_eval.README.md",
+      "bytes": 1819,
+      "sha256": "0e7658afcd4483fdd3837955ce471f4c82a443e90a230a5f3dd015cd58b6dc38",
+      "status": "historical-data",
+      "reason": "Not a current package evaluation.",
+      "source": "Historical repository artifact; inspect associated README/script",
+      "license": "No blanket data license inferred from package MIT"
+    },
+    {
+      "path": "data/generated_eval.jsonl",
+      "bytes": 556871,
+      "sha256": "38c717a231174a8754e7d71a784b319738ef7fcce7111112c021ec252bf3bba0",
+      "status": "historical-data",
+      "reason": "Not a current package evaluation.",
+      "source": "Historical repository artifact; inspect associated README/script",
+      "license": "No blanket data license inferred from package MIT"
+    },
+    {
+      "path": "data/generated_eval_large.README.md",
+      "bytes": 1529,
+      "sha256": "9d35f286217e097c03709e6442aca655c455ee9e8e895acbab110fea9591e5b5",
+      "status": "historical-data",
+      "reason": "Not a current package evaluation.",
+      "source": "Historical repository artifact; inspect associated README/script",
+      "license": "No blanket data license inferred from package MIT"
+    },
+    {
+      "path": "data/generated_eval_large.jsonl",
+      "bytes": 2304477,
+      "sha256": "204bd3b99f2a51c571472091de12a0804546a10cbd499b3b172320b75b24adc3",
+      "status": "historical-data",
+      "reason": "Not a current package evaluation.",
+      "source": "Historical repository artifact; inspect associated README/script",
+      "license": "No blanket data license inferred from package MIT"
+    },
+    {
+      "path": "data/inject_pii_corpus.py",
+      "bytes": 17310,
+      "sha256": "9e84d2a8fc8bd7eb4b87c86808d70f7e49312bc4c7517a793003a3453a83ca4a",
+      "status": "legacy-parseable",
+      "reason": "Syntax only; dependencies, paths and results not certified.",
+      "source": "Historical repository artifact; inspect associated README/script",
+      "license": "No blanket data license inferred from package MIT"
+    },
+    {
+      "path": "data/kdpii/README.md",
+      "bytes": 923,
+      "sha256": "9dfb6d76053e311dfc4851bec3c3e2180ff4748c9259c180bdf3197606e1fc0a",
+      "status": "historical-data",
+      "reason": "Not a current package evaluation.",
+      "source": "https://zenodo.org/records/10968609",
+      "license": "CC-BY-4.0; see data/kdpii/README.md"
+    },
+    {
+      "path": "data/kdpii/test.json",
+      "bytes": 6124918,
+      "sha256": "d2a4141c567528c7a1255d6325c42e0988ff223e71f296d9ac4fac20b01ed7fe",
+      "status": "historical-data",
+      "reason": "Not a current package evaluation.",
+      "source": "https://zenodo.org/records/10968609",
+      "license": "CC-BY-4.0; see data/kdpii/README.md"
+    },
+    {
+      "path": "data/kdpii/train.json",
+      "bytes": 49798233,
+      "sha256": "3c65f8c7e48196110d14fa58f591f4a0cb54682a5ab26616292ea54ec4bd46fb",
+      "status": "historical-data",
+      "reason": "Not a current package evaluation.",
+      "source": "https://zenodo.org/records/10968609",
+      "license": "CC-BY-4.0; see data/kdpii/README.md"
+    },
+    {
+      "path": "data/kdpii/valid.json",
+      "bytes": 6260192,
+      "sha256": "3ffa97a75c584161f1096af6d2bbd252aa5e5ed556bdbe8bcb1467a57bc397c1",
+      "status": "historical-data",
+      "reason": "Not a current package evaluation.",
+      "source": "https://zenodo.org/records/10968609",
+      "license": "CC-BY-4.0; see data/kdpii/README.md"
+    },
+    {
+      "path": "data/klue_ner/klue-ner-v1.1_dev.tsv",
+      "bytes": 2635045,
+      "sha256": "0f4d5e818f7b82d299c3a87856fc40a706f5943207580ddb252397e387050a54",
+      "status": "historical-data",
+      "reason": "Not a current package evaluation.",
+      "source": "https://github.com/KLUE-benchmark/KLUE",
+      "license": "Check upstream file-specific terms; not package MIT"
+    },
+    {
+      "path": "data/labeling/GUIDE.md",
+      "bytes": 1904,
+      "sha256": "0ddd75d9330e3f2116c4ff0a794d1863b533c088e3ad581d8b7efc2da23ffb45",
+      "status": "historical-data",
+      "reason": "Not a current package evaluation.",
+      "source": "Historical repository artifact; inspect associated README/script",
+      "license": "No blanket data license inferred from package MIT"
+    },
+    {
+      "path": "data/labeling/label_ui.py",
+      "bytes": 6261,
+      "sha256": "b65198e9bf94d991fbdfa6fac8def13ce3f55697697536af08daad34f94a99a0",
+      "status": "legacy-parseable",
+      "reason": "Syntax only; dependencies, paths and results not certified.",
+      "source": "Historical repository artifact; inspect associated README/script",
+      "license": "No blanket data license inferred from package MIT"
+    },
+    {
+      "path": "data/labeling/labeling_sample.jsonl",
+      "bytes": 110791,
+      "sha256": "0984ceb85998b9a2f2acc3a3e852653142881f436ed941780a45839ee73b4a4f",
+      "status": "historical-data",
+      "reason": "Not a current package evaluation.",
+      "source": "Historical repository artifact; inspect associated README/script",
+      "license": "No blanket data license inferred from package MIT"
+    },
+    {
+      "path": "data/labeling/make_sample.py",
+      "bytes": 2539,
+      "sha256": "2aee3df5827c7bc7b03810aa759f3c8ac91888fcd755791f288dfddbfc3af11b",
+      "status": "legacy-parseable",
+      "reason": "Syntax only; dependencies, paths and results not certified.",
+      "source": "Historical repository artifact; inspect associated README/script",
+      "license": "No blanket data license inferred from package MIT"
+    },
+    {
+      "path": "data/labeling/score_labeled.py",
+      "bytes": 2942,
+      "sha256": "ba2728e84af2da0180c63ca33e77814f34ed3fe200980429fe6196b7c15b4260",
+      "status": "legacy-parseable",
+      "reason": "Syntax only; dependencies, paths and results not certified.",
+      "source": "Historical repository artifact; inspect associated README/script",
+      "license": "No blanket data license inferred from package MIT"
+    },
+    {
+      "path": "data/results/bootstrap_detections.txt",
+      "bytes": 1631,
+      "sha256": "676dc0ea571522d8af73cf33349053f0dd876802755d1fdfeacbe5b75576d2b8",
+      "status": "historical-data",
+      "reason": "Not a current package evaluation.",
+      "source": "Historical repository artifact; inspect associated README/script",
+      "license": "No blanket data license inferred from package MIT"
+    },
+    {
+      "path": "data/results/eval_corpus_kpii.txt",
+      "bytes": 2599,
+      "sha256": "46541983d21d8fcbbad471c022c58ca9a9aafe8a2264294aa99003a4d3e3bf84",
+      "status": "historical-data",
+      "reason": "Not a current package evaluation.",
+      "source": "Historical repository artifact; inspect associated README/script",
+      "license": "No blanket data license inferred from package MIT"
+    },
+    {
+      "path": "data/results/injected_full_eval.txt",
+      "bytes": 2722,
+      "sha256": "86caed23b80827fde50673831ffc9496c33e2a4d24b935768613713ee15d603b",
+      "status": "historical-data",
+      "reason": "Not a current package evaluation.",
+      "source": "Historical repository artifact; inspect associated README/script",
+      "license": "No blanket data license inferred from package MIT"
+    },
+    {
+      "path": "data/results/kdpii_3way_full.txt",
+      "bytes": 1956,
+      "sha256": "7f2aded97a1f5ee3010232fc5e536baa54b79f63bbc37f06999d6b2ec24602f1",
+      "status": "historical-data",
+      "reason": "Not a current package evaluation.",
+      "source": "Historical repository artifact; inspect associated README/script",
+      "license": "No blanket data license inferred from package MIT"
+    },
+    {
+      "path": "data/results/klue_ner_openai_full.txt",
+      "bytes": 1267,
+      "sha256": "59862a6bc05702f4509c520997d46a320b239395404400a1a1f6a6404ab511e0",
+      "status": "historical-data",
+      "reason": "Not a current package evaluation.",
+      "source": "Historical repository artifact; inspect associated README/script",
+      "license": "No blanket data license inferred from package MIT"
+    },
+    {
+      "path": "data/results/naver_changwon_ner_eval.txt",
+      "bytes": 2102,
+      "sha256": "649f2718adfaf2368606427d228d49f20ce65af17efb6b56fa965d578dc0a016",
+      "status": "historical-data",
+      "reason": "Not a current package evaluation.",
+      "source": "Historical repository artifact; inspect associated README/script",
+      "license": "No blanket data license inferred from package MIT"
+    },
+    {
+      "path": "data/results/presidio_injected_default.txt",
+      "bytes": 1512,
+      "sha256": "47dc5c54f44a3447a26ee3f3a2c8534455fcbc52ac57e010733490b78cdfe2e4",
+      "status": "historical-data",
+      "reason": "Not a current package evaluation.",
+      "source": "Historical repository artifact; inspect associated README/script",
+      "license": "No blanket data license inferred from package MIT"
+    },
+    {
+      "path": "data/results/presidio_injected_kr_adapt.txt",
+      "bytes": 1514,
+      "sha256": "9e39b56a742684d3963221e5889c37e1d8633004fe088c7a74dd11fdb74ce322",
+      "status": "historical-data",
+      "reason": "Not a current package evaluation.",
+      "source": "Historical repository artifact; inspect associated README/script",
+      "license": "No blanket data license inferred from package MIT"
+    },
+    {
+      "path": "data/results/presidio_kdpii_default.txt",
+      "bytes": 1846,
+      "sha256": "95d6dbbe1ed75f0645bb82de8e0164013379c5b6d09291603b1dac45cccbb1a0",
+      "status": "historical-data",
+      "reason": "Not a current package evaluation.",
+      "source": "Historical repository artifact; inspect associated README/script",
+      "license": "No blanket data license inferred from package MIT"
+    },
+    {
+      "path": "data/results/presidio_kdpii_kr_adapt.txt",
+      "bytes": 1905,
+      "sha256": "8f10c8154dde8790875fdab6bc2e1cc43aa2b923194a8ea23388e481b7a4c636",
+      "status": "historical-data",
+      "reason": "Not a current package evaluation.",
+      "source": "Historical repository artifact; inspect associated README/script",
+      "license": "No blanket data license inferred from package MIT"
+    },
+    {
+      "path": "data/results/presidio_klue_default.txt",
+      "bytes": 181,
+      "sha256": "d2e1619cf79fe6171b9faeacb29c162e42abbaf145a4f4b45c93fc9c73b5a78a",
+      "status": "historical-data",
+      "reason": "Not a current package evaluation.",
+      "source": "Historical repository artifact; inspect associated README/script",
+      "license": "No blanket data license inferred from package MIT"
+    },
+    {
+      "path": "data/results/presidio_klue_kr_adapt.txt",
+      "bytes": 182,
+      "sha256": "10cfa01e244f89c4221a53c7947a2d1147b55ab0d8344ddb3199af6331db322a",
+      "status": "historical-data",
+      "reason": "Not a current package evaluation.",
+      "source": "Historical repository artifact; inspect associated README/script",
+      "license": "No blanket data license inferred from package MIT"
+    },
+    {
+      "path": "data/results/presidio_synth_default.txt",
+      "bytes": 1529,
+      "sha256": "7e1dc8ab8a178c593cc6c7d8436c2eb3774f9bcacbc3ed244ae5e0bb9b857597",
+      "status": "historical-data",
+      "reason": "Not a current package evaluation.",
+      "source": "Historical repository artifact; inspect associated README/script",
+      "license": "No blanket data license inferred from package MIT"
+    },
+    {
+      "path": "data/results/presidio_synth_kr_adapt.txt",
+      "bytes": 1595,
+      "sha256": "b53d873cf8eb64705c2c7b8a876297bed80b134e3dccdc0736d14437e869a759",
+      "status": "historical-data",
+      "reason": "Not a current package evaluation.",
+      "source": "Historical repository artifact; inspect associated README/script",
+      "license": "No blanket data license inferred from package MIT"
+    },
+    {
+      "path": "data/results/synth_enhanced_kpii.txt",
+      "bytes": 1440,
+      "sha256": "ed9858b115daef35b8122b9acf75ab239e4fb63dac4b200926a057c454058aba",
+      "status": "historical-data",
+      "reason": "Not a current package evaluation.",
+      "source": "Historical repository artifact; inspect associated README/script",
+      "license": "No blanket data license inferred from package MIT"
+    },
+    {
+      "path": "data/results/synth_enhanced_openai.txt",
+      "bytes": 1625,
+      "sha256": "c988117350e6eacd3a2480737c23121e18aab94f64dfe90c4247a2a8f78e8acc",
+      "status": "historical-data",
+      "reason": "Not a current package evaluation.",
+      "source": "Historical repository artifact; inspect associated README/script",
+      "license": "No blanket data license inferred from package MIT"
+    },
+    {
+      "path": "data/tools/classify_fp_candidates.py",
+      "bytes": 3503,
+      "sha256": "611bd3c1fc7f0a5531da0ad5eeb607549f5ec11bce74f1490cdecc206f139cd2",
+      "status": "legacy-parseable",
+      "reason": "Syntax only; dependencies, paths and results not certified.",
+      "source": "Historical repository artifact; inspect associated README/script",
+      "license": "No blanket data license inferred from package MIT"
+    },
+    {
+      "path": "data/tools/count_bootstrap_detections.py",
+      "bytes": 4949,
+      "sha256": "4089e6342fecc1db7bd05f4a0931346322bf839fe08d55272e97265b7ff7674c",
+      "status": "legacy-parseable",
+      "reason": "Syntax only; dependencies, paths and results not certified.",
+      "source": "Historical repository artifact; inspect associated README/script",
+      "license": "No blanket data license inferred from package MIT"
+    },
+    {
+      "path": "data/tools/extract_aihub.py",
+      "bytes": 6346,
+      "sha256": "dfacf89273987a0366284dffb4bc918b6d1dfa1dbcbc4e760c27e6a15ce2dd34",
+      "status": "legacy-parseable",
+      "reason": "Syntax only; dependencies, paths and results not certified.",
+      "source": "Historical repository artifact; inspect associated README/script",
+      "license": "No blanket data license inferred from package MIT"
+    },
+    {
+      "path": "data/tools/fetch_corpus.py",
+      "bytes": 10631,
+      "sha256": "a78e8b25ad6d41ecb05f899c7910b57d5185ae3718b4bec4cc7d19a6efd9440d",
+      "status": "legacy-parseable",
+      "reason": "Syntax only; dependencies, paths and results not certified.",
+      "source": "Historical repository artifact; inspect associated README/script",
+      "license": "No blanket data license inferred from package MIT"
+    },
+    {
+      "path": "data/tools/probe_aihub.py",
+      "bytes": 2355,
+      "sha256": "9e38abed6ea52eec053ceb70ea8869dc2dc70753bbcce2c7ce36b48bee15aa95",
+      "status": "legacy-parseable",
+      "reason": "Syntax only; dependencies, paths and results not certified.",
+      "source": "Historical repository artifact; inspect associated README/script",
+      "license": "No blanket data license inferred from package MIT"
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "protocol_version": 1,
+  "fixed_before_measurement": "2026-10-26",
+  "source": "woohyun212/k-pii-bench",
+  "dataset_revision": "844f92f7beba98fa964f957ba324017e82451701",
+  "documentation_revision": "1b480c515cc8425ea5c5675079bd7cf17b951554",
+  "url": "https://huggingface.co/datasets/woohyun212/k-pii-bench/resolve/844f92f7beba98fa964f957ba324017e82451701/data/test_track_a.jsonl",
+  "license": "CC-BY-4.0",
+  "license_url": "https://huggingface.co/datasets/woohyun212/k-pii-bench/blob/844f92f7beba98fa964f957ba324017e82451701/LICENSE-DATA",
+  "source_sha256": "219c023f69832f9089d59df00368320fc76be81e05ee602cf0909289cd456add",
+  "source_bytes": 143005610,
+  "population": 28142,
+  "sample_size": 500,
+  "selection": "lowest SHA-256(doc_id UTF-8), then doc_id; no outcome-based selection",
+  "scorer": "ko-pii strict character spans on 14 declared mapped labels",
+  "output_policy": "STRICT redact; no custom rules, exclusions or secondary detector",
+  "limits": [
+    "External-authored synthetic corpus, not customer documents or a safety certification.",
+    "Not the upstream BIO leaderboard score; four source labels are unmapped.",
+    "A first recorded run under this protocol, not proof of zero historical exposure.",
+    "No rule changes based on this measurement in the maintenance release."
+  ]
+}

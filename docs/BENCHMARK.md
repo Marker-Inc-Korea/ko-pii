@@ -1,5 +1,9 @@
 # ko-pii Benchmark
 
+> Historical research / 과거 연구 기록입니다. 아래 수치는 당시 데이터·라벨·채점 조건의
+> 결과이며 최신 릴리스의 재측정값이 아닙니다. 현재 기능은 [문서 목차](README.md),
+> 고정 프로토콜의 외부 측정은 [연구 목차](../research/README.md)를 참고하세요.
+
 ## 1. Overview
 
 This document reports how **ko-pii** — a rule/dictionary/checksum-based Korean

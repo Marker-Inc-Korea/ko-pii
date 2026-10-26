@@ -1,0 +1,1031 @@
+{
+  "enums": {
+    "Action": {
+      "BLOCK": "BLOCK",
+      "REVIEW": "REVIEW",
+      "ALLOW": "ALLOW"
+    },
+    "ProcessingMode": {
+      "PARANOID": "PARANOID",
+      "STRICT": "STRICT",
+      "BALANCED": "BALANCED",
+      "PERMISSIVE": "PERMISSIVE",
+      "AUDIT": "AUDIT"
+    },
+    "RiskLevel": {
+      "INFO": 1,
+      "LOW": 2,
+      "MEDIUM": 3,
+      "HIGH": 4,
+      "CRITICAL": 5
+    },
+    "AttributeClass": {
+      "IDENTIFIER": "identifier",
+      "QUASI_IDENTIFIER": "quasi_identifier",
+      "SENSITIVE": "sensitive",
+      "GENERAL": "general"
+    },
+    "MergeMode": {
+      "UNION": "union",
+      "INTERSECTION": "intersection",
+      "CROSS_VALIDATION": "cross_validation",
+      "ENRICH_PRIMARY": "enrich_primary",
+      "FALLBACK_SECONDARY": "fallback_secondary",
+      "ROLE_SPLIT": "role_split"
+    }
+  },
+  "producer": {
+    "package": "ko-pii",
+    "version": "1.22.0",
+    "source": "https://pypi.org/project/ko-pii/1.22.0/",
+    "wheel_sha256": "0e5d2b5fc8227bf05b368a1a5b5b54aa66e3e1a229a2f81fed52c536b3f35385"
+  },
+  "exports": [
+    "Anonymizer",
+    "PolicyProfile",
+    "anonymize_json",
+    "anonymize_jsonl",
+    "loads_json",
+    "StructuredLimits",
+    "StructuredResult",
+    "EACH",
+    "FieldRule",
+    "AnonymizationResult",
+    "DetectionRecord",
+    "Action",
+    "ProcessingMode",
+    "DetectionResult",
+    "RiskLevel",
+    "detect_all",
+    "tokenize",
+    "redact",
+    "hashed",
+    "partial",
+    "mask_value",
+    "fpe",
+    "ReversibleVault",
+    "VaultEntry",
+    "AuditFailurePolicy",
+    "PreForwardAnonymizer",
+    "StreamBufferClosed",
+    "StreamBufferLimitExceeded",
+    "StreamBufferStatus",
+    "AttributeClass",
+    "CombinedRiskReport",
+    "classify_attribute",
+    "score_combined_risk",
+    "KAnonymityReport",
+    "k_anonymity",
+    "evaluate_dataset",
+    "SecondaryDetector",
+    "CallableDetector",
+    "RegexDetector",
+    "LiteralDetector",
+    "MockSecondaryDetector",
+    "MergeMode",
+    "merge_detections",
+    "get_privacy_filter_adapter",
+    "__version__"
+  ],
+  "signatures": {
+    "Anonymizer": [
+      {
+        "name": "mode",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "strategy",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "vault",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "include",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "exclude",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "secondary_detector",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "merge_mode",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "role_split_labels",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "person_exclusions",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "strategies",
+        "kind": "KEYWORD_ONLY",
+        "required": false
+      },
+      {
+        "name": "trace_limit",
+        "kind": "KEYWORD_ONLY",
+        "required": false
+      }
+    ],
+    "PolicyProfile": [
+      {
+        "name": "settings",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "name",
+        "kind": "KEYWORD_ONLY",
+        "required": false
+      }
+    ],
+    "anonymize_json": [
+      {
+        "name": "data",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "anonymizer",
+        "kind": "KEYWORD_ONLY",
+        "required": false
+      },
+      {
+        "name": "field_labels",
+        "kind": "KEYWORD_ONLY",
+        "required": false
+      },
+      {
+        "name": "limits",
+        "kind": "KEYWORD_ONLY",
+        "required": false
+      },
+      {
+        "name": "field_rules",
+        "kind": "KEYWORD_ONLY",
+        "required": false
+      },
+      {
+        "name": "field_person_exclusions",
+        "kind": "KEYWORD_ONLY",
+        "required": false
+      }
+    ],
+    "anonymize_jsonl": [
+      {
+        "name": "text",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "anonymizer",
+        "kind": "KEYWORD_ONLY",
+        "required": false
+      },
+      {
+        "name": "field_labels",
+        "kind": "KEYWORD_ONLY",
+        "required": false
+      },
+      {
+        "name": "limits",
+        "kind": "KEYWORD_ONLY",
+        "required": false
+      },
+      {
+        "name": "field_rules",
+        "kind": "KEYWORD_ONLY",
+        "required": false
+      },
+      {
+        "name": "field_person_exclusions",
+        "kind": "KEYWORD_ONLY",
+        "required": false
+      }
+    ],
+    "loads_json": [
+      {
+        "name": "text",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "limits",
+        "kind": "KEYWORD_ONLY",
+        "required": false
+      }
+    ],
+    "StructuredLimits": [
+      {
+        "name": "max_depth",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "max_nodes",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "max_chars",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "max_string_chars",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "max_documents",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      }
+    ],
+    "StructuredResult": [
+      {
+        "name": "data",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "fields",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "source_line",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "field_rule_summary",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      }
+    ],
+    "FieldRule": [
+      {
+        "name": "path",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "label",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "required",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      }
+    ],
+    "AnonymizationResult": [
+      {
+        "name": "text",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "detections",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "vault",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "summary",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "combined_risk",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "substitutions",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "overlap_trace",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      }
+    ],
+    "DetectionRecord": [
+      {
+        "name": "detection",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "action",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "token",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "strategy",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      }
+    ],
+    "Action": [
+      {
+        "name": "values",
+        "kind": "VAR_POSITIONAL",
+        "required": false
+      }
+    ],
+    "ProcessingMode": [
+      {
+        "name": "values",
+        "kind": "VAR_POSITIONAL",
+        "required": false
+      }
+    ],
+    "DetectionResult": [
+      {
+        "name": "label",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "text",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "start",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "end",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "risk_level",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "confidence",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "evidence",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "legal_basis",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "extra",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "rule_id",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "normalized",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "subrule_id",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      }
+    ],
+    "RiskLevel": [
+      {
+        "name": "values",
+        "kind": "VAR_POSITIONAL",
+        "required": false
+      }
+    ],
+    "detect_all": [
+      {
+        "name": "text",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "include",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "exclude",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "normalize",
+        "kind": "KEYWORD_ONLY",
+        "required": false
+      },
+      {
+        "name": "person_exclusions",
+        "kind": "KEYWORD_ONLY",
+        "required": false
+      },
+      {
+        "name": "trace",
+        "kind": "KEYWORD_ONLY",
+        "required": false
+      }
+    ],
+    "tokenize": [
+      {
+        "name": "text",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "detections",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "vault",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      }
+    ],
+    "redact": [
+      {
+        "name": "text",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "detections",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "style",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "mask_char",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      }
+    ],
+    "hashed": [
+      {
+        "name": "text",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "detections",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "vault",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "digest_len",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      }
+    ],
+    "partial": [
+      {
+        "name": "text",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "detections",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      }
+    ],
+    "mask_value": [
+      {
+        "name": "label",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "value",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      }
+    ],
+    "fpe": [
+      {
+        "name": "text",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "detections",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "vault",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      }
+    ],
+    "ReversibleVault": [
+      {
+        "name": "salt",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "audit_log",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "secret_key",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "fingerprint_iterations",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "audit_failure_policy",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      }
+    ],
+    "VaultEntry": [
+      {
+        "name": "token",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "label",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "original",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "risk_level",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "legal_basis",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "first_seen_offset",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "occurrences",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "extra",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      }
+    ],
+    "AuditFailurePolicy": [
+      {
+        "name": "args",
+        "kind": "VAR_POSITIONAL",
+        "required": false
+      },
+      {
+        "name": "kwargs",
+        "kind": "VAR_KEYWORD",
+        "required": false
+      }
+    ],
+    "PreForwardAnonymizer": [
+      {
+        "name": "anonymizer",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "max_chars",
+        "kind": "KEYWORD_ONLY",
+        "required": false
+      }
+    ],
+    "StreamBufferStatus": [
+      {
+        "name": "buffered_chars",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "max_chars",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "closed",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "failed",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      }
+    ],
+    "AttributeClass": [
+      {
+        "name": "values",
+        "kind": "VAR_POSITIONAL",
+        "required": false
+      }
+    ],
+    "CombinedRiskReport": [
+      {
+        "name": "distinct_identifiers",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "distinct_quasi",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "sensitive_present",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "combined_risk",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "rationale",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      }
+    ],
+    "classify_attribute": [
+      {
+        "name": "label",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      }
+    ],
+    "score_combined_risk": [
+      {
+        "name": "detections",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      }
+    ],
+    "KAnonymityReport": [
+      {
+        "name": "k",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "group_count",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "smallest_group_size",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "smallest_group_values",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "quasi_identifier_keys",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "record_count",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "satisfies_threshold",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "threshold",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "rationale",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      }
+    ],
+    "k_anonymity": [
+      {
+        "name": "records",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "quasi_keys",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "threshold",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      }
+    ],
+    "evaluate_dataset": [
+      {
+        "name": "records",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "threshold",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      }
+    ],
+    "SecondaryDetector": [
+      {
+        "name": "args",
+        "kind": "VAR_POSITIONAL",
+        "required": false
+      },
+      {
+        "name": "kwargs",
+        "kind": "VAR_KEYWORD",
+        "required": false
+      }
+    ],
+    "CallableDetector": [
+      {
+        "name": "callback",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "max_chars",
+        "kind": "KEYWORD_ONLY",
+        "required": false
+      },
+      {
+        "name": "max_matches",
+        "kind": "KEYWORD_ONLY",
+        "required": false
+      }
+    ],
+    "RegexDetector": [
+      {
+        "name": "pattern",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "label",
+        "kind": "KEYWORD_ONLY",
+        "required": true
+      },
+      {
+        "name": "group",
+        "kind": "KEYWORD_ONLY",
+        "required": false
+      },
+      {
+        "name": "risk_level",
+        "kind": "KEYWORD_ONLY",
+        "required": false
+      },
+      {
+        "name": "confidence",
+        "kind": "KEYWORD_ONLY",
+        "required": false
+      },
+      {
+        "name": "flags",
+        "kind": "KEYWORD_ONLY",
+        "required": false
+      },
+      {
+        "name": "max_chars",
+        "kind": "KEYWORD_ONLY",
+        "required": false
+      },
+      {
+        "name": "max_matches",
+        "kind": "KEYWORD_ONLY",
+        "required": false
+      }
+    ],
+    "LiteralDetector": [
+      {
+        "name": "values",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "boundary",
+        "kind": "KEYWORD_ONLY",
+        "required": false
+      },
+      {
+        "name": "max_chars",
+        "kind": "KEYWORD_ONLY",
+        "required": false
+      },
+      {
+        "name": "max_matches",
+        "kind": "KEYWORD_ONLY",
+        "required": false
+      }
+    ],
+    "MockSecondaryDetector": [
+      {
+        "name": "fixed_results",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      }
+    ],
+    "MergeMode": [
+      {
+        "name": "values",
+        "kind": "VAR_POSITIONAL",
+        "required": false
+      }
+    ],
+    "merge_detections": [
+      {
+        "name": "primary",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "secondary",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": true
+      },
+      {
+        "name": "mode",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "role_split_labels",
+        "kind": "POSITIONAL_OR_KEYWORD",
+        "required": false
+      },
+      {
+        "name": "trace",
+        "kind": "KEYWORD_ONLY",
+        "required": false
+      }
+    ],
+    "get_privacy_filter_adapter": [
+      {
+        "name": "kwargs",
+        "kind": "VAR_KEYWORD",
+        "required": false
+      }
+    ]
+  },
+  "profile": {
+    "schema_version": 1,
+    "name": "compatibility-fixture",
+    "settings": {
+      "exclude": [],
+      "include": [
+        "EMAIL"
+      ],
+      "mode": "STRICT",
+      "person_exclusions": [],
+      "strategies": {},
+      "strategy": "tokenize"
+    }
+  },
+  "profile_fingerprint": "cd661f8af66d1bc362c020a39ab5e69b6868a98051e6ad0bd65d972a38ad419a",
+  "vault": {
+    "schema_version": 1,
+    "created_at": "2026-10-26T04:08:13.911855+00:00",
+    "salt": "9cd6a1092c9c9ee5759807a01e04f4f3",
+    "fingerprint_scheme": "pbkdf2-sha256-v2",
+    "fingerprint_iterations": 100000,
+    "entries": {
+      "<EMAIL_1>": {
+        "label": "EMAIL",
+        "original": "demo@example.com",
+        "risk_level": 3,
+        "legal_basis": "개인정보보호법 제2조",
+        "first_seen_offset": 0,
+        "occurrences": [
+          0
+        ],
+        "extra": {
+          "value": "demo@example.com",
+          "local": "demo",
+          "domain": "example.com",
+          "category": "일반개인정보"
+        }
+      }
+    }
+  },
+  "explanation": {
+    "schema_version": 1,
+    "contract": "ko-pii-explanation-v1",
+    "scope": "selected_detections_only",
+    "overlap_resolution": "risk_confidence_length_start; discarded_candidates_not_included",
+    "offset_unit": "python_code_points",
+    "mode": "STRICT",
+    "detection_count": 1,
+    "substitution_count": 1,
+    "findings": [
+      {
+        "label": "EMAIL",
+        "rule_id": "ko-pii.email.v1",
+        "subrule_id": "email.ascii.v1",
+        "source_span": [
+          0,
+          16
+        ],
+        "output_span": [
+          0,
+          9
+        ],
+        "normalized": false,
+        "checks": [],
+        "confidence": 1.0,
+        "action": "BLOCK",
+        "requested_strategy": "tokenize",
+        "applied_strategy": "tokenize",
+        "reason": "substituted"
+      }
+    ]
+  }
+}
