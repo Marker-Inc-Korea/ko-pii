@@ -107,7 +107,9 @@ def test_csv_overflow_retains_legacy_restkey_and_gets_screened(tmp_path):
     assert "@example.com" not in repr(masked)
 
 
-def test_csv_quoted_newline_stays_in_one_cell(tmp_path):
+@pytest.mark.parametrize("separator", ["\n", "\r\n", "\r"])
+def test_csv_quoted_newline_stays_in_one_cell(tmp_path, separator):
     path = tmp_path / "quoted.csv"
-    path.write_text('email,memo\n"first@example.com\nsecond@example.com",public\n', encoding="utf-8")
-    assert read_records(str(path)) == [{"email": "first@example.com\nsecond@example.com", "memo": "public"}]
+    value = "first@example.com" + separator + "second@example.com"
+    path.write_bytes(('email,memo\r\n"' + value + '",public\r\n').encode("utf-8"))
+    assert read_records(str(path)) == [{"email": value, "memo": "public"}]
