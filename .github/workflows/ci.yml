@@ -60,6 +60,7 @@ jobs:
       - run: python -m pip install ".[dev,file,security]"
       - run: >-
           python -m pytest --import-mode=importlib -o pythonpath= -q
+          --junitxml=portable-results.xml
           tests/unit/test_portable_cli.py tests/unit/test_failure_boundaries.py
           tests/unit/test_structured.py tests/unit/test_processing_policy.py
           tests/unit/test_field_rules.py tests/unit/test_policy_preview.py
@@ -70,6 +71,31 @@ jobs:
           tests/unit/review/test_review_integrity.py
           tests/unit/eval/test_external.py
           tests/unit/eval/test_slices.py
+      - name: Annotate portable test failures
+        if: failure()
+        shell: python
+        run: |
+          from pathlib import Path
+          from xml.etree import ElementTree
+
+          path = Path("portable-results.xml")
+          if path.exists():
+              count = 0
+              for case in ElementTree.parse(path).iter("testcase"):
+                  for failure in list(case.findall("failure")) + list(case.findall("error")):
+                      if count >= 10:
+                          break
+                      message = (case.get("classname", "") + "::" + case.get("name", "") + "\n"
+                                 + (failure.text or failure.get("message", "")))[:12000]
+                      message = message.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+                      print("::error::" + message)
+                      count += 1
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: portable-tests-${{ matrix.os }}
+          path: portable-results.xml
+          if-no-files-found: ignore
 
   rag:
     name: Optional RAG adapters
