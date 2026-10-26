@@ -1,9 +1,6 @@
 """Microsoft Presidio plugin — ko-pii 를 Presidio Recognizer 로 등록.
 
-Presidio (https://github.com/microsoft/presidio) 는 Microsoft 의 가장 인기 OSS
-PII 검출·가명화 프레임워크. 다만 *한국어 지원이 매우 약함*. 본 plugin 은
-ko-pii 검출기를 Presidio EntityRecognizer 로 wrapping 하여, Presidio 사용자가
-한 줄로 한국 공공 PII 인식 능력을 얻을 수 있게 함.
+ko-pii 검출 결과를 Presidio EntityRecognizer 형식으로 제공한다.
 
 설치::
 
@@ -11,16 +8,14 @@ ko-pii 검출기를 Presidio EntityRecognizer 로 wrapping 하여, Presidio 사�
 
 사용::
 
-    from presidio_analyzer import AnalyzerEngine
     from ko_pii.integrations.presidio_plugin import KPiiRecognizer
 
-    analyzer = AnalyzerEngine()
-    analyzer.registry.add_recognizer(KPiiRecognizer())
+    recognizer = KPiiRecognizer(include=["EMAIL"])
+    results = recognizer.analyze(text="demo@example.com", entities=["EMAIL_ADDRESS"])
 
-    results = analyzer.analyze(text="홍길동 880101-1234568", language="ko")
-
-Presidio 가 한국어 nlp_engine 미설정이어도 본 recognizer 는 *룰 기반* 이라
-독립 동작. spaCy 한국어 모델은 필요 없음.
+recognizer 직접 호출에는 NLP engine이 필요 없다. AnalyzerEngine과 통합할 때는
+ko 언어 engine/registry를 명시해야 한다. 모델 다운로드 없는 실행 예제는
+examples/presidio_rules.py 및 docs/integration_presidio.md를 참고한다.
 
 엔티티 라벨 매핑:
     ko-pii         → Presidio 표준

@@ -1,61 +1,64 @@
 # Microsoft Presidio Plugin
 
-[Microsoft Presidio](https://github.com/microsoft/presidio) 는 가장 인기 있는
-OSS PII 검출·가명화 프레임워크. ko-pii 의 한국 공공 도메인 fit 을 Presidio
-사용자가 *한 줄로* 활용할 수 있게 하는 plugin.
-
-## 설치
+ko-pii 규칙을 [Presidio](https://github.com/microsoft/presidio)의 recognizer 형식으로
+연결합니다. 아래 예제는 별도의 학습 모델이나 외부 API를 사용하지 않습니다.
+Presidio 자체와 spaCy 등 선택 패키지는 설치해야 합니다.
 
 ```bash
-pip install ko-pii[presidio]
-# 또는
-pip install ko-pii presidio-analyzer presidio-anonymizer
+python -m pip install 'ko-pii[presidio]'
 ```
 
-## 사용
+## Recognizer 직접 사용
+
+규칙 검출만 필요하면 NLP engine 없이 recognizer를 직접 호출할 수 있습니다.
 
 ```python
-from presidio_analyzer import AnalyzerEngine
 from ko_pii.integrations.presidio_plugin import KPiiRecognizer
 
-# 1) Presidio Analyzer 초기화
-analyzer = AnalyzerEngine()
-
-# 2) ko-pii recognizer 등록
-analyzer.registry.add_recognizer(KPiiRecognizer())
-
-# 3) 한국 PII 인식
-text = "홍길동(880101-1234568)의 연락처: 010-1234-5678"
-results = analyzer.analyze(text=text, language="ko")
-
-for r in results:
-    print(f"{r.entity_type}: {text[r.start:r.end]} (score {r.score})")
-# 출력:
-#   PERSON: 홍길동 (score 0.65)
-#   KR_RRN: 880101-1234568 (score 1.0)
-#   PHONE_NUMBER: 010-1234-5678 (score 1.0)
+recognizer = KPiiRecognizer(include=["EMAIL"])
+results = recognizer.analyze(text="demo@example.com", entities=["EMAIL_ADDRESS"])
 ```
 
-## Presidio 사용자가 얻는 것
+## AnalyzerEngine에 연결
 
-| 기능 | Presidio 기본 | + ko-pii plugin |
-|---|---|---|
-| RRN (주민등록번호) 검출 + 체크섬 | ❌ | ✅ KR_RRN |
-| 사업자등록번호 + 국세청 체크섬 | ❌ | ✅ KR_BUSINESS_REG |
-| 법인등록번호 + 체크섬 | ❌ | ✅ KR_CORP_REG |
-| 한국 운전면허번호 | ❌ | ✅ KR_DRIVER_LICENSE |
-| 한국 휴대전화 (010~019) | ⚠️ 부분적 | ✅ PHONE_NUMBER |
-| 의료보험증번호 (건강·민감) | ❌ | ✅ KR_MEDICAL_INSURANCE |
-| 한국 차량번호 (가나다 등) | ❌ | ✅ KR_VEHICLE_PLATE |
-| 한국 도로명/지번 주소 | ❌ | ✅ KR_ADDRESS |
-| 우편번호 (5자리·6자리) | ❌ | ✅ KR_POSTAL_CODE |
-| 처방번호·KCD 진단코드 | ❌ | ✅ KR_PRESCRIPTION_ID / KR_KCD |
-| 법원 사건번호 | ❌ | ✅ KR_COURT_CASE |
-| 한국 성명 (컨텍스트 기반) | ⚠️ 약함 | ✅ PERSON |
+`AnalyzerEngine()` 기본 설정에 recognizer만 추가해도 한국어 NLP engine이 생기는
+것은 아닙니다. 엔진은 recognizer 호출 전에 언어별 전처리를 수행하므로 `ko` 언어의
+engine, registry, supported_languages를 모두 맞춥니다.
 
-총 **22개 한국 특화 / 표준 라벨** 추가.
+아래는 [실행 예제](../examples/presidio_rules.py)와 동일하며 실제 SDK CI에서 검사합니다.
+blank multilingual tokenizer를 `ko` 슬롯에 연결하고 ko-pii 규칙만 등록합니다.
+이는 한국어 형태소 분석이나 통계 NER를 제공하는 설정이 아닙니다.
 
-## 라벨 매핑 표
+```python
+import spacy
+from presidio_analyzer import AnalyzerEngine, RecognizerRegistry
+from presidio_analyzer.nlp_engine import SpacyNlpEngine
+from presidio_anonymizer import AnonymizerEngine
+
+from ko_pii.integrations.presidio_plugin import KPiiRecognizer
+
+
+class KoreanRuleEngine(SpacyNlpEngine):
+    def load(self):
+        # Tokenization only: no model download or statistical NER.
+        self.nlp = {"ko": spacy.blank("xx")}
+
+
+engine = KoreanRuleEngine(models=[{"lang_code": "ko", "model_name": "blank"}])
+registry = RecognizerRegistry(supported_languages=["ko"])
+registry.add_recognizer(KPiiRecognizer(include=["EMAIL", "PHONE"]))
+analyzer = AnalyzerEngine(
+    nlp_engine=engine, registry=registry, supported_languages=["ko"],
+)
+text = "demo@example.com / 010-2345-6789"
+results = analyzer.analyze(text=text, language="ko")
+print(AnonymizerEngine().anonymize(text=text, analyzer_results=results).text)
+```
+
+기존 NLP engine을 사용한다면 해당 engine의 `ko` 지원과 registry 언어를 먼저
+확인하십시오. 임의의 엔진 설정을 이 plugin이 자동 수정하거나 모델을 내려받지는 않습니다.
+
+## 지원 라벨
 
 | ko-pii 라벨 | Presidio 라벨 |
 |---|---|
@@ -66,7 +69,6 @@ for r in results:
 | DRIVER_LICENSE | `KR_DRIVER_LICENSE` |
 | MEDICAL_INSURANCE | `KR_MEDICAL_INSURANCE` |
 | PRESCRIPTION_ID | `KR_PRESCRIPTION_ID` |
-| KCD | `KR_KCD` |
 | EDI_DRUG | `KR_EDI_DRUG` |
 | VEHICLE | `KR_VEHICLE_PLATE` |
 | POSTAL_CODE | `KR_POSTAL_CODE` |
@@ -77,71 +79,25 @@ for r in results:
 | PETITION_ID | `KR_PETITION_ID` |
 | COURT_CASE | `KR_COURT_CASE` |
 | PNU | `KR_LAND_ID` |
-| PASSPORT | `US_PASSPORT` (Presidio 표준) |
+| PASSPORT | `US_PASSPORT` (기존 호환 매핑, 미국 여권을 검증한다는 뜻 아님) |
 | CARD | `CREDIT_CARD` |
-| PHONE | `PHONE_NUMBER` |
-| FAX | `PHONE_NUMBER` |
+| PHONE / FAX | `PHONE_NUMBER` |
 | EMAIL | `EMAIL_ADDRESS` |
 | IP | `IP_ADDRESS` |
 | URL | `URL` |
 | PERSON | `PERSON` |
 
-## 메타데이터
+코어의 모든 라벨이 이 adapter에 매핑되는 것은 아닙니다. 표에 없는 라벨은 반환하지
+않으며 `KCD`/`KR_KCD`는 지원하지 않습니다. `include`/`exclude`는 ko-pii 라벨을,
+`analyzer.analyze(entities=[...])`는 위 Presidio 라벨을 사용합니다.
 
-각 `RecognizerResult` 의 `recognition_metadata` 에 ko-pii 의 원본 정보 보존:
+## 처리와 메타데이터의 범위
 
-```python
-result = results[0]
-result.recognition_metadata["ko_pii_label"]        # 'RRN'
-result.recognition_metadata["ko_pii_risk_level"]   # 'CRITICAL'
-result.recognition_metadata["ko_pii_legal_basis"]  # '개인정보보호법 제24조의2'
-result.recognition_metadata["ko_pii_evidence"]     # ['pattern:rrn', 'checksum:valid', ...]
-```
+`recognition_metadata`에는 `ko_pii_label`, `ko_pii_risk_level`,
+`ko_pii_legal_basis`, `ko_pii_evidence`가 포함됩니다. 이는 규칙이 남긴 정보이며
+법적 판단이나 도메인 정확도 보장이 아닙니다.
 
-→ Presidio 사용자가 한국 *법적 근거* 까지 얻음. 감사 추적 용이.
-
-## Presidio Anonymizer 와 결합
-
-```python
-from presidio_analyzer import AnalyzerEngine
-from presidio_anonymizer import AnonymizerEngine
-from ko_pii.integrations.presidio_plugin import KPiiRecognizer
-
-analyzer = AnalyzerEngine()
-analyzer.registry.add_recognizer(KPiiRecognizer())
-
-anonymizer = AnonymizerEngine()
-
-text = "홍길동 880101-1234568"
-results = analyzer.analyze(text=text, language="ko")
-anonymized = anonymizer.anonymize(text=text, analyzer_results=results)
-print(anonymized.text)
-# → <PERSON> <KR_RRN>
-```
-
-## 필터링
-
-특정 카테고리만 사용:
-
-```python
-# 한국 RRN 과 전화번호만
-recognizer = KPiiRecognizer(include=["RRN", "PHONE"])
-analyzer.registry.add_recognizer(recognizer)
-```
-
-또는 Presidio API 로 호출 시 entity 지정:
-
-```python
-results = analyzer.analyze(
-    text=text, language="ko",
-    entities=["KR_RRN", "PHONE_NUMBER"],
-)
-```
-
-## 주의
-
-- ko-pii recognizer 는 `language="ko"` 에서만 활성. 영어 텍스트에는 Presidio
-  기본 recognizer 사용.
-- nlp_engine (spaCy 등) 은 *필요 없음* — ko-pii 는 자체 룰 기반.
-- Presidio 의 score 임계값 (`AnalyzerEngine.analyze(score_threshold=...)`)
-  과 호환.
+이 adapter는 탐지 결과와 confidence를 넘깁니다. ko-pii Anonymizer의
+BLOCK/REVIEW/ALLOW 정책을 자동 적용하지 않습니다. Presidio의 `score_threshold`와
+anonymizer operator를 호출자가 설정해야 합니다. 위 예제의 Presidio 치환은 ko-pii의
+가역 Vault 토큰화가 아닙니다.

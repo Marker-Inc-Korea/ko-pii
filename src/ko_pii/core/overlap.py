@@ -22,6 +22,7 @@ from ko_pii.core.modes import Action, ModePolicy
 
 def _select_non_overlapping(
     items: list[DetectionResult], *, trace: OverlapTrace | None = None, stage: str = "primary",
+    policy: ModePolicy | None = None,
 ) -> list[DetectionResult]:
     """Keep the first eligible spans in input order in O(n log n) time.
 
@@ -44,7 +45,7 @@ def _select_non_overlapping(
                 break
             i -= i & -i
         if trace is not None:
-            trace.record(d, blocker, stage)
+            trace.record(d, blocker, stage, policy=policy)
         if blocker is not None:
             continue
         accepted.append(d)
@@ -73,6 +74,6 @@ def resolve_overlaps(
             d.start,
         ),
     )
-    accepted = _select_non_overlapping(items, trace=trace, stage=stage)
+    accepted = _select_non_overlapping(items, trace=trace, stage=stage, policy=policy)
     accepted.sort(key=lambda d: (d.start, d.end))
     return accepted

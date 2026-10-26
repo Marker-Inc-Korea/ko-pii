@@ -69,6 +69,8 @@ anon = Anonymizer(secondary_detector=pf, merge_mode="intersection")
 
 ### 3. `cross_validation`
 primary는 유지하고 secondary 단독 후보는 신뢰도에 0.7을 곱합니다. 일치 후보는 보강합니다.
+확인 근거는 실제 primary이며, primary당 가장 높은 신뢰도의 일치 후보로 한 번만
+보강합니다. secondary 후보끼리 서로 확인하거나 중복 횟수만큼 신뢰도를 올리지 않습니다.
 이후 모드의 임계값을 적용하므로 단독 후보가 반드시 REVIEW가 되지는 않습니다.
 예를 들어 HIGH/1.0은 감점 후 0.7이어서 STRICT에서는 BLOCK입니다.
 

@@ -5,6 +5,32 @@
 
 ## [Unreleased]
 
+## [1.22.3] - 2026-10-26
+
+### Fixed
+
+- XLSX `read_records()`가 평문을 다시 split하지 않고 XML 셀 구조와 시트별 헤더를
+  직접 읽습니다. 셀 내부 탭/줄바꿈을 보존하고, 서로 다른 시트의 열 순서 때문에
+  이메일이 비매핑 열로 이동하던 문제를 수정했습니다.
+- CSV/XLSX의 중복 또는 빈 헤더와 XLSX의 헤더 밖 비어 있지 않은 셀은 명시적으로
+  거부합니다. XLSX의 끝쪽 빈 서식 셀은 무시하고, CSV의 기존 overflow restkey는
+  보존합니다. 값이 조용히 덮어써지거나 잘리는 성공 결과를 방지합니다.
+- `cross_validation`은 실제 primary만 확인 근거로 사용하고 primary마다 한 번만
+  신뢰도를 보강합니다. secondary 중복/입력 순서로 REVIEW/BLOCK/ALLOW가 바뀌던
+  문제를 수정했으며, 단독 후보의 기존 0.7 감점은 유지합니다.
+- 정책상 비차단 후보가 밀린 경우 trace에 `non_blocking_policy_priority`를 기록합니다.
+  하이브리드 설명에는 `block_risk_confidence_length_start`를 표시하며, 보조 탐지기 없는
+  기존 설명 계약은 유지합니다.
+
+### Documentation And Validation
+
+- Presidio recognizer 직접 호출과 AnalyzerEngine 통합을 구분하고, 명시적 `ko`
+  engine/registry를 사용하는 모델 다운로드 없는 실행 예제와 실제 SDK CI를 추가했습니다.
+- 표 경계, 교차검증 중복/순서, 실제 선택 이유에 대한 회귀 검사를 추가했습니다.
+  MCP는 별도 stdio 프로세스와 초기화/목록/가명화/복원 왕복도 검사합니다.
+- 표 처리 오류의 거부 범위와 하이브리드 로그 변경을 안내했습니다. 새로운 ML/OCR
+  기능이나 전체 탐지 정확도 향상을 주장하는 릴리스는 아닙니다.
+
 ## [1.22.2] - 2026-10-26
 
 ### Fixed

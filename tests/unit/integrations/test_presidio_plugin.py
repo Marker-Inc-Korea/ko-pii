@@ -4,6 +4,30 @@
 여기서는 import 안전성 + 라벨 매핑·메타데이터 검증.
 """
 import pytest
+from pathlib import Path
+import os
+import subprocess
+import sys
+
+
+ROOT = Path(__file__).resolve().parents[3]
+
+
+def test_documented_example_matches_executable_file():
+    example = (ROOT / "examples/presidio_rules.py").read_text(encoding="utf-8").strip()
+    assert f"```python\n{example}\n```" in (ROOT / "docs/integration_presidio.md").read_text(encoding="utf-8")
+
+
+def test_actual_presidio_example_without_model_download(tmp_path):
+    pytest.importorskip("presidio_analyzer")
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "examples/presidio_rules.py")], cwd=tmp_path,
+        env=dict(os.environ, PYTHONPATH="", PYTHONUTF8="1"),
+        capture_output=True, text=True, encoding="utf-8", timeout=30, check=True,
+    )
+    assert "<EMAIL_ADDRESS>" in result.stdout and "<PHONE_NUMBER>" in result.stdout
+    assert "demo@example.com" not in result.stdout
+    assert "010-2345-6789" not in result.stdout
 
 
 class TestSoftImport:

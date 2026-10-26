@@ -48,11 +48,14 @@ def explain(result: AnonymizationResult, *, include_trace: bool = False) -> dict
             "reason": reason,
         })
     mode = result.summary.get("mode")
+    priority = ("block_risk_confidence_length_start"
+                if result.summary.get("overlap_resolution") == "block_risk_confidence_length_start"
+                else "risk_confidence_length_start")
     report = {
         "schema_version": 1,
         "contract": "ko-pii-explanation-v1",
         "scope": "selected_detections_only",
-        "overlap_resolution": "risk_confidence_length_start; discarded_candidates_not_included",
+        "overlap_resolution": f"{priority}; discarded_candidates_not_included",
         "offset_unit": "python_code_points",
         "mode": mode if mode in {m.value for m in ProcessingMode} else None,
         "detection_count": len(rows),

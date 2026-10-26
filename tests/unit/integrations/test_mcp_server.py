@@ -1,11 +1,8 @@
-"""MCP 서버 어댑터 — soft import 안전성 검증.
-
-실제 stdio 서버 실행 테스트는 mcp 설치 + asyncio 환경 필요. 여기서는
-module import + main() 진입점 안전성만 확인.
-"""
+"""Soft imports, SDK handlers, and an optional real MCP stdio round trip."""
 import pytest
 import asyncio
 import json
+import sys
 
 
 class TestSoftImport:
@@ -64,3 +61,32 @@ def test_real_sdk_tool_list_calls_and_invalid_input(monkeypatch):
         assert invalid.isError
 
     asyncio.run(exercise())
+
+
+def test_real_stdio_initialize_mask_and_reveal():
+    mcp = pytest.importorskip("mcp")
+    from mcp.client.stdio import stdio_client
+
+    async def exercise():
+        parameters = mcp.StdioServerParameters(command=sys.executable,
+                                               args=["-m", "ko_pii.integrations.mcp_server"])
+        async with stdio_client(parameters) as (reader, writer):
+            async with mcp.ClientSession(reader, writer) as session:
+                info = await session.initialize()
+                assert info.serverInfo.name == "ko-pii"
+                assert {t.name for t in (await session.list_tools()).tools} == {
+                    "anonymize", "detect_pii", "reveal", "combined_risk",
+                }
+                response = await session.call_tool("anonymize", {"text": "demo@example.com"})
+                assert not response.isError
+                masked = json.loads(response.content[0].text)
+                assert masked["text"] == "<EMAIL_1>"
+                revealed = await session.call_tool("reveal", {
+                    "vault_id": masked["vault_id"], "token": "<EMAIL_1>"})
+                assert json.loads(revealed.content[0].text)["original"] == "demo@example.com"
+                assert (await session.call_tool("anonymize", {"text": 42})).isError
+
+    async def bounded():
+        await asyncio.wait_for(exercise(), timeout=30)
+
+    asyncio.run(bounded())

@@ -168,6 +168,8 @@ class Anonymizer:
         else:
             detections = primary
         result = self._process_detections(text, detections)
+        if self.secondary_detector is not None:
+            result.summary["overlap_resolution"] = "block_risk_confidence_length_start"
         result.overlap_trace = trace
         return result
 

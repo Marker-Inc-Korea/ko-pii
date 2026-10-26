@@ -144,9 +144,15 @@ assert report["findings"][0]["subrule_id"] == "email.obfuscated.v1"
 2. `explain(result, include_trace=True)`로 내보냅니다. 기본 보고서는 추적을 넣지 않습니다.
 
 `overlap_trace`에는 공통 겹침 처리의 단계별 후보/채택/탈락 수와, 탈락 후보 및 이를 막은
-채택 후보 하나의 라벨/규칙/좌표를 넣습니다. 위험도, 신뢰도, 길이, 시작 위치, 입력 순서 중
+채택 후보 하나의 라벨/규칙/좌표를 넣습니다. BLOCK 여부, 위험도, 신뢰도, 길이, 시작 위치, 입력 순서 중
 어느 우선순위에서 밀렸는지 구분합니다. 해당 단계의 blocker가 이후 병합 단계에서도
 최종 채택된다는 뜻은 아닙니다. 원문/토큰/임의 evidence/extra는 포함하지 않습니다.
+
+1.22.3부터 정책상 비차단 후보가 BLOCK 후보보다 뒤로 선택되면
+`non_blocking_policy_priority`를 기록합니다. `explain()`의 `overlap_resolution`은
+보조 탐지기를 사용하는 Anonymizer에서 `block_risk_confidence_length_start`로 시작하며,
+보조 탐지기 없는 기존 경로는 `risk_confidence_length_start`를 유지합니다. 이 값은
+최종 공통 겹침 선택 기준이며, 앞선 primary 탐지 단계는 여전히 위험도 우선입니다.
 
 제한을 넘으면 추가 이벤트를 보관하지 않고 `truncated`, `omitted_events`로 표시합니다.
 집계는 계속하며 출력 잘림이 탐지/치환 결과를 바꾸지 않습니다. `overlap_trace: null`은

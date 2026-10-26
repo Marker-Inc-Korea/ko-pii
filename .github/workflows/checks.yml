@@ -59,6 +59,8 @@ jobs:
           tests/unit/test_field_rules.py tests/unit/test_policy_preview.py
           tests/unit/test_structured_policy_preview.py
           tests/unit/test_profile.py tests/unit/test_audit_boundaries.py
+          tests/unit/io_/test_record_boundaries.py tests/unit/test_explanation_trace.py
+          tests/unit/integrations/test_hybrid.py
           tests/unit/integrations/test_literal.py
           tests/unit/integrations/test_secondary_validation.py
           tests/unit/review/test_review_integrity.py
@@ -145,6 +147,18 @@ jobs:
             dist/*
             distribution-manifest.json
           if-no-files-found: error
+
+  presidio:
+    name: Presidio rule-only integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - run: python -m pip install ".[dev,presidio]"
+      - run: python -m pytest --import-mode=importlib -o pythonpath= -q tests/unit/integrations/test_presidio_plugin.py
 
   regression:
     name: Synthetic regression

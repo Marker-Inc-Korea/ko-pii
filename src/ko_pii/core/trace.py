@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any
 
 from ko_pii.core.types import DetectionResult
+from ko_pii.core.modes import Action, ModePolicy
 from ko_pii.labels import ALL_LABELS
 
 RULE_IDS = frozenset({f"ko-pii.{label.lower()}.v1" for label in ALL_LABELS} | {"field.asserted.v1"})
@@ -36,7 +37,8 @@ class OverlapTrace:
         self._discarded = 0
         self._stages: dict[str, dict[str, int]] = {}
 
-    def record(self, candidate: DetectionResult, blocker: DetectionResult | None, stage: str) -> None:
+    def record(self, candidate: DetectionResult, blocker: DetectionResult | None, stage: str,
+               *, policy: ModePolicy | None = None) -> None:
         if stage not in {"primary", "hybrid"}:
             raise ValueError("unknown overlap stage")
         counts = self._stages.setdefault(stage, {"candidates": 0, "kept": 0, "discarded": 0})
@@ -47,7 +49,11 @@ class OverlapTrace:
         self._discarded += 1
         if len(self._events) >= self._limit:
             return
-        if candidate.risk_level != blocker.risk_level:
+        if (policy is not None
+                and policy.decide(candidate.risk_level, candidate.confidence) != Action.BLOCK
+                and policy.decide(blocker.risk_level, blocker.confidence) == Action.BLOCK):
+            reason = "non_blocking_policy_priority"
+        elif candidate.risk_level != blocker.risk_level:
             reason = "lower_risk_priority"
         elif candidate.confidence != blocker.confidence:
             reason = "lower_confidence_priority"

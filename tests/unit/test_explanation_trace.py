@@ -8,6 +8,7 @@ from ko_pii.core.overlap import resolve_overlaps
 from ko_pii.core.trace import OverlapTrace
 from ko_pii.integrations.hybrid import MergeMode, merge_detections
 from ko_pii.reporting import explain
+from ko_pii.core.modes import ProcessingMode
 
 
 @pytest.mark.parametrize("text,subrule", [
@@ -105,3 +106,21 @@ def test_cli_text_trace_and_option_validation(tmp_path):
     for options in (["--trace-limit", "5"], ["--trace-limit", "1001", "--explain", str(report)]):
         with pytest.raises(SystemExit):
             main([str(source), *options])
+
+
+@pytest.mark.parametrize("mode", [ProcessingMode.STRICT, ProcessingMode.BALANCED, ProcessingMode.PARANOID])
+def test_policy_priority_has_its_own_reason_and_report(mode):
+    text = "010-2345-6789"
+    secondary = RegexDetector(text, label="RRN", risk_level=RiskLevel.CRITICAL, confidence=0.1)
+    result = Anonymizer(mode=mode, secondary_detector=secondary, trace_limit=20).process(text)
+    report = explain(result, include_trace=True)
+    event = next(e for e in report["overlap_trace"]["discarded"] if e["stage"] == "hybrid")
+    assert result.text != text
+    assert event["candidate"]["label"] == "RRN"
+    assert event["blocker"]["label"] == "PHONE"
+    assert event["reason"] == "non_blocking_policy_priority"
+    assert report["overlap_resolution"].startswith("block_risk_confidence_length_start;")
+    assert text not in json.dumps(report)
+    without_trace = Anonymizer(mode=mode, secondary_detector=secondary).process(text)
+    assert without_trace.text == result.text
+    assert explain(without_trace)["overlap_resolution"] == report["overlap_resolution"]

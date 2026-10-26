@@ -1,5 +1,10 @@
 from ko_pii.core.types import DetectionResult, RiskLevel
 from ko_pii.integrations import MergeMode, merge_detections
+from itertools import permutations
+
+import pytest
+
+from ko_pii import Anonymizer
 
 
 def _det(label, start, end, text, risk=RiskLevel.MEDIUM, conf=0.8, evidence=None):
@@ -79,6 +84,34 @@ class TestMergeCrossValidation:
         # primary 가 안 잡음 → 페널티 0.9*0.7 = 0.63
         assert out[0].confidence < 0.7
         assert any("uncorroborated" in e for e in out[0].evidence)
+
+    @pytest.mark.parametrize("confidences", list(permutations([0.99, 0.2, 0.95])))
+    def test_secondary_order_duplicates_and_self_confirmation(self, confidences):
+        class Detector:
+            def detect(self, text):
+                return [_det("PERSON", 0, len(text), text, risk=RiskLevel.HIGH, conf=c)
+                        for c in confidences]
+
+        result = Anonymizer(include=["PERSON"], merge_mode="cross_validation",
+                            secondary_detector=Detector()).process("XQZtoken")
+        record = result.detections[0]
+        assert record.action.value == "REVIEW"
+        assert record.detection.confidence == 0.99 * 0.7
+        assert not any(e.startswith("corroborated_by:") for e in record.detection.evidence)
+
+    def test_repeated_secondary_does_not_stack_primary_confidence(self):
+        p = _det("PERSON", 0, 3, "abc", risk=RiskLevel.HIGH, conf=0.6)
+        s = _det("PERSON", 0, 3, "abc", risk=RiskLevel.HIGH, conf=0.9)
+        once = merge_detections([p], [s], mode="cross_validation")
+        many = merge_detections([p], [s] * 20, mode="cross_validation")
+        assert once == many
+        assert p.confidence == 0.6
+        assert many[0].confidence == 0.65
+
+    def test_unconfirmed_duplicate_keeps_penalty(self):
+        s = _det("PERSON", 0, 3, "abc", risk=RiskLevel.HIGH, conf=0.95)
+        assert merge_detections([], [s], mode="cross_validation") == merge_detections(
+            [], [s] * 10, mode="cross_validation")
 
 
 class TestMergeFallback:

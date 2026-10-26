@@ -21,6 +21,9 @@ python -m twine check dist/*
 Windows 가상환경 활성화는 `.venv\Scripts\Activate.ps1`입니다.
 테스트 수와 실행 시간은 환경·선택 의존성에 따라 달라지므로 고정 숫자를 통과 조건으로
 삼지 않습니다. RAG/MCP 어댑터는 `.[dev,langchain,llamaindex,mcp]` 환경에서 따로 검사합니다.
+Presidio는 `.[dev,presidio]` 환경에서 `tests/unit/integrations/test_presidio_plugin.py`를
+실행합니다. 문서와 실행 예제의 일치 및 한국어 engine/registry 구성을 실제 SDK로
+검사하며 통계적 NER 모델을 다운로드하지 않습니다.
 torch 기반 선택 모듈 전체를 기본 CI가 검증한다는 뜻은 아닙니다.
 
 ## 설치본 검증

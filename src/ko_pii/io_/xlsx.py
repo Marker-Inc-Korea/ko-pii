@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import xml.etree.ElementTree as ET
 import zipfile
+from collections.abc import Iterator
 
 from ko_pii.io_.coverage import TextExtraction, inspect_parts
 
@@ -77,35 +78,39 @@ def _col_index(ref: str) -> int:
     return idx - 1
 
 
+def _sheet_names(archive: zipfile.ZipFile) -> list[str]:
+    return sorted(n for n in archive.namelist()
+                  if n.startswith("xl/worksheets/sheet") and n.endswith(".xml"))
+
+
+def _sheet_rows(archive: zipfile.ZipFile, name: str, sst: list[str]) -> Iterator[list[str]]:
+    root = ET.fromstring(archive.read(name))
+    for row in root.iter("{http://schemas.openxmlformats.org/spreadsheetml/2006/main}row"):
+        cells: dict[int, str] = {}
+        seq = -1
+        for cell in row.findall("main:c", NS):
+            column = _col_index(cell.attrib.get("r", ""))
+            if column < 0:
+                column = seq + 1
+            if column >= 16_384:
+                raise ValueError("column reference exceeds spreadsheet limits")
+            if column in cells:
+                raise ValueError("duplicate cell reference")
+            seq = max(seq, column)
+            cells[column] = _cell_value(cell, sst)
+        yield [cells.get(index, "") for index in range(seq + 1)]
+
+
 def inspect_text(path: str) -> TextExtraction:
     """Inspect each sheet without silently dropping parse failures."""
     with zipfile.ZipFile(path, "r") as zf:
         sst: list[str] | None = None
-        sheet_names = sorted(
-            n for n in zf.namelist()
-            if n.startswith("xl/worksheets/sheet") and n.endswith(".xml")
-        )
+        sheet_names = _sheet_names(zf)
         def read_part(archive: zipfile.ZipFile, name: str) -> str:
             nonlocal sst
             if sst is None:
                 sst = _shared_strings(archive)
-            root = ET.fromstring(archive.read(name))
-            parts: list[str] = []
-            for row in root.iter("{http://schemas.openxmlformats.org/spreadsheetml/2006/main}row"):
-                cells: dict[int, str] = {}
-                seq = -1
-                for c in row.findall("main:c", NS):
-                    ci = _col_index(c.attrib.get("r", ""))
-                    if ci < 0:
-                        ci = seq + 1
-                    if ci >= 16_384:
-                        raise ValueError("column reference exceeds spreadsheet limits")
-                    seq = max(seq, ci)
-                    cells[ci] = _cell_value(c, sst)
-                row_vals = [cells.get(i, "") for i in range(seq + 1)]
-                parts.append("\t".join(row_vals))
-                parts.append("\n")
-            return "".join(parts)
+            return "".join("\t".join(row) + "\n" for row in _sheet_rows(archive, name, sst))
 
         return inspect_parts(zf, sheet_names, read_part)
 
@@ -116,16 +121,34 @@ def read_text(path: str) -> str:
 
 
 def read_records(path: str) -> list[dict[str, str]]:
-    """첫 행을 헤더로, 이후 행을 ``{header: value}`` dict 리스트로 반환."""
-    text = read_text(path)
-    lines = [ln for ln in text.split("\n") if ln.strip()]
-    if not lines:
-        return []
-    headers = lines[0].split("\t")
+    """Read each sheet using its own first nonempty row as headers.
+
+    Cell strings are preserved, including tabs/newlines. Duplicate/blank headers
+    and nonempty cells beyond the headers are rejected, never silently dropped.
+    Empty rows and trailing empty formatting cells are ignored. This low-level
+    reader does not provide process isolation or validate package relationships.
+    """
     records: list[dict[str, str]] = []
-    for ln in lines[1:]:
-        cells = ln.split("\t")
-        if len(cells) < len(headers):
-            cells = cells + [""] * (len(headers) - len(cells))
-        records.append(dict(zip(headers, cells[:len(headers)])))
+    with zipfile.ZipFile(path) as archive:
+        names = _sheet_names(archive)
+        if not names:
+            raise ValueError("spreadsheet has no supported worksheets")
+        sst = _shared_strings(archive)
+        for name in names:
+            headers: list[str] | None = None
+            for cells in _sheet_rows(archive, name, sst):
+                if not any(value.strip() for value in cells):
+                    continue
+                if headers is None:
+                    # OOXML may include trailing cells solely for formatting.
+                    while cells and cells[-1] == "":
+                        cells.pop()
+                    if any(not key.strip() for key in cells) or len(set(cells)) != len(cells):
+                        raise ValueError("spreadsheet headers must be nonempty and unique")
+                    headers = cells
+                    continue
+                if any(value != "" for value in cells[len(headers):]):
+                    raise ValueError("spreadsheet row has values beyond its headers")
+                values = cells[:len(headers)] + [""] * max(0, len(headers) - len(cells))
+                records.append(dict(zip(headers, values)))
     return records

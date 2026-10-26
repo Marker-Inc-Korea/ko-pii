@@ -175,15 +175,18 @@ def merge_detections(
 
     if mode == MergeMode.CROSS_VALIDATION:
         # The penalty is not an action override: STRICT can still block 1.0 * 0.7.
-        out = list(primary_list)
-        for s in secondary_list:
-            corroborated = False
-            for i, p in enumerate(out):
-                if _spans_overlap(p, s) and _same_label(p, s):
-                    out[i] = _enrich_with_secondary_info(p, s)
-                    corroborated = True
-                    break
-            if not corroborated:
+        out = []
+        # One secondary source can confirm each primary only once. Added
+        # secondary candidates must never masquerade as primary evidence.
+        ordered_secondary = sorted(secondary_list, key=lambda s: (
+            -int(s.risk_level), -s.confidence, -(s.end - s.start), s.start, s.end, s.label,
+        ))
+        for p in primary_list:
+            best = max((s for s in ordered_secondary if _spans_overlap(p, s) and _same_label(p, s)),
+                       key=lambda s: s.confidence, default=None)
+            out.append(_enrich_with_secondary_info(p, best) if best is not None else p)
+        for s in ordered_secondary:
+            if not any(_spans_overlap(p, s) and _same_label(p, s) for p in primary_list):
                 # secondary 단독 검출 — 신뢰도 낮춤 (cross-val 미통과)
                 lowered = DetectionResult(
                     label=s.label,
