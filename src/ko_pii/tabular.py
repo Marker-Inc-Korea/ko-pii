@@ -2,21 +2,22 @@
 
 평문 텍스트로 변환하지 않고 *컬럼 단위* 로 처리:
 - 헤더 명을 PII 카테고리에 자동 매핑 (성명 → PERSON, 주민번호 → RRN, ...)
-- 각 셀에 대해 *해당 카테고리만* 검출 (다른 검출기 비활성 → 정확도 ↑)
+- 매핑된 열의 셀 전체를 해당 카테고리로 단언하여 변환
 - 가명화 후 *같은 표 구조* 유지
 
 지원:
 - ``anonymize_records(records, ...)`` — list[dict] → list[dict]
 - ``map_columns(headers)`` — 헤더 → 라벨 매핑 자동 추론
 
-법적 근거: 개인정보보호법 제28조의2~5 (가명정보 처리 특례). 구조 보존이
-분석 호환성에 직결.
+열 매핑은 호출자 스키마의 단언이며 실제 개인정보 여부나 법적 익명성 판정이 아니다.
 """
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+import math
 import re
-from typing import Iterable, Literal, Optional
+from typing import Any, Iterable, Literal, Optional
 
 from ko_pii.anonymizer import Anonymizer
 from ko_pii.core.modes import ProcessingMode
@@ -303,36 +304,68 @@ def anonymize_value(
 
     if not isinstance(value, str):
         raise TypeError(f"value must be str, got {type(value).__name__}")
-    if not isinstance(label, str) or not label.strip():
-        raise ValueError("label must be a non-empty string")
+    if not _valid_cell_label(label):
+        raise ValueError("label must be nonempty and contain no token delimiters or newlines")
     if strategy not in {"tokenize", "redact", "asterisk", "partial", "hashed", "fpe"}:
         raise ValueError(f"Unknown strategy: {strategy}")
     active_vault = vault if vault is not None else ReversibleVault()
     return _force_anonymize_cell(value, label, strategy, active_vault), active_vault
 
 
+def _valid_cell_label(label: object) -> bool:
+    return isinstance(label, str) and bool(label.strip()) and not any(c in label for c in "<>\r\n")
+
+
+def _table_records(records: Sequence[Mapping[Any, object]]) -> list[dict[str | None, object]]:
+    if not isinstance(records, Sequence) or isinstance(records, (str, bytes)):
+        raise ValueError("records must be a sequence of row mappings")
+    checked: list[dict[str | None, object]] = []
+    for index, record in enumerate(records):
+        if not isinstance(record, Mapping):
+            raise ValueError(f"record {index} must be a row mapping")
+        row: dict[str | None, object] = {}
+        for header, value in record.items():
+            if header is None:
+                if not isinstance(value, list) or any(item is not None and type(item) is not str for item in value):
+                    raise ValueError(f"record {index} CSV overflow must be a list of strings or null")
+                row[header] = list(value)
+                continue
+            if not isinstance(header, str):
+                raise ValueError(f"record {index} column names must be strings")
+            if value is not None and type(value) not in (str, int, float, bool):
+                raise ValueError(f"record {index} cells must be scalars; use anonymize_json for nested data")
+            if type(value) is float and not math.isfinite(value):
+                raise ValueError(f"record {index} cells must contain finite numbers")
+            row[header] = value
+        checked.append(row)
+    return checked
+
+
 def anonymize_records(
-    records: list[dict[str, str]],
+    records: Sequence[Mapping[Any, object]],
     *,
     column_map: Optional[dict[str, str]] = None,
     mode: ProcessingMode = ProcessingMode.STRICT,
     strategy: str = "tokenize",
     vault: Optional[ReversibleVault] = None,
     header_policy: Literal["conservative", "legacy"] = "conservative",
-) -> tuple[list[dict[str, str]], ReversibleVault]:
+) -> tuple[list[dict[str | None, object]], ReversibleVault]:
     """레코드(표) 단위 가명화 — 같은 구조 유지.
 
     Parameters
     ----------
-    records : list of dict
-        ``read_records`` 등에서 얻은 행 데이터.
+    records : sequence of mappings
+        ``read_records`` 등에서 얻은 행 데이터. 매핑된 셀은 문자열/정수/null이며,
+        비매핑 셀은 일반 스칼라를 보존한다. 중첩 값은 JSON API를 사용한다.
     column_map : optional dict
         ``{header: label}`` 매핑 명시. 미지정 시 ``map_columns`` 로 자동 추론.
         비어 있지 않은 입력에서 어느 행에도 없는 명시적 열은 오류로 처리한다.
     mode, strategy, vault :
         ``AUDIT`` preserves cells and does not write to the Vault. In other
         modes, mapped columns are explicit label assertions and bypass detector
-        thresholds. Unnamed overflow cells use :class:`Anonymizer` policies.
+        thresholds. Asserted integers become strings only when transformed.
+        Only the ``None`` CSV overflow key may contain a list of strings/null; these
+        unnamed cells use :class:`Anonymizer` detection policies.
     header_policy :
         Automatic mapping policy (see :func:`map_columns`). An explicit
         ``column_map`` takes precedence, including an empty mapping.
@@ -345,35 +378,48 @@ def anonymize_records(
     """
     if header_policy not in {"conservative", "legacy"}:
         raise ValueError(f"Unknown header_policy: {header_policy}")
+    checked = _table_records(records)
     if column_map is not None:
         if not isinstance(column_map, dict) or any(
             not isinstance(key, str) or not key.strip()
-            or not isinstance(label, str) or not label.strip()
+            or not _valid_cell_label(label)
             for key, label in column_map.items()
         ):
-            raise ValueError("column_map must map non-empty column names to non-empty labels")
-        if records and any(not any(key in rec for rec in records) for key in column_map):
+            raise ValueError("column_map must map non-empty column names to valid labels without token delimiters or newlines")
+        if checked and any(not any(key in rec for rec in checked) for key in column_map):
             raise ValueError("column_map contains columns absent from the records")
-    if not records:
-        return [], (vault if vault is not None else ReversibleVault())
 
     if column_map is None:
         # 전체 레코드 키의 합집합에서 추론 — records[0] 만 보면 희소/이질 레코드의
         # PII 컬럼이 미매핑돼 평문 통과한다 (#10).
         all_keys: set[str] = set()
-        for r in records:
+        for r in checked:
             all_keys.update(k for k in r.keys() if isinstance(k, str))
         column_map = map_columns(all_keys, header_policy=header_policy)
 
-    if vault is None:
-        vault = ReversibleVault()
+    # Validate the entire table before any transformation can write to a Vault.
+    for index, record in enumerate(checked):
+        for header, value in record.items():
+            if header is None or header not in column_map or value is None:
+                continue
+            if type(value) not in (str, int):
+                raise ValueError(f"record {index} mapped cells must be strings, integers or null")
+            try:
+                text = str(value)
+            except ValueError:
+                raise ValueError(f"record {index} integer exceeds conversion limits") from None
+            if mode != ProcessingMode.AUDIT:
+                record[header] = text
 
     auto = Anonymizer(mode=mode, strategy=strategy, vault=vault)
-    out: list[dict[str, str]] = []
-    for rec in records:
-        new_rec: dict[str, str] = {}
+    vault = auto.vault
+    if mode == ProcessingMode.AUDIT:
+        return checked, vault
+    out: list[dict[str | None, object]] = []
+    for rec in checked:
+        new_rec: dict[str | None, object] = {}
         for header, value in rec.items():
-            if isinstance(value, list):
+            if header is None and isinstance(value, list):
                 # csv.DictReader restkey: 헤더보다 셀이 많은 ragged row 의 초과 셀이
                 # list 로 수집됨. 정상 컬럼이 아니라 *초과 셀* 이므로 자동 검출로
                 # 스캔해 평문 PII 통과를 막는다 (#11).
@@ -382,11 +428,12 @@ def anonymize_records(
                     for v in value
                 ]
                 continue
-            label = column_map.get(header)
-            if not label or not value or mode == ProcessingMode.AUDIT:
+            label = column_map.get(header) if header is not None else None
+            if not label or value is None or value == "":
                 new_rec[header] = value
                 continue
             # 컬럼 매핑 = 명시적 라벨 단언 → 검출기 임계값 우회
+            assert isinstance(value, str)
             new_rec[header] = _force_anonymize_cell(value, label, strategy, vault)
         out.append(new_rec)
 
