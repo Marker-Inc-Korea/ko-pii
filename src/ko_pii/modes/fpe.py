@@ -30,7 +30,7 @@ from typing import Callable, Iterable, Optional
 
 from ko_pii.core.types import DetectionResult
 from ko_pii.core.unicode_norm import normalize_unicode
-from ko_pii.modes._apply import apply_substitutions
+from ko_pii.modes._apply import apply_substitutions, prepare_detections
 from ko_pii.patterns.email import _split_literal_email
 from ko_pii.vault.reversible import ReversibleVault
 
@@ -244,8 +244,8 @@ def fpe(
     Returns ``(replaced_text, vault)``. The vault stores the original-to-fake
     mapping so reproducible regeneration is possible (not strictly reversible).
     """
+    detections = prepare_detections(text, detections)
     v = vault if vault is not None else ReversibleVault()
-    detections = list(detections)
 
     def replace(d: DetectionResult) -> str:
         fp = v.fingerprint(d.label, d.text)

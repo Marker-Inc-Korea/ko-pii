@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Iterable, Optional
 
 from ko_pii.core.types import DetectionResult
-from ko_pii.modes._apply import apply_substitutions
+from ko_pii.modes._apply import apply_substitutions, prepare_detections
 from ko_pii.vault.reversible import ReversibleVault
 
 
@@ -25,8 +25,8 @@ def tokenize(
     created. The same vault can be reused across multiple calls to maintain
     token identity across documents.
     """
+    detections = prepare_detections(text, detections)
     v = vault if vault is not None else ReversibleVault()
-    detections = list(detections)  # consume iterator once
 
     def _replace(d: DetectionResult) -> str:
         return v.store(

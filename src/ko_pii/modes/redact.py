@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import Iterable
 
 from ko_pii.core.types import DetectionResult
-from ko_pii.modes._apply import apply_substitutions
+from ko_pii.modes._apply import apply_substitutions, prepare_detections
 
 _LABEL_TO_HANGUL: dict[str, str] = {
     "RRN": "주민등록번호",
@@ -69,6 +69,7 @@ def redact(
     """
     if style not in {"label", "asterisk", "fixed"}:
         raise ValueError(f"Unknown redact style: {style}")
+    detections = prepare_detections(text, detections)
 
     def _replace(d: DetectionResult) -> str:
         if style == "label":

@@ -63,6 +63,7 @@ jobs:
           tests/unit/test_passport_pipeline.py tests/unit/test_output_normalization.py
           tests/unit/test_normalization_boundaries.py
           tests/unit/test_frn_pipeline.py tests/unit/checksum/test_frn_checksum.py
+          tests/unit/modes/test_source_boundary.py
           tests/unit/analytics/test_k_anonymity.py tests/unit/eval/test_metrics.py
           tests/unit/test_bounded_io.py::test_xml_encoding_cannot_hide_dtd
           tests/unit/test_bounded_io.py::test_xml_validation_handles_chunk_boundaries_and_safe_literal_markers

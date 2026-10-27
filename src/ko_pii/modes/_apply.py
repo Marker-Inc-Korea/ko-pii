@@ -5,6 +5,7 @@ from typing import Callable, Iterable
 from dataclasses import dataclass
 
 from ko_pii.core.types import DetectionResult
+from ko_pii.core.validation import validated_detection
 # 겹침 해소는 core.overlap 단일 구현 사용 (detect_all 과 동일 우선순위).
 from ko_pii.core.overlap import resolve_overlaps as _dedup_and_sort
 
@@ -16,6 +17,21 @@ class AppliedSpan:
     end: int
     output_start: int
     output_end: int
+
+
+def prepare_detections(text: str, detections: Iterable[DetectionResult]) -> list[DetectionResult]:
+    """Validate public primitive inputs before any transformation or Vault write.
+
+    Snapshot at each yield: a generator may reuse the same mutable record.
+    Safe custom labels remain supported by the low-level transformation API.
+    """
+    if not isinstance(text, str):
+        raise ValueError("transformation source must be a string")
+    try:
+        return [validated_detection(item, text, allow_custom_labels=True) for item in detections]
+    except Exception:
+        # Iterator failures can include the original input, unlike our own errors.
+        raise ValueError("transformation requires valid source-bound detection results") from None
 
 
 def apply_substitutions(

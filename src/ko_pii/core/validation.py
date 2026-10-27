@@ -8,11 +8,18 @@ from ko_pii.core.types import DetectionResult, RiskLevel
 from ko_pii.labels import ALL_LABELS
 
 
-def validated_detection(result: object, text: str, *, preserve_metadata: bool = True) -> DetectionResult:
+def validated_detection(
+    result: object, text: str, *, preserve_metadata: bool = True,
+    allow_custom_labels: bool = False,
+) -> DetectionResult:
     """Return a detached record or a value-free error, never repair a bad span."""
     if not isinstance(result, DetectionResult):
         raise ValueError("detector must return DetectionResult objects")
-    if not isinstance(result.label, str) or result.label not in ALL_LABELS:
+    if allow_custom_labels:
+        if (not isinstance(result.label, str) or not result.label
+                or any(c in result.label for c in "<>\r\n")):
+            raise ValueError("detector returned an invalid label")
+    elif not isinstance(result.label, str) or result.label not in ALL_LABELS:
         raise ValueError("detector must use an existing ko-pii label")
     if (type(result.start) is not int or type(result.end) is not int
             or not 0 <= result.start < result.end <= len(text)):

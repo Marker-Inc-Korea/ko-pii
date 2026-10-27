@@ -20,7 +20,7 @@ from typing import Callable, Iterable
 
 from ko_pii.core.types import DetectionResult
 from ko_pii.core.unicode_norm import normalize_unicode
-from ko_pii.modes._apply import apply_substitutions
+from ko_pii.modes._apply import apply_substitutions, prepare_detections
 from ko_pii.patterns.email import _split_literal_email
 
 MASK = "*"
@@ -300,6 +300,7 @@ def partial(
     detections: Iterable[DetectionResult],
 ) -> str:
     """Apply category-aware partial masking to each detection span."""
+    detections = prepare_detections(text, detections)
 
     def replace(d: DetectionResult) -> str:
         return mask_value(d.label, d.text)

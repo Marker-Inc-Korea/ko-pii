@@ -65,6 +65,11 @@ CLI 배치 모드는 파일별 독립 처리이므로 `--vault`, `--vault-passwo
 서로 다른 Vault를 쓰더라도 같은 salt와 비밀 키를 재사용하는 hashed/FPE 구성은 별도 연결
 가능성을 만들 수 있습니다.
 
+`hashed`는 복원용 항목을 만들지 않지만 `fingerprint()`의 프로세스 내 캐시는
+`(label, original)`을 키로 사용합니다. 이 캐시는 Vault JSON에 저장되지 않으나 객체가
+유지되는 동안 원문을 메모리에 보유할 수 있습니다. Vault의 작업 범위를 제한하고,
+Python 객체 해제를 메모리의 안전한 덮어쓰기나 호스트 침해 방어로 해석하지 마세요.
+
 ## 운영 체크리스트
 
 1. 복원이 필요하지 않으면 `redact`, `partial` 또는 `asterisk`를 사용합니다.
