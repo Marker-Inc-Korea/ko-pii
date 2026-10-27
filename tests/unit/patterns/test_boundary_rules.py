@@ -68,7 +68,7 @@ class TestPostalCodeBoundary:
 
 
 # ─────────────────────────────────────────────────────────────────────
-# PASSPORT — prefix 화이트리스트 + 신형 (PP/PR/PT 등)
+# PASSPORT — 번호 prefix와 문서 종류 코드는 별개
 # ─────────────────────────────────────────────────────────────────────
 
 class TestPassportPrefixes:
@@ -78,10 +78,10 @@ class TestPassportPrefixes:
             assert len(results) == 1
             assert results[0].extra["prefix"] == prefix
 
-    def test_two_letter_prefixes(self):
+    def test_type_codes_are_not_number_prefixes(self):
         for prefix in ("PP", "PM", "PS", "PO", "PD", "PR", "PT"):
             results = list(detect_passport(f"{prefix}12345678"))
-            assert len(results) == 1
+            assert results == []
 
     def test_invalid_prefix_letters_rejected(self):
         for prefix in ("A", "B", "Z", "X", "AB", "ZZ"):
@@ -95,7 +95,7 @@ class TestPassportPrefixes:
     def test_passport_kind_classification(self):
         r = list(detect_passport("D12345678"))[0]
         assert r.extra["kind"] == "diplomatic"
-        r = list(detect_passport("PO87654321"))[0]
+        r = list(detect_passport("O87654321"))[0]
         assert r.extra["kind"] == "official"
-        r = list(detect_passport("PT11112222"))[0]
+        r = list(detect_passport("T11112222"))[0]
         assert r.extra["kind"] == "travel_cert"

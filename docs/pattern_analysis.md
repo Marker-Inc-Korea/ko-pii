@@ -156,12 +156,23 @@ r"([A-Za-z0-9._%+\-]+@[A-Za-z0-9](?:[A-Za-z0-9\-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](
 
 ### 9. PASSPORT — `patterns/passport.py`
 
-**잡는 것 (14 prefix):**
-- 단일: `M/S/G/O/D/R/T` (general/single/general/official/diplomatic/resident/travel)
-- 두 글자 (2024.12.16~): `PP/PM/PS/PO/PD/PR/PT`
+**잡는 것:**
+- 숫자형: `M/S/G/O/D/R/T` + 숫자 8자리. 기존 `G/T` 후보는 호환 목적으로 유지합니다.
+- 차세대 영숫자형: `M/S/R/O/D` + 숫자 3자리 + 대문자 1자 + 숫자 4자리 (`M123A4567`).
+- 통합 탐지는 숫자 닮은꼴 정규화와 별개로 영문자를 보존한 Unicode 뷰를 검사합니다.
+  따라서 정상 `S/O/G`가 숫자로 바뀌어 누락되지 않으며, 반환 위치는 원문 기준입니다.
 
 **의도적 거부:**
 - `A12345678` — A 는 한국 여권 prefix 아님
+- `PP12345678` 등 2자 종류 코드 + 숫자 8자리. 종류 코드와 여권번호는 별도 필드입니다.
+
+**한계와 근거:** 체크섬·발급 여부·신원을 검증하지 않는 형식 탐지입니다. 여권처럼 생긴
+다른 식별자는 오탐될 수 있고 외국 여권 전체를 포괄하지 않습니다. `extra.kind`도 번호
+접두사에 따른 보조 설명일 뿐 권위 있는 문서 종류 판정은 아닙니다 (`G`는 `unknown`).
+번호 형식은 [외교부 차세대 여권 안내](https://passport.go.kr/home/kor/contents.do?menuPos=60)와
+[Microsoft Purview 정의](https://learn.microsoft.com/en-us/purview/sit-defn-south-korea-passport-number)를
+참고했습니다. `PM/PS`에서 `PP`로의 변경은 2025-12-16의 **종류 코드** 변경입니다
+([외교부 발표](https://www.mofa.go.kr/www/brd/m_4080/view.do?seq=376757)).
 
 ### 10. MEDICAL_INSURANCE — `patterns/medical_insurance.py`
 

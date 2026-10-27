@@ -164,8 +164,12 @@ def _fpe_email(original: str, fp: str) -> str:
 
 
 def _fpe_passport(original: str, fp: str) -> str:
-    """여권: prefix(M/S/PP 등) 유지, 8자리 숫자만 변경."""
-    m = re.match(r"^([A-Z]{1,2})(\d+)$", original)
+    """Preserve the prefix and supported numeric/alphanumeric serial shape."""
+    from ko_pii.patterns.passport import _is_modern_number
+    if _is_modern_number(original):
+        digits = _digits_from_hash(fp, 7)
+        return original[0] + digits[:3] + _alpha_from_hash(fp, 1) + digits[3:]
+    m = re.fullmatch(r"([A-Z]{1,2})([0-9]+)", original)
     if not m:
         return original
     prefix, digits = m.group(1), m.group(2)

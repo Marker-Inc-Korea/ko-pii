@@ -182,6 +182,13 @@ def detect_all(
         raw.extend(email_results)
         raw.extend(email.detect(source))
 
+    if offset_map is not None and (inc is None or "PASSPORT" in inc) and "PASSPORT" not in (exc or ()):
+        # Numeric anti-evasion folds can erase valid passport letters (S/O/G).
+        # Only this detector needs the literal-letter view, not a second full pass.
+        passport_text, passport_offsets = normalize_unicode(source, fold_numeric=False)
+        if passport_text != text:
+            raw.extend(remap_to_source(list(passport.detect(passport_text)), passport_offsets, source))
+
     if inc is not None:
         raw = [d for d in raw if d.label in inc]
     if exc:

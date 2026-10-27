@@ -165,6 +165,9 @@ def _mask_account(text: str) -> str:
 
 def _mask_passport(text: str) -> str:
     """여권: prefix + 마지막 2자리 노출."""
+    from ko_pii.patterns.passport import _is_modern_number
+    if _is_modern_number(text):
+        return text[0] + MASK * 6 + text[-2:]
     m = re.fullmatch(r"([A-Z]{1,2})(\d+)", text)
     if not m or len(m.group(2)) <= 2:
         return MASK * len(text)

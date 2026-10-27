@@ -203,12 +203,15 @@ def _fold_numeric_text(text: str, offsets: list[int]) -> tuple[str, list[int]]:
     return "".join(text[i] for i in kept), [offsets[i] if offsets else i for i in kept]
 
 
-def normalize_unicode(text: str) -> tuple[str, list[int]]:
+def normalize_unicode(text: str, *, fold_numeric: bool = True) -> tuple[str, list[int]]:
     """NFKC 폴딩 + 보이지 않는 문자 제거.
 
     Returns ``(normalized, offset_map)``. ``offset_map[i]`` 는 ``normalized[i]``
     에 대응하는 원본 ``text`` 위치. 길이와 위치가 유지되는 빠른 경로에서는 빈 리스트를
     반환한다. 이 경우에도 숫자 닮은꼴 폴딩으로 내용은 달라질 수 있다.
+
+    ``fold_numeric=False`` keeps literal letters such as a passport's S/O/G.
+    Unicode compatibility folds and source offsets are still preserved.
     """
     # 빠른 경로: 이미 NFKC 이고 보이지 않는/결합 문자도 없으면 그대로 (no-op).
     # 결합표시는 이미 NFKC 일 수 있어(1+◌́ 는 합성형 없음) 별도 검사 — 빠진 채
@@ -220,7 +223,7 @@ def normalize_unicode(text: str) -> tuple[str, list[int]]:
         and not _CONJOINING_JAMO_RE.search(text)
         and unicodedata.is_normalized("NFKC", text)
     ):
-        return _fold_numeric_text(text, [])
+        return _fold_numeric_text(text, []) if fold_numeric else (text, [])
 
     out: list[str] = []
     omap: list[int] = []
@@ -250,7 +253,8 @@ def normalize_unicode(text: str) -> tuple[str, list[int]]:
             out.append(_CHAR_FOLD.get(fc, fc))
             omap.append(i)
         i = j
-    return _fold_numeric_text("".join(out), omap)
+    normalized = "".join(out)
+    return _fold_numeric_text(normalized, omap) if fold_numeric else (normalized, omap)
 
 
 def remap_to_source(

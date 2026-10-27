@@ -30,4 +30,6 @@
 
 [연구 목차](../research/README.md)에서 현재 외부 측정과 역사적 결과를 구분합니다.
 BENCHMARK, EVALUATION_REPORT, HYBRID_NER, domain_fit_report 및 presentation 자료의
-과거 수치를 최신 패키지의 성능 보증으로 해석하지 마세요.
+과거 수치를 최신 패키지의 성능 보증으로 해석하지 마세요. `showcase.html`과
+`user_megademo.html`도 과거 생성 결과이며 현재 출력 예제가 아닙니다. 과거 여권 종류
+코드를 번호로 사용한 예시는 [현재 형식 설명](pattern_analysis.md)을 기준으로 확인하세요.
