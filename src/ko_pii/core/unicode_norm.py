@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from bisect import bisect_right
 from dataclasses import replace
 from typing import TYPE_CHECKING
 
@@ -193,6 +194,25 @@ def _is_conjoining_jamo(ch: str) -> bool:
     )
 
 
+def _normalization_cluster_end(text: str, start: int) -> int:
+    """Group combining marks and one composable Hangul syllable, not a word."""
+    end = start + 1
+    first = unicodedata.normalize("NFKC", text[start])
+    can_take_tail = len(first) == 1 and "\uac00" <= first <= "\ud7a3" and (ord(first) - 0xAC00) % 28 == 0
+    if len(first) == 1 and "\u1100" <= first <= "\u1112" and end < len(text):
+        vowel = unicodedata.normalize("NFKC", text[end])
+        if len(vowel) == 1 and "\u1161" <= vowel <= "\u1175":
+            end += 1
+            can_take_tail = True
+    if can_take_tail and end < len(text):
+        tail = unicodedata.normalize("NFKC", text[end])
+        if len(tail) == 1 and "\u11a8" <= tail <= "\u11c2":
+            end += 1
+    while end < len(text) and unicodedata.combining(text[end]):
+        end += 1
+    return end
+
+
 def _fold_numeric_text(text: str, offsets: list[int]) -> tuple[str, list[int]]:
     """Apply ASCII numeric folds after Unicode folds, composing source offsets."""
     text = _fold_digit_homoglyphs(text)
@@ -229,20 +249,25 @@ def normalize_unicode(text: str, *, fold_numeric: bool = True) -> tuple[str, lis
     omap: list[int] = []
     n = len(text)
     i = 0
+    previous_base_alpha: bool | None = None
     while i < n:
         ch = text[i]
         if _INVISIBLE.match(ch):
             i += 1
             continue
-        # 기본 문자 + 뒤따르는 결합표시/한글 자모를 한 클러스터로 묶어 NFKC.
-        # 글자별 NFKC 는 NFD 분해형(예: 한글 "홍"=홍, 라틴 "é"=e+´)을 합치지
-        # 못해 우회를 허용함 → 클러스터 단위 합성으로 차단. 합성 결과는 모두
-        # 클러스터 시작 위치(i)로 매핑한다.
-        j = i + 1
-        while j < n and (unicodedata.combining(text[j]) or _is_conjoining_jamo(text[j])):
-            j += 1
+        # L+V(+T) or LV+T compose as one syllable (Unicode section 3.12).
+        # Mapping a whole jamo word to one offset turns suffix boundaries into
+        # zero-length detections and can leave the original name untouched.
+        j = _normalization_cluster_end(text, i)
+        cluster = unicodedata.normalize("NFKC", text[i:j])
+        if previous_base_alpha is False and all(
+            _is_conjoining_jamo(c) or unicodedata.combining(c) for c in cluster
+        ):
+            # Preserve numeric-noise handling, but never discard a real syllable.
+            i = j
+            continue
         base_is_alpha = text[i].isalpha()
-        for fc in unicodedata.normalize("NFKC", text[i:j]):
+        for fc in cluster:
             # 숫자/기호 베이스에 NFKC 로 합쳐지지 않고 남은 결합표시(U+0301 등)나 조합용
             # 한글 자모(U+1100~, '9001ᄀ01' 처럼 숫자에 끼어 PII 를 쪼개는 우회)는 제거.
             # 문자(é=e+´, NFD 한글 등 정상 결합)는 base 가 alpha 라 보존된다.
@@ -252,6 +277,7 @@ def normalize_unicode(text: str, *, fold_numeric: bool = True) -> tuple[str, lis
                 continue
             out.append(_CHAR_FOLD.get(fc, fc))
             omap.append(i)
+        previous_base_alpha = base_is_alpha
         i = j
     normalized = "".join(out)
     return _fold_numeric_text(normalized, omap) if fold_numeric else (normalized, omap)
@@ -271,9 +297,12 @@ def remap_to_source(
     out: list[DetectionResult] = []
     for det in detections:
         start = offset_map[det.start] if det.start < n else det.start
-        # 검출 끝 = 다음 정규화 글자의 원본 시작 위치(= 마지막 글자 클러스터의 원본 끝).
-        # 합성(다대일)·제거(invisible)에도 정확하며, 0길이 검출의 start>end 역전도 방지.
-        if det.end < n:
+        # A match ending inside a compatibility expansion must consume the
+        # original character, not end at that same character's starting offset.
+        if det.start < det.end and 0 < det.end <= n:
+            following = bisect_right(offset_map, offset_map[det.end - 1])
+            end = offset_map[following] if following < n else len(source)
+        elif det.end < n:
             end = offset_map[det.end]
         elif det.end == n:
             end = len(source)
