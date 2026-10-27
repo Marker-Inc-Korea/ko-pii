@@ -96,6 +96,9 @@ def _fpe_rrn(original: str, fp: str) -> str:
 def _fpe_phone(original: str, fp: str) -> str:
     """전화: 자릿수·구분자·prefix 유지. 010/02/031 등은 보존."""
     digits = re.sub(r"\D", "", original)
+    # A typed field may contain prose. Only numeric formatting may survive.
+    if not re.fullmatch(r"\+?[0-9().\[\]\s-]+", original) or not 7 <= len(digits) <= 15:
+        return original
     if len(digits) < 9:
         return _digits_from_hash(fp, len(digits))
     # 통신사·지역 prefix 보존 (식별과 무관한 *통계* 정보)
@@ -126,8 +129,8 @@ def _fpe_phone(original: str, fp: str) -> str:
 def _fpe_card(original: str, fp: str) -> str:
     """카드: BIN(첫 6자리) 보존 + 마지막 자리 Luhn 재계산."""
     digits = re.sub(r"\D", "", original)
-    if len(digits) < 13:
-        return _digits_from_hash(fp, len(digits))
+    if not re.fullmatch(r"[0-9. /\s-]+", original) or not 13 <= len(digits) <= 19:
+        return original
     bin_part = digits[:6]
     body = _digits_from_hash(fp, len(digits) - 6 - 1)
     # Luhn 체크 디지트 계산

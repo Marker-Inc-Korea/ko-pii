@@ -144,7 +144,7 @@ def _mask_name(text: str) -> str:
     if sp == 0:
         sp = 1  # 폴백: 첫 글자만 노출
     if len(text) <= sp:
-        return text
+        return MASK * len(text)
     return text[:sp] + ("O" * (len(text) - sp))
 
 
@@ -165,8 +165,8 @@ def _mask_account(text: str) -> str:
 
 def _mask_passport(text: str) -> str:
     """여권: prefix + 마지막 2자리 노출."""
-    m = re.match(r"^([A-Z]{1,2})(\d+)$", text)
-    if not m:
+    m = re.fullmatch(r"([A-Z]{1,2})(\d+)", text)
+    if not m or len(m.group(2)) <= 2:
         return MASK * len(text)
     prefix, digits = m.group(1), m.group(2)
     return f"{prefix}{MASK*(len(digits)-2)}{digits[-2:]}"
@@ -188,7 +188,7 @@ def _mask_birth(text: str) -> str:
     88년생          → 그대로 (이미 연도만)
     """
     # "년생" 형태는 이미 연도만 → 그대로 두거나 마스킹 강도 낮음
-    if text.endswith("년생"):
+    if re.fullmatch(r"\d{2}(?:\d{2})?\s*년생", text):
         return text
     # 한국어: 1988년 X월 X일
     m = re.match(r"^(\d{2,4})\s*년\s*\d{1,2}\s*월\s*\d{1,2}\s*일$", text)
