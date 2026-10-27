@@ -23,8 +23,8 @@ Everything below is reported with an explicit provenance tag:
 - **Prior methodology** — older internal runs that used a *different* scorer and
   are therefore **not comparable** to the headline numbers (Section 6).
 
-No number in this document has been invented, rounded, or otherwise altered from
-the underlying measurements.
+The tables retain the historical reported measurements, with rounded display
+values. They have not been rerun for the current package version.
 
 ## 2. Evaluation setup
 
@@ -60,9 +60,8 @@ matcher on all 4,891 documents.
 | openai/privacy-filter (660M, ONNX) | **0.264** | — | — | 294 | 634 | 1008 |
 
 **ML NER (KoELECTRA general NER): not measured.** It was **not run** in this
-evaluation. An internal **estimate** places it around ~0.10–0.15 F1, but because
-it was not measured it is **excluded from the headline ranking** and must only
-ever be referred to as "not measured — estimated".
+evaluation. No performance conclusion or numerical ranking is supported for
+this unmeasured configuration.
 
 KDPII is conversational text, where free-form labels (PERSON, ADDRESS) dominate
 and ko-pii's structural strengths matter less. In this exact dataset and scoring
@@ -82,8 +81,10 @@ synthetic values — no real PII. The dataset and its provenance ship in the rep
 
 **Gold validation.** Gold was validated in two passes — (1) automated format
 checks (per-type regex + "gold appears verbatim in the text") and (2) an
-adversarial LLM audit (20 agents). Net error rate **~1.2% (98.8% correct)**; 37
-labels were corrected (16 removed, 4 span-trimmed, 17 added).
+adversarial LLM audit (20 agents). The historical record reports 37 label
+corrections (16 removed, 4 span-trimmed, 17 added). This correction count is not
+an independent estimate of the remaining annotation error rate; it does not
+establish that 98.8% of the gold labels are correct.
 
 All systems are scored with the same canonical `match_forms_overlap` matcher and
 `person_min_length=3`.
@@ -97,8 +98,9 @@ All systems are scored with the same canonical `match_forms_overlap` matcher and
 *openai/privacy-filter* was scored with its **torch (GPU)** backend: on this host
 the q4 ONNX path was pathologically slow on CPU (~32 s/doc), so the same model was
 run on GPU instead. The matcher, documents and `person_min_length` are identical,
-so the F1 stays comparable (device affects speed only, not F1). It is the weakest
-system here, consistent with its KDPII result (0.264, Section 3).
+but backend and quantization differences can change predictions. No paired
+CPU/ONNX versus GPU/torch equivalence measurement is provided here. The table
+reports the measured GPU configuration, not a backend-invariant result.
 
 **Reading this honestly.** This set is rich in soft attributes (POSITION,
 EDUCATION, …) and open-class IDs (insurance / prescription numbers) that ko-pii
