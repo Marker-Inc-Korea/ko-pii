@@ -1,6 +1,26 @@
-# 1.20.1 이메일·Vault 업데이트
+# 이메일·Vault 업데이트
 
-## 이메일 앞의 일반 문장 보존
+## 1.22.4: 명시적 EMAIL 필드의 복합 입력
+
+표/JSON의 EMAIL 필드, `anonymize_value()`와 저수준 변환에 `partial` 또는 `fpe`를
+적용할 때는 지원하는 단일 주소 형식만 도메인을 보존합니다. 주소 목록, 표시 이름,
+주석 또는 그 밖의 미지원 형식은 필드 전체를 별표로 가립니다. 첫 번째 `@` 이후에
+있는 두 번째 주소나 부가 정보를 원문으로 남기지 않습니다.
+
+```python
+from ko_pii.tabular import anonymize_value
+
+value = "first@example.com;second@example.com"
+masked, _ = anonymize_value(value, "EMAIL", strategy="partial")
+assert masked == "*" * len(value)
+```
+
+일반 텍스트 탐지에서는 발견한 주소들을 각각 변환하는 기존 동작을 유지합니다.
+복수 주소를 개별 부분 마스킹해야 한다면 호출자가 필드를 분리해 각각 처리하세요.
+이 수정은 지원하지 않는 필드를 안전하게 처리하는 변경이며 이메일 탐지 범위 자체의
+확대나 모든 주소 형식의 지원을 뜻하지 않습니다.
+
+## 1.20.1: 이메일 앞의 일반 문장 보존
 
 기본 Anonymizer와 detect_all은 난독화 이메일의 로컬 파트로 인접한 한 단어만
 선택합니다. 이메일 앞의 영문 단어들을 합치거나 이전 줄까지 포함하지 않습니다.

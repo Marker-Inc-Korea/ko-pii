@@ -21,6 +21,7 @@ from typing import Callable, Iterable
 from ko_pii.core.types import DetectionResult
 from ko_pii.core.unicode_norm import normalize_unicode
 from ko_pii.modes._apply import apply_substitutions
+from ko_pii.patterns.email import _split_literal_email
 
 MASK = "*"
 
@@ -103,11 +104,10 @@ def _mask_phone(text: str) -> str:
 
 def _mask_email(text: str) -> str:
     """``user@example.com`` → ``u***@example.com`` (로컬 앞자만 노출)."""
-    if "@" not in text:
+    parts = _split_literal_email(text)
+    if parts is None:
         return MASK * len(text)
-    local, _, domain = text.partition("@")
-    if not local:
-        return text
+    local, domain = parts
     if len(local) <= 1:
         return f"{local}{MASK*3}@{domain}"
     return f"{local[0]}{MASK*max(3, len(local)-1)}@{domain}"

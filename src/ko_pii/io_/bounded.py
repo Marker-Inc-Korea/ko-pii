@@ -3,11 +3,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import hashlib
+import math
 import os
 from pathlib import Path, PurePosixPath
 import stat
 from typing import NoReturn
 import zipfile
+from xml.parsers import expat
 
 from ko_pii.io_ import dispatcher
 from ko_pii.io_.coverage import DocumentExtractionError
@@ -58,14 +60,25 @@ class FileReadPolicy:
             self.max_decompressed_bytes,
             self.max_text_chars,
         )
-        if any(value < 1 for value in integer_limits):
-            raise ValueError("all bounded-read limits must be positive")
-        if self.max_compression_ratio < 1.0:
-            raise ValueError("max_compression_ratio must be at least 1.0")
+        if any(type(value) is not int or value < 1 for value in integer_limits):
+            raise ValueError("all bounded-read limits must be positive integers")
+        try:
+            valid_ratio = (type(self.max_compression_ratio) in (int, float)
+                           and math.isfinite(self.max_compression_ratio)
+                           and self.max_compression_ratio >= 1.0)
+        except OverflowError:
+            valid_ratio = False
+        if not valid_ratio:
+            raise ValueError("max_compression_ratio must be finite and at least 1.0")
         if not self.allowed_extensions:
             raise ValueError("allowed_extensions must not be empty")
-        if any(not value.startswith(".") for value in self.allowed_extensions):
+        if not isinstance(self.allowed_extensions, (tuple, list)) or any(
+            not isinstance(value, str) or not value.startswith(".")
+            for value in self.allowed_extensions
+        ):
             raise ValueError("allowed_extensions entries must start with '.'")
+        if type(self.reject_symlinks) is not bool:
+            raise ValueError("reject_symlinks must be a boolean")
 
 
 @dataclass(frozen=True)
@@ -130,6 +143,29 @@ def _safe_archive_name(name: str) -> str:
     return normalized
 
 
+def _validate_xml_member(archive: zipfile.ZipFile, info: zipfile.ZipInfo) -> None:
+    # Let the parser handle encodings; a byte search misses UTF-16 declarations.
+    # No tree is built, and a DTD is rejected before any entity is expanded.
+    parser = expat.ParserCreate()
+
+    def reject_dtd(*args: object) -> NoReturn:
+        _reject("xml_dtd_rejected", "archive XML contains a DTD or entity declaration")
+
+    parser.StartDoctypeDeclHandler = reject_dtd
+    parser.EntityDeclHandler = reject_dtd
+    try:
+        with archive.open(info) as handle:
+            while block := handle.read(64 * 1024):
+                parser.Parse(block, False)
+        parser.Parse(b"", True)
+    except BoundedReadError:
+        raise
+    except (expat.ExpatError, LookupError, ValueError):
+        # Extraction uses strict XML parsers too. Leave syntax/encoding errors
+        # to them so supported-part failures retain their coverage report.
+        return
+
+
 def _validate_archive(
     path: Path,
     extension: str,
@@ -168,16 +204,8 @@ def _validate_archive(
                 if name.casefold().endswith((".xml", ".rels")):
                     xml_infos.append(info)
 
-            # OOXML and HWPX do not require DTDs. Reject them before ElementTree
-            # sees the payload so internal entity expansion cannot amplify a
-            # small, otherwise valid archive member in parser memory.
             for info in xml_infos:
-                xml_upper = archive.read(info).upper()
-                if b"<!DOCTYPE" in xml_upper or b"<!ENTITY" in xml_upper:
-                    _reject(
-                        "xml_dtd_rejected",
-                        "archive XML contains a DTD or entity declaration",
-                    )
+                _validate_xml_member(archive, info)
 
             if extension == ".docx" and "word/document.xml" not in names:
                 _reject("format_mismatch", "DOCX archive is missing word/document.xml")

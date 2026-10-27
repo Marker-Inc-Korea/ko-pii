@@ -7,6 +7,52 @@ import pytest
 from ko_pii import Anonymizer
 
 
+@pytest.mark.parametrize("mode", [MergeMode.ENRICH_PRIMARY, MergeMode.CROSS_VALIDATION])
+def test_duplicate_secondary_has_only_one_confidence_bonus(mode):
+    from ko_pii.core.modes import ProcessingMode, policy_for
+
+    primary = _det("PERSON", 0, 3, "abc", risk=RiskLevel.HIGH, conf=0.6)
+    secondary = _det("PERSON", 0, 3, "abc", risk=RiskLevel.HIGH, conf=0.9)
+    policy = policy_for(ProcessingMode.STRICT)
+    once = merge_detections([primary], [secondary], mode=mode, policy=policy)[0]
+    for count in (2, 10):
+        repeated = merge_detections([primary], [secondary] * count, mode=mode, policy=policy)[0]
+        assert once.confidence == repeated.confidence == 0.65
+        assert once.evidence == repeated.evidence
+        assert policy.decide(once.risk_level, once.confidence) == policy.decide(
+            repeated.risk_level, repeated.confidence)
+    assert primary.confidence == 0.6
+
+
+def test_enrich_primary_candidate_order_does_not_change_corroboration():
+    primary = _det("PERSON", 0, 3, "abc", conf=0.6)
+    low = _det("PERSON", 0, 3, "abc", conf=0.7, evidence=["low"])
+    high = _det("PERSON", 0, 3, "abc", conf=0.9, evidence=["high"])
+    for candidates in permutations([low, high, high]):
+        out = merge_detections([primary], candidates, mode=MergeMode.ENRICH_PRIMARY)[0]
+        assert out.confidence == 0.65
+        assert out.extra["secondary_confirmed_by"] == ["high"]
+
+
+def test_duplicate_secondary_does_not_change_anonymizer_output():
+    from ko_pii.core.modes import ProcessingMode
+    from ko_pii.integrations.custom import RegexDetector
+
+    class RepeatDetector:
+        def __init__(self, count):
+            self.count = count
+
+        def detect(self, text):
+            detector = RegexDetector("이도윤", label="PERSON", risk_level=RiskLevel.HIGH)
+            return list(detector.detect(text)) * self.count
+
+    text = "담당자 이도윤에게 문의하세요"
+    results = [Anonymizer(mode=ProcessingMode.BALANCED, merge_mode="enrich_primary",
+                          secondary_detector=RepeatDetector(count)).process(text) for count in (1, 2, 10)]
+    assert len({r.text for r in results}) == 1
+    assert len({r.detections[0].action for r in results}) == 1
+
+
 def _det(label, start, end, text, risk=RiskLevel.MEDIUM, conf=0.8, evidence=None):
     return DetectionResult(
         label=label, text=text, start=start, end=end,

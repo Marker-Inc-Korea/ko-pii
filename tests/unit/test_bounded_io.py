@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import codecs
 import zipfile
 
 import pytest
@@ -136,3 +137,78 @@ def test_legacy_parser_formats_require_explicit_opt_in(tmp_path: Path):
         read_text_bounded(source)
 
     assert exc.value.code == "unsupported_extension"
+
+
+@pytest.mark.parametrize("name", ["max_file_bytes", "max_archive_members", "max_archive_member_bytes",
+                                 "max_decompressed_bytes", "max_text_chars"])
+@pytest.mark.parametrize("value", [0, -1, True, "10", 1.5, float("nan"), float("inf"), None])
+def test_invalid_integer_limits_are_rejected(name, value):
+    with pytest.raises(ValueError, match="positive integers"):
+        FileReadPolicy(**{name: value})
+
+
+@pytest.mark.parametrize("value", [True, "10", None, float("nan"), float("inf"), -float("inf"), 0.5,
+                                 pytest.param(10**1000, id="integer-overflow")])
+def test_invalid_ratio_is_rejected(value):
+    with pytest.raises(ValueError, match="max_compression_ratio"):
+        FileReadPolicy(max_compression_ratio=value)
+
+
+@pytest.mark.parametrize("value", [".txt", 1, (None,), ("txt",)])
+def test_invalid_extension_collection_is_rejected(value):
+    with pytest.raises(ValueError, match="allowed_extensions"):
+        FileReadPolicy(allowed_extensions=value)
+
+
+def test_symlink_policy_requires_a_boolean():
+    with pytest.raises(ValueError, match="reject_symlinks"):
+        FileReadPolicy(reject_symlinks="false")
+
+
+@pytest.mark.parametrize("isolated", [False, True])
+@pytest.mark.parametrize("encoding", ["utf-8", "utf-16", "utf-16-le", "utf-16-be"])
+@pytest.mark.parametrize("dtd", [True, False])
+def test_xml_encoding_cannot_hide_dtd(tmp_path, isolated, encoding, dtd):
+    from ko_pii.io_.isolated import read_text_isolated
+
+    declaration = "UTF-16" if encoding.startswith("utf-16") else "UTF-8"
+    content = "&contact;" if dtd else "first@example.com"
+    doctype = '<!DOCTYPE p [<!ENTITY contact "first@example.com">]>' if dtd else ""
+    text = f'<?xml version="1.0" encoding="{declaration}"?>{doctype}<p><t>{content}</t></p>'
+    payload = text.encode(encoding)
+    if encoding in {"utf-16-le", "utf-16-be"}:
+        payload = (codecs.BOM_UTF16_LE if encoding.endswith("le") else codecs.BOM_UTF16_BE) + payload
+    source = tmp_path / "input.hwpx"
+    with zipfile.ZipFile(source, "w") as archive:
+        archive.writestr("Contents/section0.xml", payload)
+    read = read_text_isolated if isolated else read_text_bounded
+    if dtd:
+        with pytest.raises(BoundedReadError) as exc:
+            read(source)
+        assert exc.value.code == "xml_dtd_rejected"
+    else:
+        assert read(source).text == "\nfirst@example.com"
+
+
+def test_xml_validation_handles_chunk_boundaries_and_safe_literal_markers(tmp_path):
+    source = tmp_path / "input.hwpx"
+    prefix = "<!--" + "x" * 65525 + "-->"
+    with zipfile.ZipFile(source, "w") as archive:
+        archive.writestr("Contents/section0.xml", prefix + '<!DOCTYPE p><p><t>safe</t></p>')
+    with pytest.raises(BoundedReadError) as exc:
+        read_text_bounded(source)
+    assert exc.value.code == "xml_dtd_rejected"
+    with zipfile.ZipFile(source, "w") as archive:
+        archive.writestr("Contents/section0.xml", '<p><t><![CDATA[<!DOCTYPE sample>]]></t></p>')
+    assert read_text_bounded(source).text == "\n<!DOCTYPE sample>"
+
+
+def test_invalid_xml_error_does_not_expose_source_content(tmp_path):
+    source = tmp_path / "input.hwpx"
+    with zipfile.ZipFile(source, "w") as archive:
+        archive.writestr("Contents/section0.xml", '<p><private-value></p>')
+    with pytest.raises(BoundedReadError) as exc:
+        read_text_bounded(source)
+    assert exc.value.code == "document_extraction_incomplete"
+    assert exc.value.coverage["status"] == "failed"
+    assert "private-value" not in str(exc.value)

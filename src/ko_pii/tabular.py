@@ -328,6 +328,7 @@ def anonymize_records(
         ``read_records`` 등에서 얻은 행 데이터.
     column_map : optional dict
         ``{header: label}`` 매핑 명시. 미지정 시 ``map_columns`` 로 자동 추론.
+        비어 있지 않은 입력에서 어느 행에도 없는 명시적 열은 오류로 처리한다.
     mode, strategy, vault :
         ``AUDIT`` preserves cells and does not write to the Vault. In other
         modes, mapped columns are explicit label assertions and bypass detector
@@ -344,6 +345,15 @@ def anonymize_records(
     """
     if header_policy not in {"conservative", "legacy"}:
         raise ValueError(f"Unknown header_policy: {header_policy}")
+    if column_map is not None:
+        if not isinstance(column_map, dict) or any(
+            not isinstance(key, str) or not key.strip()
+            or not isinstance(label, str) or not label.strip()
+            for key, label in column_map.items()
+        ):
+            raise ValueError("column_map must map non-empty column names to non-empty labels")
+        if records and any(not any(key in rec for rec in records) for key in column_map):
+            raise ValueError("column_map contains columns absent from the records")
     if not records:
         return [], (vault if vault is not None else ReversibleVault())
 

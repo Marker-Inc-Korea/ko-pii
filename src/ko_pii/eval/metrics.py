@@ -4,12 +4,15 @@
 - **strict**: 라벨 + (start, end) 가 정확히 일치해야 TP.
 - **partial**: 라벨이 같고 span 이 겹치면 TP. (오프셋 1~2 자 차이 허용)
 
+각 구간은 최대 한 번만 대응하며, partial은 순서와 무관한 최대 일대일 매칭을 쓴다.
+
 기본 정책은 ``partial`` — 검출 모듈이 조사·구두점을 포함/배제하는 차이는
 일상적이라서 strict 만 보면 점수가 과소평가됨.
 """
 from __future__ import annotations
 
 from collections.abc import Callable
+from collections import Counter, deque
 from dataclasses import dataclass, field
 from typing import Iterable
 
@@ -68,37 +71,67 @@ def _spans_match(g: GoldSpan, p: DetectionResult, mode: str) -> bool:
     return g.start < p.end and p.start < g.end
 
 
+def _validate_mode(mode: str) -> None:
+    if mode not in ("strict", "partial"):
+        raise ValueError("match mode must be 'strict' or 'partial'")
+
+
+def _matching_size(edges: list[list[int]], prediction_count: int) -> int:
+    """Maximum one-to-one matching using iterative augmenting paths."""
+    owners = [-1] * prediction_count
+    matches = [-1] * len(edges)
+    count = 0
+    for root in range(len(edges)):
+        queue = deque([root])
+        parents: dict[int, int] = {}
+        free = -1
+        while queue and free == -1:
+            gold_index = queue.popleft()
+            for prediction_index in edges[gold_index]:
+                if prediction_index in parents:
+                    continue
+                parents[prediction_index] = gold_index
+                owner = owners[prediction_index]
+                if owner == -1:
+                    free = prediction_index
+                    break
+                queue.append(owner)
+        if free == -1:
+            continue
+        count += 1
+        while free != -1:
+            gold_index = parents[free]
+            previous = matches[gold_index]
+            matches[gold_index] = free
+            owners[free] = gold_index
+            free = previous
+    return count
+
+
 def score_document(
     gold: GoldDocument,
     predictions: Iterable[DetectionResult],
     mode: str = "partial",
 ) -> dict[str, PerLabelMetrics]:
-    preds = list(predictions)
-    metrics: dict[str, PerLabelMetrics] = {}
-    matched_pred: set[int] = set()
-
-    # Recall pass: each gold span tries to find a prediction match.
+    _validate_mode(mode)
+    gold_by_label: dict[str, list[GoldSpan]] = {}
+    pred_by_label: dict[str, list[DetectionResult]] = {}
     for g in gold.spans:
-        m = metrics.setdefault(g.label, PerLabelMetrics(label=g.label))
-        hit_idx = -1
-        for i, p in enumerate(preds):
-            if i in matched_pred:
-                continue
-            if _spans_match(g, p, mode):
-                hit_idx = i
-                break
-        if hit_idx >= 0:
-            m.tp += 1
-            matched_pred.add(hit_idx)
+        gold_by_label.setdefault(g.label, []).append(g)
+    for p in predictions:
+        pred_by_label.setdefault(p.label, []).append(p)
+    metrics: dict[str, PerLabelMetrics] = {}
+    for label in sorted(gold_by_label.keys() | pred_by_label.keys()):
+        gold_spans = gold_by_label.get(label, [])
+        preds = pred_by_label.get(label, [])
+        if mode == "strict":
+            gold_counts = Counter((g.start, g.end) for g in gold_spans)
+            pred_counts = Counter((p.start, p.end) for p in preds)
+            tp = sum((gold_counts & pred_counts).values())
         else:
-            m.fn += 1
-
-    # FP pass: predictions that matched nothing.
-    for i, p in enumerate(preds):
-        if i in matched_pred:
-            continue
-        m = metrics.setdefault(p.label, PerLabelMetrics(label=p.label))
-        m.fp += 1
+            edges = [[i for i, p in enumerate(preds) if _spans_match(g, p, mode)] for g in gold_spans]
+            tp = _matching_size(edges, len(preds))
+        metrics[label] = PerLabelMetrics(label=label, tp=tp, fp=len(preds) - tp, fn=len(gold_spans) - tp)
     return metrics
 
 
@@ -111,6 +144,7 @@ def score_corpus(
 
     ``predict_fn(text) -> list[DetectionResult]`` — the detector to evaluate.
     """
+    _validate_mode(mode)
     report = BenchmarkReport(match_mode=mode)
     for doc in gold_docs:
         report.document_count += 1

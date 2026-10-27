@@ -33,6 +33,26 @@ _IDN_PATTERN = re.compile(
     + _IDN_LABEL + r"(?:\." + _IDN_LABEL + r")*\.[A-Za-z]{2,63})(?![A-Za-z0-9\-])"
 )
 
+
+def _split_literal_email(value: str) -> tuple[str, str] | None:
+    """Return parts only for one complete address in our supported subset.
+
+    Field assertions may contain lists or prose. Transformers must not retain
+    everything after the first @ as if it were a single harmless domain.
+    """
+    if _PATTERN.fullmatch(value) is None and _IDN_PATTERN.fullmatch(value) is None:
+        return None
+    local, _, domain = value.partition("@")
+    if local.startswith(".") or local.endswith(".") or ".." in local:
+        return None
+    try:
+        ascii_domain = domain.encode("idna")
+    except UnicodeError:
+        return None
+    if len(ascii_domain) > 253:
+        return None
+    return local, domain
+
 # 난독화 이메일(GAP 3): '[at]'/'(at)' · '[dot]'/'(dot)' 치환과 '@'/'.' 주변 공백 주입으로
 # 마스킹을 회피하는 우회.
 #   - "hong [at] gmail [dot] com"      → hong@gmail.com

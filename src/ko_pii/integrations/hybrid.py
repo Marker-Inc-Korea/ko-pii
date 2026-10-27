@@ -159,18 +159,15 @@ def merge_detections(
         return resolve(out)
 
     if mode == MergeMode.ENRICH_PRIMARY:
-        # primary 우선, secondary 는 primary 가 *놓친* 영역만 추가
-        out = list(primary_list)
-        for s in secondary_list:
-            overlaps_primary = any(_spans_overlap(s, p) for p in primary_list)
-            if not overlaps_primary:
-                out.append(s)
-            else:
-                # primary 가 잡은 같은 spans 에 secondary corroboration 추가
-                for i, p in enumerate(out):
-                    if _spans_overlap(p, s) and _same_label(p, s):
-                        out[i] = _enrich_with_secondary_info(p, s)
-                        break
+        # Corroborate each original primary once, never an already enriched copy.
+        ordered = sorted(secondary_list, key=lambda s: (
+            -s.confidence, -int(s.risk_level), -(s.end - s.start), s.start, s.end, s.label,
+        ))
+        out = []
+        for p in primary_list:
+            best = next((s for s in ordered if _spans_overlap(p, s) and _same_label(p, s)), None)
+            out.append(_enrich_with_secondary_info(p, best) if best is not None else p)
+        out.extend(s for s in ordered if not any(_spans_overlap(s, p) for p in primary_list))
         return resolve(out)
 
     if mode == MergeMode.CROSS_VALIDATION:

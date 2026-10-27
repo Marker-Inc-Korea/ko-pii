@@ -9,6 +9,31 @@ from ko_pii.tabular import (
 from ko_pii.core.modes import ProcessingMode
 
 
+@pytest.mark.parametrize("mapping", [{"emial": "EMAIL"}, {"email": "EMAIL", "absent": "PHONE"}])
+def test_unused_explicit_column_map_rejected_before_vault_mutation(mapping):
+    from ko_pii.vault.reversible import ReversibleVault
+
+    records = [{"email": "first@example.com"}]
+    vault = ReversibleVault()
+    with pytest.raises(ValueError, match="absent from the records") as exc:
+        anonymize_records(records, column_map=mapping, vault=vault)
+    assert len(vault) == 0 and records == [{"email": "first@example.com"}]
+    assert "first@example.com" not in str(exc.value)
+
+
+@pytest.mark.parametrize("mapping", [[], "email", {"": "EMAIL"}, {"email": ""}, {"email": None}])
+def test_invalid_column_map_rejected_even_for_empty_data(mapping):
+    with pytest.raises(ValueError, match="column_map"):
+        anonymize_records([], column_map=mapping)
+
+
+def test_column_map_may_cover_union_of_sparse_record_keys():
+    records = [{"email": "first@example.com"}, {"phone": "010-1234-5678"}]
+    out, _ = anonymize_records(records, column_map={"email": "EMAIL", "phone": "PHONE"})
+    assert out == [{"email": "<EMAIL_1>"}, {"phone": "<PHONE_1>"}]
+    assert anonymize_records(records, column_map={})[0] == records
+
+
 class TestColumnMapping:
     def test_basic_mapping(self):
         m = map_columns(["성명", "주민번호", "연락처"])

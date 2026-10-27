@@ -58,6 +58,10 @@ jobs:
           tests/unit/test_structured.py tests/unit/test_processing_policy.py
           tests/unit/test_field_rules.py tests/unit/test_policy_preview.py
           tests/unit/test_structured_policy_preview.py
+          tests/unit/test_typed_email.py tests/unit/test_tabular.py
+          tests/unit/analytics/test_k_anonymity.py tests/unit/eval/test_metrics.py
+          tests/unit/test_bounded_io.py::test_xml_encoding_cannot_hide_dtd
+          tests/unit/test_bounded_io.py::test_xml_validation_handles_chunk_boundaries_and_safe_literal_markers
           tests/unit/test_profile.py tests/unit/test_audit_boundaries.py
           tests/unit/io_/test_record_boundaries.py tests/unit/test_explanation_trace.py
           tests/unit/integrations/test_hybrid.py

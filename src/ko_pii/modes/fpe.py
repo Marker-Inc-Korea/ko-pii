@@ -31,6 +31,7 @@ from typing import Iterable, Optional
 from ko_pii.core.types import DetectionResult
 from ko_pii.core.unicode_norm import normalize_unicode
 from ko_pii.modes._apply import apply_substitutions
+from ko_pii.patterns.email import _split_literal_email
 from ko_pii.vault.reversible import ReversibleVault
 
 
@@ -150,9 +151,11 @@ def _fpe_card(original: str, fp: str) -> str:
 
 def _fpe_email(original: str, fp: str) -> str:
     """이메일: 도메인은 그대로, 로컬 부분만 무작위 영숫자."""
-    if "@" not in original:
+    parts = _split_literal_email(original)
+    if parts is None:
+        # The shared caller replaces unsupported values with a full mask.
         return original
-    local, _, domain = original.partition("@")
+    local, domain = parts
     new_local = _alpha_from_hash(fp, max(4, len(local))).lower()[:len(local)]
     return f"{new_local}@{domain}"
 

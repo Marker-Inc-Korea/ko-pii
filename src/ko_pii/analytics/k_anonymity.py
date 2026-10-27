@@ -22,7 +22,7 @@ from ko_pii.analytics.combined_risk import AttributeClass, classify_attribute
 
 @dataclass
 class KAnonymityReport:
-    k: int                                  # min group size
+    k: int                                  # min group size; 0 when not evaluated
     group_count: int
     smallest_group_size: int
     smallest_group_values: tuple[object, ...]
@@ -47,10 +47,19 @@ def k_anonymity(
         :class:`AttributeClass` 분류와 일치하는 PII 카테고리.
     quasi_keys :
         준식별자로 간주할 키 목록. ``None`` 이면 ``classify_attribute`` 로
-        ``QUASI_IDENTIFIER`` 인 것만 자동 선택.
+        ``QUASI_IDENTIFIER`` 인 것만 자동 선택. 선택한 열은 모든 행에 있어야 한다.
+        키가 없으면 미평가(k=0, satisfies_threshold=False)를 반환한다.
     threshold :
-        만족 기준 k 값 (기본 5, 가이드라인 권장).
+        만족 기준 k 값 (양의 정수, 기본 5). 용도별 기준은 호출자가 결정한다.
     """
+    if type(threshold) is not int or threshold < 1:
+        raise ValueError("threshold must be a positive integer")
+    if quasi_keys is not None:
+        if (not isinstance(quasi_keys, list)
+                or any(not isinstance(key, str) or not key for key in quasi_keys)
+                or len(set(quasi_keys)) != len(quasi_keys)):
+            raise ValueError("quasi_keys must be a list of distinct non-empty column names")
+        quasi_keys = list(quasi_keys)
     record_list = [dict(r) for r in records]
     if not record_list:
         return KAnonymityReport(
@@ -71,21 +80,26 @@ def k_anonymity(
 
     if not quasi_keys:
         return KAnonymityReport(
-            k=len(record_list),
-            group_count=1,
-            smallest_group_size=len(record_list),
+            k=0,
+            group_count=0,
+            smallest_group_size=0,
             smallest_group_values=(),
             quasi_identifier_keys=[],
             record_count=len(record_list),
-            satisfies_threshold=True,
+            satisfies_threshold=False,
             threshold=threshold,
-            rationale=["준식별자가 없어 k-익명성은 무한대"],
+            rationale=["준식별자가 없어 평가하지 않음; k=0은 미평가 표시"],
         )
 
     groups: dict[tuple[object, ...], int] = {}
     for rec in record_list:
-        key = tuple(rec.get(k) for k in quasi_keys)
-        groups[key] = groups.get(key, 0) + 1
+        if any(k not in rec for k in quasi_keys):
+            raise ValueError("quasi-identifier columns must be present in every record")
+        key = tuple(rec[k] for k in quasi_keys)
+        try:
+            groups[key] = groups.get(key, 0) + 1
+        except TypeError:
+            raise ValueError("quasi-identifier values must be hashable") from None
 
     smallest_key, smallest_size = min(groups.items(), key=lambda kv: kv[1])
     rationale = [
