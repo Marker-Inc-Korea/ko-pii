@@ -20,28 +20,39 @@ from collections.abc import Iterator
 
 from ko_pii.io_.coverage import TextExtraction, inspect_parts
 
-NS = {"main": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+_NAMESPACES = (
+    "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
+    "http://purl.oclc.org/ooxml/spreadsheetml/main",
+)
+
+
+def _namespace(root: ET.Element, local_name: str) -> str:
+    for namespace in _NAMESPACES:
+        if root.tag == f"{{{namespace}}}{local_name}":
+            return namespace
+    raise ValueError("unsupported spreadsheet part root or namespace")
 
 
 def _shared_strings(zf: zipfile.ZipFile) -> list[str]:
     if "xl/sharedStrings.xml" not in zf.namelist():
         return []
     root = ET.fromstring(zf.read("xl/sharedStrings.xml"))
+    namespace = _namespace(root, "sst")
     strings: list[str] = []
-    for si in root.findall("main:si", NS):
+    for si in root.findall(f"{{{namespace}}}si"):
         # 각 <si> 안의 <t> 텍스트 (rich text 면 여러 개)
         parts = []
-        for t in si.iter("{http://schemas.openxmlformats.org/spreadsheetml/2006/main}t"):
+        for t in si.iter(f"{{{namespace}}}t"):
             if t.text:
                 parts.append(t.text)
         strings.append("".join(parts))
     return strings
 
 
-def _cell_value(c: ET.Element, sst: list[str]) -> str:
+def _cell_value(c: ET.Element, sst: list[str], namespace: str) -> str:
     t_attr = c.attrib.get("t")
     if t_attr == "s":
-        v = c.find("main:v", NS)
+        v = c.find(f"{{{namespace}}}v")
         if v is None or v.text is None:
             return ""
         index = int(v.text)
@@ -49,12 +60,11 @@ def _cell_value(c: ET.Element, sst: list[str]) -> str:
             raise ValueError("invalid shared string reference")
         return sst[index]
     if t_attr == "inlineStr":
-        is_elem = c.find("main:is", NS)
+        is_elem = c.find(f"{{{namespace}}}is")
         if is_elem is None:
             return ""
-        return "".join(t.text or "" for t in is_elem.iter(
-            "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}t"))
-    v = c.find("main:v", NS)
+        return "".join(t.text or "" for t in is_elem.iter(f"{{{namespace}}}t"))
+    v = c.find(f"{{{namespace}}}v")
     return v.text if v is not None and v.text is not None else ""
 
 
@@ -85,10 +95,11 @@ def _sheet_names(archive: zipfile.ZipFile) -> list[str]:
 
 def _sheet_rows(archive: zipfile.ZipFile, name: str, sst: list[str]) -> Iterator[list[str]]:
     root = ET.fromstring(archive.read(name))
-    for row in root.iter("{http://schemas.openxmlformats.org/spreadsheetml/2006/main}row"):
+    namespace = _namespace(root, "worksheet")
+    for row in root.iter(f"{{{namespace}}}row"):
         cells: dict[int, str] = {}
         seq = -1
-        for cell in row.findall("main:c", NS):
+        for cell in row.findall(f"{{{namespace}}}c"):
             column = _col_index(cell.attrib.get("r", ""))
             if column < 0:
                 column = seq + 1
@@ -97,7 +108,7 @@ def _sheet_rows(archive: zipfile.ZipFile, name: str, sst: list[str]) -> Iterator
             if column in cells:
                 raise ValueError("duplicate cell reference")
             seq = max(seq, column)
-            cells[column] = _cell_value(cell, sst)
+            cells[column] = _cell_value(cell, sst, namespace)
         yield [cells.get(index, "") for index in range(seq + 1)]
 
 

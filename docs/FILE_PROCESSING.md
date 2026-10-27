@@ -32,6 +32,21 @@ XLSX는 시트마다 첫 비어 있지 않은 행을 헤더로 읽으며 셀 내
 애플리케이션은 별도 처리가 필요합니다. 시트 열거는 지원 XML 파일 이름 순서이며 통합문서
 표시 순서/관계 검증까지 제공하지 않습니다.
 
+1.22.13부터 Transitional 및 Strict SpreadsheetML의 텍스트 셀을 읽습니다.
+시트의 `worksheet`와 공유 문자열의 `sst` 루트에서 네임스페이스를 선택하고, 공유 문자열,
+inline/rich text 및 저장된 `<v>` 값을 동일 경로로 추출합니다. 알 수 없는 네임스페이스나
+루트는 빈 시트로 간주하지 않습니다. 표 API는 오류를 반환하고, 텍스트 API/CLI는 기존
+`document_extraction_incomplete` 실패 경로를 사용합니다. 인식 가능한 빈 시트는 기존처럼
+비어 있는 것으로 처리합니다. 전체가 빈 문서이면 bounded/CLI의 빈 추출 거부도 유지됩니다.
+
+Strict 네임스페이스는 [ECMA-376 Part 1](https://ecma-international.org/publications-and-standards/standards/ecma-376/)
+배포본의 `OfficeOpenXML-XMLSchema-Strict.zip/sml.xsd`에 정의된
+`http://purl.oclc.org/ooxml/spreadsheetml/main`을 사용합니다. Transitional은 기존
+`http://schemas.openxmlformats.org/spreadsheetml/2006/main`입니다.
+이는 셀 추출의 호환성 보완이며 OOXML 전체 스키마/패키지 적합성 인증이 아닙니다.
+수식은 실행하지 않고 저장된 값만 읽으며 Excel의 표시 서식, 이미지/도형/주석 같은
+미지원 부분을 모두 추출한다고 보장하지 않습니다.
+
 1.22.3부터 중복 또는 빈 헤더는 오류입니다. XLSX 헤더 이후의 추가 셀에 값이 있으면
 잘라내지 않고 실패합니다. 끝쪽의 빈 서식 셀과 비어 있는 행은 무시하고, 값이 없는 일반
 셀은 빈 문자열로 채웁니다. 시트 중 하나라도 실패하면 부분 레코드 목록을 반환하지 않습니다.
