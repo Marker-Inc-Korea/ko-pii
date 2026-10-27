@@ -11,6 +11,7 @@
 - [파일 처리 범위와 실패 경계](FILE_PROCESSING.md)
 - [Vault·키·권한·복원](VAULT_SECURITY.md)
 - [이메일 및 Vault 마이그레이션](EMAIL_AND_VAULT_MIGRATION.md)
+- [식별번호 검증 숫자의 범위와 FRN 출력 변경](IDENTIFIER_VALIDATION.md)
 - [자기 문서 평가와 실제 출력 잔존 측정](DOMAIN_EVALUATION.md)
 - [라벨 검토 및 회귀 사례](REVIEW_AND_REGRESSION.md)
 - [공개 API와 저장 형식 호환성](COMPATIBILITY.md)

@@ -51,6 +51,12 @@ AUDIT로 호출하면 각각 정규화 생략 또는 원문 보존이라는 기�
 
 ## Vault와 정책 파일
 
+1.22.11부터 FRN의 레거시 검증 숫자를 RRN과 구분합니다. 따라서 FRN 신뢰도와 정책에
+따른 치환 여부, FRN FPE의 마지막 숫자가 달라질 수 있습니다. 검증 숫자 실패 근거도
+`checksum:invalid_or_post_2020`에서 `checksum:unverified`로 바뀝니다.
+과거 발급 시점을 판정하는 값으로 사용하지 마세요. 자세한 범위와 출력 전환 주의사항은
+[식별번호 검증](IDENTIFIER_VALIDATION.md)을 참고하세요. 기존 Vault를 자동 변경하지 않습니다.
+
 Vault JSON schema 1과 PolicyProfile schema 1의 유효한 기존 파일을 읽을 수 있도록 검사합니다.
 미지원 schema, 중복/충돌 매핑과 손상된 값은 거부하며 자동 보정·묵시적 재번호를 하지 않습니다.
 암호화 파일과 키 관리 범위는 [Vault 보안](VAULT_SECURITY.md)을 참고하세요.

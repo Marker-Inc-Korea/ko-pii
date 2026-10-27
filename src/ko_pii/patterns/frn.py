@@ -6,7 +6,9 @@ which for FRN is restricted to:
   5, 6 → 1900s foreigner (male, female)
   7, 8 → 2000s foreigner
 
-Checksum: same weighted-sum algorithm as RRN; post-2020 randomization applies.
+Legacy checksum: the RRN weighted-sum digit plus 2, modulo 10. A mismatch
+reduces confidence; it does not prove invalid identity or a particular issue
+year. The birth date is not the issue date. See docs/IDENTIFIER_VALIDATION.md.
 
 Legal basis: 개인정보보호법 시행령 제19조 (고유식별정보의 범위 — 외국인등록번호),
 출입국관리법 제31조.
@@ -17,7 +19,7 @@ import re
 from datetime import date
 from typing import Iterator
 
-from ko_pii.checksum.rrn_checksum import is_valid_checksum
+from ko_pii.checksum.frn_checksum import is_valid_checksum
 from ko_pii.core.types import DetectionResult, RiskLevel
 
 LABEL = "FRN"
@@ -57,7 +59,7 @@ def detect(text: str) -> Iterator[DetectionResult]:
         front, back = m.group(1), m.group(2)
         gender_digit = int(back[0])
         birth = _decode_birth_date(front, gender_digit)
-        if birth is None:
+        if birth is None or birth > date.today():
             continue
 
         digits_only = front + back
@@ -68,7 +70,7 @@ def detect(text: str) -> Iterator[DetectionResult]:
             evidence.append("checksum:valid")
             confidence = 1.0
         else:
-            evidence.append("checksum:invalid_or_post_2020")
+            evidence.append("checksum:unverified")
             confidence = 0.7
 
         yield DetectionResult(

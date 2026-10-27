@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from typing import Iterable, Optional
+from typing import Callable, Iterable, Optional
 
 from ko_pii.core.types import DetectionResult
 from ko_pii.core.unicode_norm import normalize_unicode
@@ -72,8 +72,8 @@ def _hangul_from_hash(fp: str, n: int) -> str:
     return "".join(out)
 
 
-def _fpe_rrn(original: str, fp: str) -> str:
-    """RRN: 13자리, 6-7 사이 하이픈, 7번째 자리(gender) 유지."""
+def _fpe_registration(original: str, fp: str, check_digit: Callable[[str], int]) -> str:
+    """Preserve the 13-digit shape and gender digit, not a valid birth date."""
     digits = re.sub(r"\D", "", original)
     if len(digits) != 13:
         return _digits_from_hash(fp, len(digits))
@@ -83,14 +83,23 @@ def _fpe_rrn(original: str, fp: str) -> str:
     back_partial = _digits_from_hash(fp[16:30], 5)
     # 체크섬 재계산 — 첫 12자리에서 산출
     new_first_12 = front_new + gender + back_partial
-    from ko_pii.checksum.rrn_checksum import compute_check_digit
     try:
-        check = compute_check_digit(new_first_12)
+        check = check_digit(new_first_12)
     except ValueError:
         check = 0
     new_full = new_first_12 + str(check)
     has_hyphen = "-" in original
     return f"{new_full[:6]}-{new_full[6:]}" if has_hyphen else new_full
+
+
+def _fpe_rrn(original: str, fp: str) -> str:
+    from ko_pii.checksum.rrn_checksum import compute_check_digit
+    return _fpe_registration(original, fp, compute_check_digit)
+
+
+def _fpe_frn(original: str, fp: str) -> str:
+    from ko_pii.checksum.frn_checksum import compute_check_digit
+    return _fpe_registration(original, fp, compute_check_digit)
 
 
 def _fpe_phone(original: str, fp: str) -> str:
@@ -202,7 +211,7 @@ def _fpe_default(original: str, fp: str) -> str:
 
 _FPE_BY_LABEL = {
     "RRN": _fpe_rrn,
-    "FRN": _fpe_rrn,
+    "FRN": _fpe_frn,
     "PHONE": _fpe_phone,
     "FAX": _fpe_phone,
     "CARD": _fpe_card,

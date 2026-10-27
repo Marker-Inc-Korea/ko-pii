@@ -21,6 +21,7 @@ from datetime import date
 from typing import Iterator
 
 from ko_pii.checksum.corp_reg_checksum import is_valid_checksum
+from ko_pii.checksum.frn_checksum import is_valid_checksum as is_valid_frn_checksum
 from ko_pii.checksum.rrn_checksum import is_valid_checksum as is_valid_rrn_checksum
 from ko_pii.core.types import DetectionResult, RiskLevel
 
@@ -37,19 +38,14 @@ _PATTERN = re.compile(
 )
 
 
-def _is_valid_date_prefix(yymmdd: str) -> bool:
-    """Return True if YYMMDD could form a real calendar date in any century."""
-    mm = int(yymmdd[2:4])
-    dd = int(yymmdd[4:6])
-    if not (1 <= mm <= 12):
-        return False
-    if not (1 <= dd <= 31):
-        return False
+def _is_valid_date_prefix(yymmdd: str, gender_digit: str) -> bool:
+    """Only yield to a personal identifier with a plausible full birth date."""
+    century = 1800 if gender_digit in "90" else 1900 if gender_digit in "1256" else 2000
     try:
-        date(2000, mm, dd)  # 2000 is a leap year, so Feb 29 is valid
-        return True
+        birth = date(century + int(yymmdd[:2]), int(yymmdd[2:4]), int(yymmdd[4:6]))
     except ValueError:
         return False
+    return birth <= date.today()
 
 
 def detect(text: str) -> Iterator[DetectionResult]:
@@ -62,8 +58,9 @@ def detect(text: str) -> Iterator[DetectionResult]:
             continue
         if not is_valid_checksum(digits):
             continue
-        if is_valid_rrn_checksum(digits) and _is_valid_date_prefix(front):
-            # An actual RRN/FRN coincidentally passes the 법인 checksum;
+        personal_checksum = is_valid_frn_checksum if back[0] in "5678" else is_valid_rrn_checksum
+        if personal_checksum(digits) and _is_valid_date_prefix(front, back[0]):
+            # An RRN/FRN-shaped candidate also passes the corporate checksum;
             # let the RRN/FRN detector claim it.
             continue
         yield DetectionResult(

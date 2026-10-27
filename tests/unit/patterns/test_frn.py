@@ -8,11 +8,11 @@ def _detect_list(text):
 
 class TestFRNPositive:
     def test_gender_5_male_1900s(self):
-        results = _detect_list("외국인등록번호 850315-5345676")
+        results = _detect_list("외국인등록번호 850315-5345678")
         assert len(results) == 1
         r = results[0]
         assert r.label == "FRN"
-        assert r.text == "850315-5345676"
+        assert r.text == "850315-5345678"
         assert r.risk_level == RiskLevel.CRITICAL
         assert r.confidence == 1.0
         assert r.extra["gender_digit"] == 5
@@ -20,34 +20,34 @@ class TestFRNPositive:
         assert r.extra["checksum_valid"] is True
 
     def test_gender_6_female_1900s(self):
-        results = _detect_list("850315-6000008")
+        results = _detect_list("850315-6000000")
         assert len(results) == 1
         assert results[0].extra["gender_digit"] == 6
         assert results[0].extra["birth_date"] == "1985-03-15"
 
     def test_gender_7_male_2000s(self):
-        results = _detect_list("외국인 000101-7000009")
+        results = _detect_list("외국인 000101-7000001")
         assert len(results) == 1
         assert results[0].extra["gender_digit"] == 7
         assert results[0].extra["birth_date"] == "2000-01-01"
 
     def test_gender_8_female_2000s(self):
-        results = _detect_list("000101-8000001")
+        results = _detect_list("000101-8000003")
         assert len(results) == 1
         assert results[0].extra["gender_digit"] == 8
         assert results[0].extra["birth_date"] == "2000-01-01"
 
     def test_without_hyphen(self):
-        results = _detect_list("8503155345676")
+        results = _detect_list("8503155345678")
         assert len(results) == 1
-        assert results[0].text == "8503155345676"
+        assert results[0].text == "8503155345678"
 
     def test_legal_basis_attached(self):
-        results = _detect_list("850315-5345676")
+        results = _detect_list("850315-5345678")
         assert "출입국관리법" in results[0].legal_basis
         assert results[0].extra["category"] == "고유식별정보"
 
-    def test_post_2020_frn_reduced_confidence(self):
+    def test_unverified_checksum_reduces_confidence(self):
         # gender 5, valid date, but wrong checksum
         results = _detect_list("850315-5345670")
         assert len(results) == 1

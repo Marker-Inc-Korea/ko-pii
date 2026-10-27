@@ -41,8 +41,8 @@ class TestCorpRegDisambiguation:
         assert _detect_list("880101-1234568") == []
 
     def test_valid_frn_not_claimed(self):
-        # 850315-5345676 is a valid FRN — corp_reg must skip.
-        assert _detect_list("850315-5345676") == []
+        # Synthetic FRN checksum also passes the corporate checksum.
+        assert _detect_list("850315-5000993") == []
 
 
 class TestCorpRegNegative:

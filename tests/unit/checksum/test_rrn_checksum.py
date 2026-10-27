@@ -7,13 +7,17 @@ VALID_RRNS = [
     "9501012345676",   # 1995-01-01, F (gender=2)
     "9901011234563",   # 1999-01-01, M
     "8503152345678",   # 1985-03-15, F
-    "8503155345676",   # 1985-03-15, foreigner M (gender=5)
 ]
 
 
 @pytest.mark.parametrize("rrn", VALID_RRNS)
 def test_valid_rrns_pass_checksum(rrn):
     assert is_valid_checksum(rrn) is True
+
+
+def test_arithmetic_helper_does_not_validate_gender_or_foreign_checksum():
+    # This passes resident arithmetic, not the foreign-registration checksum.
+    assert is_valid_checksum("8503155345676") is True
 
 
 def test_compute_check_digit_known_values():
