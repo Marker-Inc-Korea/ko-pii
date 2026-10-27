@@ -15,28 +15,44 @@ References:
 """
 from __future__ import annotations
 
-import re
 import xml.etree.ElementTree as ET
 import zipfile
 
 from ko_pii.io_.coverage import TextExtraction, inspect_parts
 
 
-_HP_T_TAG_PATTERN = re.compile(r"\{[^}]+\}t$|^t$")  # local-name = "t"
+_INLINE_CHARACTERS = {
+    "tab": "\t", "lineBreak": "\n", "nbSpace": "\u00a0",
+    "fwSpace": "\u3000", "hyphen": "\u00ad",
+}
 
 
 def _extract_text_from_section(xml_bytes: bytes) -> list[str]:
     parts: list[str] = []
     root = ET.fromstring(xml_bytes)
-    # Iterate every element with local-name 't' (텍스트 노드)
-    for elem in root.iter():
+    stack = [(root, False)]
+    text_depth = 0
+    while stack:
+        elem, closing = stack.pop()
         local = elem.tag.split("}", 1)[-1]
-        if local == "t" and elem.text:
-            parts.append(elem.text)
-        # 문단 경계 — <hp:p> 마다 줄바꿈 삽입(문단 융합 방지). lineBreak/linesegarray 도 보존.
-        # ("p" 누락으로 linesegarray 없는 문단이 다음 문단과 분리자 없이 붙던 문제 수정.)
-        if local in {"p", "lineBreak", "linesegarray"}:
+        if closing:
+            if local == "t":
+                text_depth -= 1
+            # Only mixed-content tails belong to text, not XML indentation.
+            if text_depth and elem.tail:
+                parts.append(elem.tail)
+            continue
+        if local == "t":
+            text_depth += 1
+        if local in _INLINE_CHARACTERS:
+            parts.append(_INLINE_CHARACTERS[local])
+        elif local in {"p", "linesegarray"}:
             parts.append("\n")
+        if text_depth and elem.text:
+            parts.append(elem.text)
+        # End visits retain tails in order without recursing through deep XML.
+        stack.append((elem, True))
+        stack.extend((child, False) for child in reversed(elem))
     return parts
 
 
