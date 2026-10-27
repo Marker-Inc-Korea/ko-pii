@@ -73,6 +73,7 @@ jobs:
           tests/unit/io_/test_text_ingestion.py
           tests/unit/io_/test_xlsx_namespaces.py
           tests/unit/io_/test_hwpx_mixed_text.py
+          tests/unit/io_/test_hwpx_package.py
           tests/unit/integrations/test_hybrid.py
           tests/unit/integrations/test_literal.py
           tests/unit/integrations/test_secondary_validation.py

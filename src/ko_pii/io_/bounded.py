@@ -202,7 +202,9 @@ def _validate_archive(
                     ratio = info.file_size / info.compress_size
                     if ratio > policy.max_compression_ratio:
                         _reject("compression_ratio_exceeded", "archive compression ratio exceeds policy")
-                if name.casefold().endswith((".xml", ".rels")):
+                if name.casefold().endswith((".xml", ".rels")) or (
+                    extension == ".hwpx" and name == "Contents/content.hpf"
+                ):
                     xml_infos.append(info)
 
             for info in xml_infos:
@@ -212,7 +214,7 @@ def _validate_archive(
                 _reject("format_mismatch", "DOCX archive is missing word/document.xml")
             if extension == ".xlsx" and "xl/workbook.xml" not in names:
                 _reject("format_mismatch", "XLSX archive is missing xl/workbook.xml")
-            if extension == ".hwpx" and not any(
+            if extension == ".hwpx" and "Contents/content.hpf" not in names and not any(
                 name.startswith("Contents/section") and name.endswith(".xml")
                 for name in names
             ):
