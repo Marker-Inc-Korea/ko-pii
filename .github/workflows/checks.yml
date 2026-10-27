@@ -66,6 +66,7 @@ jobs:
           tests/unit/test_profile.py tests/unit/test_audit_boundaries.py
           tests/unit/test_primary_policy_overlap.py tests/unit/eval/test_output.py
           tests/unit/io_/test_record_boundaries.py tests/unit/test_explanation_trace.py
+          tests/unit/io_/test_text_ingestion.py
           tests/unit/integrations/test_hybrid.py
           tests/unit/integrations/test_literal.py
           tests/unit/integrations/test_secondary_validation.py

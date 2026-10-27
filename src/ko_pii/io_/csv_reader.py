@@ -25,9 +25,15 @@ def read_records(path: str) -> list[dict[str, str]]:
         dialect = csv.excel_tab if "\t" in raw[:1024] else csv.excel
     # io.StringIO 로 넘겨야 csv 파서가 따옴표 안의 줄바꿈(멀티라인 셀)을 보존한다.
     # raw.splitlines() 는 따옴표 내부 줄바꿈에서 끊어 셀을 깨뜨림.
-    reader = csv.DictReader(io.StringIO(raw), dialect=dialect)
-    headers = reader.fieldnames
-    if headers is not None and (any(not key.strip() for key in headers)
-                                or len(set(headers)) != len(headers)):
-        raise ValueError("CSV headers must be nonempty and unique")
-    return [dict(row) for row in reader if any(row.values())]
+    # Sniffer sets doublequote=False when the sample has no escaped quotes;
+    # that also makes strict parsing accept junk after a closing quote.
+    reader = csv.DictReader(io.StringIO(raw, newline=""), dialect=dialect, doublequote=True, strict=True)
+    try:
+        headers = reader.fieldnames
+        if headers is not None and (any(not key.strip() for key in headers)
+                                    or len(set(headers)) != len(headers)):
+            raise ValueError("CSV headers must be nonempty and unique")
+        return [dict(row) for row in reader if any(row.values())]
+    except csv.Error:
+        # An unclosed quote can absorb later rows into an unmapped text column.
+        raise ValueError("invalid CSV record syntax") from None

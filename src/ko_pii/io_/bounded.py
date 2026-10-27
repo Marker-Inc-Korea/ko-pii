@@ -13,6 +13,7 @@ from xml.parsers import expat
 
 from ko_pii.io_ import dispatcher
 from ko_pii.io_.coverage import DocumentExtractionError
+from ko_pii.io_.plain import TextDecodingError
 
 
 DEFAULT_BOUNDED_EXTENSIONS: tuple[str, ...] = (
@@ -275,6 +276,8 @@ def read_text_bounded(
         raise
     except DocumentExtractionError as exc:
         raise BoundedReadError(exc.code, str(exc), coverage=exc.coverage) from None
+    except TextDecodingError as exc:
+        raise BoundedReadError(exc.code, str(exc)) from None
     except Exception as exc:
         from ko_pii.io_.pdf import PdfExtractionError
         if isinstance(exc, PdfExtractionError):
