@@ -119,9 +119,9 @@ def detect_all(
 ) -> list[DetectionResult]:
     """Run every detector and return a merged, conflict-resolved list.
 
-    Overlapping spans are resolved by priority — higher risk level, then higher
-    confidence, then longer span, then earlier start — so a lower-priority span
-    never shadows a higher-confidence PII span (see ``_resolve_overlaps``).
+    Overlapping spans are resolved by higher risk level, then higher confidence,
+    then longer span, then earlier start. This detection-only API has no output
+    policy; Anonymizer resolves candidates after applying its processing policy.
 
     ``include`` / ``exclude`` filter on the resulting DetectionResult labels.
 
@@ -135,6 +135,24 @@ def detect_all(
     ``trace`` optionally collects bounded common-overlap metadata. Use a fresh
     OverlapTrace per input; it does not trace detector-internal rejections.
     """
+    return _resolve_overlaps(
+        _detect_candidates(
+            text, include, exclude, normalize=normalize,
+            person_exclusions=person_exclusions,
+        ),
+        trace=trace,
+    )
+
+
+def _detect_candidates(
+    text: str,
+    include: Optional[Iterable[str]] = None,
+    exclude: Optional[Iterable[str]] = None,
+    *,
+    normalize: bool = True,
+    person_exclusions: Optional[Iterable[str]] = None,
+) -> list[DetectionResult]:
+    """Collect source-bound candidates without discarding policy/merge evidence."""
     if not isinstance(text, str):
         raise TypeError(f"detect_all() expects str, got {type(text).__name__}")
     inc = validate_label_filter(include, name="include")
@@ -196,9 +214,4 @@ def detect_all(
 
     for detection in raw:
         detection.rule_id = f"ko-pii.{detection.label.lower()}.v1"
-    return _resolve_overlaps(raw, trace=trace)
-
-
-# 겹침 해소는 core.overlap.resolve_overlaps 단일 구현 사용 (위 import 의 _resolve_overlaps).
-# detect_all / merge_detections(integrations.hybrid) / 치환(modes._apply) 이 모두 같은
-# 우선순위(위험도→확신도→길이)로 해소해 누출 회귀를 차단한다.
+    return raw

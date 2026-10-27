@@ -148,11 +148,16 @@ assert report["findings"][0]["subrule_id"] == "email.obfuscated.v1"
 어느 우선순위에서 밀렸는지 구분합니다. 해당 단계의 blocker가 이후 병합 단계에서도
 최종 채택된다는 뜻은 아닙니다. 원문/토큰/임의 evidence/extra는 포함하지 않습니다.
 
-1.22.3부터 정책상 비차단 후보가 BLOCK 후보보다 뒤로 선택되면
-`non_blocking_policy_priority`를 기록합니다. `explain()`의 `overlap_resolution`은
-보조 탐지기를 사용하는 Anonymizer에서 `block_risk_confidence_length_start`로 시작하며,
-보조 탐지기 없는 기존 경로는 `risk_confidence_length_start`를 유지합니다. 이 값은
-최종 공통 겹침 선택 기준이며, 앞선 primary 탐지 단계는 여전히 위험도 우선입니다.
+정책상 비차단 후보가 BLOCK 후보보다 뒤로 선택되면
+`non_blocking_policy_priority`를 기록합니다. 1.22.7부터 일반 Anonymizer 탐지 경로의
+`overlap_resolution`은 보조 탐지기 유무와 무관하게 `block_risk_confidence_length_start`로
+시작합니다. primary 후보를 먼저 버리지 않고 병합 정책과 처리 임계값을 적용한 뒤 선택합니다.
+따라서 높은 위험도의 REVIEW 후보가 낮은 위험도의 BLOCK 후보를 숨기지 않습니다.
+
+보조 탐지기가 없으면 `primary`, 있으면 `hybrid` 단계에서 공통 겹침을 기록합니다.
+이전처럼 병합 전에 별도의 primary 탈락 이벤트가 생기지 않으므로 추적 집계도 달라질 수
+있습니다. 탐지 전용 `detect_all()`은 처리 정책 없이 기존 위험도 우선 방식을 유지합니다.
+탐지 전용 결과에 정책을 나중에 적용하는 것을 Anonymizer와 동일하다고 가정하지 마세요.
 
 제한을 넘으면 추가 이벤트를 보관하지 않고 `truncated`, `omitted_events`로 표시합니다.
 집계는 계속하며 출력 잘림이 탐지/치환 결과를 바꾸지 않습니다. `overlap_trace: null`은

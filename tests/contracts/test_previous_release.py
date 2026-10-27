@@ -75,12 +75,20 @@ def _assert_subset(expected, actual):
         assert expected == actual
 
 
+def _assert_explanation_compatibility(actual):
+    # 1.22.7 fixes policy-aware primary overlap selection. Keep the published
+    # fixture immutable, but require the report to name the corrected algorithm.
+    expected = {**FIXTURE["explanation"], "overlap_resolution":
+                "block_risk_confidence_length_start; discarded_candidates_not_included"}
+    _assert_subset(expected, actual)
+
+
 def test_previous_profile_and_explanation_semantics():
     profile = ko_pii.PolicyProfile.from_dict(FIXTURE["profile"])
     assert profile.fingerprint == FIXTURE["profile_fingerprint"]
     result = profile.process("demo@example.com")
     assert result.text == "<EMAIL_1>"
-    _assert_subset(FIXTURE["explanation"], explain(result))
+    _assert_explanation_compatibility(explain(result))
 
 
 def test_previous_profile_cli(tmp_path):
@@ -93,4 +101,4 @@ def test_previous_profile_cli(tmp_path):
     assert main([str(source), "--policy", str(policy), "-o", str(output),
                  "--explain", str(report)]) == 0
     assert output.read_text(encoding="utf-8") == "<EMAIL_1>"
-    _assert_subset(FIXTURE["explanation"], json.loads(report.read_text(encoding="utf-8")))
+    _assert_explanation_compatibility(json.loads(report.read_text(encoding="utf-8")))

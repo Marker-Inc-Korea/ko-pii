@@ -64,6 +64,7 @@ jobs:
           tests/unit/test_bounded_io.py::test_xml_encoding_cannot_hide_dtd
           tests/unit/test_bounded_io.py::test_xml_validation_handles_chunk_boundaries_and_safe_literal_markers
           tests/unit/test_profile.py tests/unit/test_audit_boundaries.py
+          tests/unit/test_primary_policy_overlap.py tests/unit/eval/test_output.py
           tests/unit/io_/test_record_boundaries.py tests/unit/test_explanation_trace.py
           tests/unit/integrations/test_hybrid.py
           tests/unit/integrations/test_literal.py

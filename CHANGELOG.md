@@ -5,6 +5,26 @@
 
 ## [Unreleased]
 
+## [1.22.7] - 2026-10-27
+
+### Fixed
+
+- Anonymizer가 처리 정책보다 먼저 primary 겹침 후보를 버리던 문제를 수정했습니다.
+  BALANCED에서 낮은 신뢰도의 주민번호 후보(REVIEW)가 높은 신뢰도의 계좌 후보(BLOCK)를
+  밀어내 계좌번호가 그대로 남을 수 있었습니다. 이제 BLOCK 여부를 먼저 고려합니다.
+- 보조 탐지기와 대조하거나 역할을 위임하기 전에도 primary 후보를 보존합니다.
+  intersection, cross_validation, enrich_primary, fallback_secondary, role_split에서
+  앞선 겹침 제거 때문에 유효한 계좌 후보를 잃는 사례를 회귀 검사합니다.
+
+### Compatibility And Validation
+
+- 탐지 전용 `detect_all()`의 공개 인자와 위험도 우선 결과는 그대로입니다. Anonymizer의
+  설명은 실제 block-first 기준을 표시하며, 보조 탐지 시 공통 겹침 추적은 최종 hybrid
+  단계에서 수집합니다. 모드 임계값, 라벨 필터, AUDIT의 원문 보존 정책은 바꾸지 않습니다.
+- ASCII/전각/하이픈 입력, JSON, PolicyProfile, 스트리밍, CLI와 기존 모드 동작을 검사합니다.
+  Windows/macOS 검사에도 추가했습니다. 출력 회귀 CLI의 기존 옵션과 가이드 불일치를
+  정정하고, 탐지 점수가 같아도 새로 남는 원문을 잡는 회귀 검사를 추가했습니다.
+
 ## [1.22.6] - 2026-10-27
 
 ### Fixed

@@ -1,0 +1,2121 @@
+{
+  "schema_version": 1,
+  "package_version": "1.22.7",
+  "generated_at": "2026-10-27T02:05:57.061024+00:00",
+  "evaluation_date": "2026-10-27",
+  "dataset_sha256": "b6130e61877ce1519754580edddaa17dd903d735e80d57fc2474a26e32c6aabe",
+  "match_mode": "strict",
+  "evaluated_labels": [
+    "ACCOUNT",
+    "ADDRESS",
+    "CARD",
+    "DRIVER_LICENSE",
+    "DT_BIRTH",
+    "EMAIL",
+    "IP",
+    "MEDICAL_INSURANCE",
+    "PASSPORT",
+    "PERSON",
+    "PHONE",
+    "RRN",
+    "URL",
+    "VEHICLE"
+  ],
+  "document_count": 500,
+  "documents_with_misses": 423,
+  "micro": {
+    "tp": 1036,
+    "fp": 826,
+    "fn": 841,
+    "precision": 0.556390977443609,
+    "recall": 0.5519445924347363,
+    "f1": 0.5541588660069537
+  },
+  "per_label": {
+    "ACCOUNT": {
+      "tp": 17,
+      "fp": 0,
+      "fn": 49,
+      "precision": 1.0,
+      "recall": 0.25757575757575757,
+      "f1": 0.40963855421686746
+    },
+    "ADDRESS": {
+      "tp": 24,
+      "fp": 7,
+      "fn": 72,
+      "precision": 0.7741935483870968,
+      "recall": 0.25,
+      "f1": 0.3779527559055118
+    },
+    "CARD": {
+      "tp": 4,
+      "fp": 0,
+      "fn": 36,
+      "precision": 1.0,
+      "recall": 0.1,
+      "f1": 0.18181818181818182
+    },
+    "DRIVER_LICENSE": {
+      "tp": 32,
+      "fp": 0,
+      "fn": 2,
+      "precision": 1.0,
+      "recall": 0.9411764705882353,
+      "f1": 0.9696969696969697
+    },
+    "DT_BIRTH": {
+      "tp": 32,
+      "fp": 0,
+      "fn": 20,
+      "precision": 1.0,
+      "recall": 0.6153846153846154,
+      "f1": 0.761904761904762
+    },
+    "EMAIL": {
+      "tp": 194,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    "IP": {
+      "tp": 22,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    "MEDICAL_INSURANCE": {
+      "tp": 38,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    "PASSPORT": {
+      "tp": 35,
+      "fp": 0,
+      "fn": 38,
+      "precision": 1.0,
+      "recall": 0.4794520547945205,
+      "f1": 0.6481481481481481
+    },
+    "PERSON": {
+      "tp": 240,
+      "fp": 721,
+      "fn": 450,
+      "precision": 0.2497398543184183,
+      "recall": 0.34782608695652173,
+      "f1": 0.290732889158086
+    },
+    "PHONE": {
+      "tp": 222,
+      "fp": 1,
+      "fn": 0,
+      "precision": 0.9955156950672646,
+      "recall": 1.0,
+      "f1": 0.9977528089887641
+    },
+    "RRN": {
+      "tp": 129,
+      "fp": 0,
+      "fn": 77,
+      "precision": 1.0,
+      "recall": 0.6262135922330098,
+      "f1": 0.7701492537313434
+    },
+    "URL": {
+      "tp": 19,
+      "fp": 83,
+      "fn": 83,
+      "precision": 0.18627450980392157,
+      "recall": 0.18627450980392157,
+      "f1": 0.18627450980392157
+    },
+    "VEHICLE": {
+      "tp": 28,
+      "fp": 14,
+      "fn": 14,
+      "precision": 0.6666666666666666,
+      "recall": 0.6666666666666666,
+      "f1": 0.6666666666666666
+    }
+  },
+  "external_protocol": {
+    "protocol_version": 1,
+    "fixed_before_measurement": "2026-10-26",
+    "source": "woohyun212/k-pii-bench",
+    "dataset_revision": "844f92f7beba98fa964f957ba324017e82451701",
+    "documentation_revision": "1b480c515cc8425ea5c5675079bd7cf17b951554",
+    "url": "https://huggingface.co/datasets/woohyun212/k-pii-bench/resolve/844f92f7beba98fa964f957ba324017e82451701/data/test_track_a.jsonl",
+    "license": "CC-BY-4.0",
+    "license_url": "https://huggingface.co/datasets/woohyun212/k-pii-bench/blob/844f92f7beba98fa964f957ba324017e82451701/LICENSE-DATA",
+    "source_sha256": "219c023f69832f9089d59df00368320fc76be81e05ee602cf0909289cd456add",
+    "source_bytes": 143005610,
+    "population": 28142,
+    "sample_size": 500,
+    "selection": "lowest SHA-256(doc_id UTF-8), then doc_id; no outcome-based selection",
+    "scorer": "ko-pii strict character spans on 14 declared mapped labels",
+    "output_policy": "STRICT redact; no custom rules, exclusions or secondary detector",
+    "limits": [
+      "External-authored synthetic corpus, not customer documents or a safety certification.",
+      "Not the upstream BIO leaderboard score; four source labels are unmapped.",
+      "A first recorded run under this protocol, not proof of zero historical exposure.",
+      "No rule changes based on this measurement in the maintenance release."
+    ]
+  },
+  "protocol_sha256": "4c44e259b5462a5a4e426515b7f04d68956cefa794848b16acdc979c2eff5855",
+  "runner_sha256": "ca5f8f88c88fe6bcfee4b5735e55c6f6b3fe2a42776d5ee22abc81b7c472a55d",
+  "python": "3.12.13",
+  "adapter": {
+    "format": "k-pii-bench-jsonl",
+    "adapter_version": 1,
+    "source_sha256": "aa619992eb1ac7b851a5e2b5db7460392ac9efc74830e41106d0d04da7b093cf",
+    "label_map": {
+      "PERSON": "PERSON",
+      "EMAIL_ADDRESS": "EMAIL",
+      "KR_PHONE_NUMBER": "PHONE",
+      "KR_RRN": "RRN",
+      "KR_BANK_ACCOUNT": "ACCOUNT",
+      "KR_DRIVER_LICENSE": "DRIVER_LICENSE",
+      "KR_PASSPORT": "PASSPORT",
+      "KR_NHIS": "MEDICAL_INSURANCE",
+      "KR_VEHICLE_PLATE": "VEHICLE",
+      "KR_LOCATION": "ADDRESS",
+      "CREDIT_CARD": "CARD",
+      "IP_ADDRESS": "IP",
+      "URL": "URL",
+      "DATE_OF_BIRTH": "DT_BIRTH",
+      "USERNAME": null,
+      "ORGANIZATION": null,
+      "NRP": null,
+      "PERSONAL_ATTRIBUTE": null
+    },
+    "mapped_spans": {
+      "URL": 102,
+      "PERSON": 690,
+      "KR_RRN": 206,
+      "EMAIL_ADDRESS": 194,
+      "DATE_OF_BIRTH": 52,
+      "KR_PHONE_NUMBER": 222,
+      "KR_LOCATION": 96,
+      "KR_VEHICLE_PLATE": 42,
+      "KR_PASSPORT": 73,
+      "KR_DRIVER_LICENSE": 34,
+      "KR_BANK_ACCOUNT": 66,
+      "KR_NHIS": 38,
+      "IP_ADDRESS": 22,
+      "CREDIT_CARD": 40
+    },
+    "unmapped_spans": {
+      "ORGANIZATION": 137,
+      "USERNAME": 42,
+      "NRP": 43
+    },
+    "unmapped_span_count": 222,
+    "warning": "Mapped-label strict-span evaluation only; not the official upstream score or a full-coverage claim."
+  },
+  "summary_contract": "external-evaluation-summary-v1",
+  "full_report_sha256": "2e10a2cd915519cd330f9fbeabf40c849e20671bca04e7eac3fcd20632c6b123",
+  "output_evaluation": {
+    "contract": "source-span-substitution-v1",
+    "mode": "STRICT",
+    "strategy": "redact",
+    "counts": {
+      "replaced": 943,
+      "missed": 723,
+      "retained_by_policy": 200,
+      "partially_replaced": 11,
+      "partial_strategy": 0,
+      "literal_retained": 0
+    },
+    "per_label": {
+      "URL": {
+        "replaced": 0,
+        "missed": 0,
+        "retained_by_policy": 102,
+        "partially_replaced": 0,
+        "partial_strategy": 0,
+        "literal_retained": 0
+      },
+      "PERSON": {
+        "replaced": 193,
+        "missed": 444,
+        "retained_by_policy": 47,
+        "partially_replaced": 6,
+        "partial_strategy": 0,
+        "literal_retained": 0
+      },
+      "RRN": {
+        "replaced": 129,
+        "missed": 77,
+        "retained_by_policy": 0,
+        "partially_replaced": 0,
+        "partial_strategy": 0,
+        "literal_retained": 0
+      },
+      "EMAIL": {
+        "replaced": 194,
+        "missed": 0,
+        "retained_by_policy": 0,
+        "partially_replaced": 0,
+        "partial_strategy": 0,
+        "literal_retained": 0
+      },
+      "DT_BIRTH": {
+        "replaced": 32,
+        "missed": 20,
+        "retained_by_policy": 0,
+        "partially_replaced": 0,
+        "partial_strategy": 0,
+        "literal_retained": 0
+      },
+      "PHONE": {
+        "replaced": 222,
+        "missed": 0,
+        "retained_by_policy": 0,
+        "partially_replaced": 0,
+        "partial_strategy": 0,
+        "literal_retained": 0
+      },
+      "ADDRESS": {
+        "replaced": 25,
+        "missed": 58,
+        "retained_by_policy": 9,
+        "partially_replaced": 4,
+        "partial_strategy": 0,
+        "literal_retained": 0
+      },
+      "VEHICLE": {
+        "replaced": 0,
+        "missed": 0,
+        "retained_by_policy": 42,
+        "partially_replaced": 0,
+        "partial_strategy": 0,
+        "literal_retained": 0
+      },
+      "PASSPORT": {
+        "replaced": 35,
+        "missed": 38,
+        "retained_by_policy": 0,
+        "partially_replaced": 0,
+        "partial_strategy": 0,
+        "literal_retained": 0
+      },
+      "DRIVER_LICENSE": {
+        "replaced": 32,
+        "missed": 2,
+        "retained_by_policy": 0,
+        "partially_replaced": 0,
+        "partial_strategy": 0,
+        "literal_retained": 0
+      },
+      "ACCOUNT": {
+        "replaced": 17,
+        "missed": 49,
+        "retained_by_policy": 0,
+        "partially_replaced": 0,
+        "partial_strategy": 0,
+        "literal_retained": 0
+      },
+      "MEDICAL_INSURANCE": {
+        "replaced": 38,
+        "missed": 0,
+        "retained_by_policy": 0,
+        "partially_replaced": 0,
+        "partial_strategy": 0,
+        "literal_retained": 0
+      },
+      "IP": {
+        "replaced": 22,
+        "missed": 0,
+        "retained_by_policy": 0,
+        "partially_replaced": 0,
+        "partial_strategy": 0,
+        "literal_retained": 0
+      },
+      "CARD": {
+        "replaced": 4,
+        "missed": 35,
+        "retained_by_policy": 0,
+        "partially_replaced": 1,
+        "partial_strategy": 0,
+        "literal_retained": 0
+      }
+    },
+    "not_fully_replaced": 934,
+    "strategies": {}
+  },
+  "slices": {
+    "domain": [
+      {
+        "value": "chat",
+        "document_count": 39,
+        "micro": {
+          "tp": 50,
+          "fp": 32,
+          "fn": 159,
+          "precision": 0.6097560975609756,
+          "recall": 0.23923444976076555,
+          "f1": 0.34364261168384874
+        },
+        "per_label": {
+          "ADDRESS": {
+            "tp": 5,
+            "fp": 0,
+            "fn": 13,
+            "precision": 1.0,
+            "recall": 0.2777777777777778,
+            "f1": 0.4347826086956522
+          },
+          "CARD": {
+            "tp": 2,
+            "fp": 0,
+            "fn": 16,
+            "precision": 1.0,
+            "recall": 0.1111111111111111,
+            "f1": 0.19999999999999998
+          },
+          "DRIVER_LICENSE": {
+            "tp": 15,
+            "fp": 0,
+            "fn": 1,
+            "precision": 1.0,
+            "recall": 0.9375,
+            "f1": 0.967741935483871
+          },
+          "EMAIL": {
+            "tp": 7,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "PASSPORT": {
+            "tp": 2,
+            "fp": 0,
+            "fn": 12,
+            "precision": 1.0,
+            "recall": 0.14285714285714285,
+            "f1": 0.25
+          },
+          "PERSON": {
+            "tp": 8,
+            "fp": 27,
+            "fn": 112,
+            "precision": 0.22857142857142856,
+            "recall": 0.06666666666666667,
+            "f1": 0.1032258064516129
+          },
+          "VEHICLE": {
+            "tp": 11,
+            "fp": 5,
+            "fn": 5,
+            "precision": 0.6875,
+            "recall": 0.6875,
+            "f1": 0.6875
+          }
+        },
+        "output_evaluation": {
+          "contract": "source-span-substitution-v1",
+          "mode": "STRICT",
+          "strategy": "redact",
+          "counts": {
+            "replaced": 34,
+            "missed": 149,
+            "retained_by_policy": 21,
+            "partially_replaced": 5,
+            "partial_strategy": 0,
+            "literal_retained": 0
+          },
+          "per_label": {
+            "PERSON": {
+              "replaced": 3,
+              "missed": 108,
+              "retained_by_policy": 5,
+              "partially_replaced": 4,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "EMAIL": {
+              "replaced": 7,
+              "missed": 0,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "VEHICLE": {
+              "replaced": 0,
+              "missed": 0,
+              "retained_by_policy": 16,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "DRIVER_LICENSE": {
+              "replaced": 15,
+              "missed": 1,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "ADDRESS": {
+              "replaced": 5,
+              "missed": 12,
+              "retained_by_policy": 0,
+              "partially_replaced": 1,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "CARD": {
+              "replaced": 2,
+              "missed": 16,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "PASSPORT": {
+              "replaced": 2,
+              "missed": 12,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            }
+          },
+          "not_fully_replaced": 175,
+          "strategies": {}
+        }
+      },
+      {
+        "value": "document",
+        "document_count": 47,
+        "micro": {
+          "tp": 102,
+          "fp": 113,
+          "fn": 52,
+          "precision": 0.4744186046511628,
+          "recall": 0.6623376623376623,
+          "f1": 0.5528455284552846
+        },
+        "per_label": {
+          "ACCOUNT": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 12,
+            "precision": null,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "EMAIL": {
+            "tp": 36,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "PASSPORT": {
+            "tp": 16,
+            "fp": 0,
+            "fn": 12,
+            "precision": 1.0,
+            "recall": 0.5714285714285714,
+            "f1": 0.7272727272727273
+          },
+          "PERSON": {
+            "tp": 41,
+            "fp": 113,
+            "fn": 27,
+            "precision": 0.2662337662337662,
+            "recall": 0.6029411764705882,
+            "f1": 0.3693693693693693
+          },
+          "RRN": {
+            "tp": 9,
+            "fp": 0,
+            "fn": 1,
+            "precision": 1.0,
+            "recall": 0.9,
+            "f1": 0.9473684210526316
+          }
+        },
+        "output_evaluation": {
+          "contract": "source-span-substitution-v1",
+          "mode": "STRICT",
+          "strategy": "redact",
+          "counts": {
+            "replaced": 89,
+            "missed": 52,
+            "retained_by_policy": 13,
+            "partially_replaced": 0,
+            "partial_strategy": 0,
+            "literal_retained": 0
+          },
+          "per_label": {
+            "PERSON": {
+              "replaced": 28,
+              "missed": 27,
+              "retained_by_policy": 13,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "ACCOUNT": {
+              "replaced": 0,
+              "missed": 12,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "EMAIL": {
+              "replaced": 36,
+              "missed": 0,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "PASSPORT": {
+              "replaced": 16,
+              "missed": 12,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "RRN": {
+              "replaced": 9,
+              "missed": 1,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            }
+          },
+          "not_fully_replaced": 65,
+          "strategies": {}
+        }
+      },
+      {
+        "value": "education",
+        "document_count": 41,
+        "micro": {
+          "tp": 86,
+          "fp": 137,
+          "fn": 70,
+          "precision": 0.38565022421524664,
+          "recall": 0.5512820512820513,
+          "f1": 0.45382585751978893
+        },
+        "per_label": {
+          "ACCOUNT": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 7,
+            "precision": null,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "EMAIL": {
+            "tp": 19,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "PERSON": {
+            "tp": 28,
+            "fp": 105,
+            "fn": 20,
+            "precision": 0.21052631578947367,
+            "recall": 0.5833333333333334,
+            "f1": 0.30939226519337015
+          },
+          "PHONE": {
+            "tp": 22,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "RRN": {
+            "tp": 8,
+            "fp": 0,
+            "fn": 11,
+            "precision": 1.0,
+            "recall": 0.42105263157894735,
+            "f1": 0.5925925925925926
+          },
+          "URL": {
+            "tp": 9,
+            "fp": 32,
+            "fn": 32,
+            "precision": 0.21951219512195122,
+            "recall": 0.21951219512195122,
+            "f1": 0.21951219512195122
+          }
+        },
+        "output_evaluation": {
+          "contract": "source-span-substitution-v1",
+          "mode": "STRICT",
+          "strategy": "redact",
+          "counts": {
+            "replaced": 74,
+            "missed": 38,
+            "retained_by_policy": 44,
+            "partially_replaced": 0,
+            "partial_strategy": 0,
+            "literal_retained": 0
+          },
+          "per_label": {
+            "URL": {
+              "replaced": 0,
+              "missed": 0,
+              "retained_by_policy": 41,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "PERSON": {
+              "replaced": 25,
+              "missed": 20,
+              "retained_by_policy": 3,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "RRN": {
+              "replaced": 8,
+              "missed": 11,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "EMAIL": {
+              "replaced": 19,
+              "missed": 0,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "PHONE": {
+              "replaced": 22,
+              "missed": 0,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "ACCOUNT": {
+              "replaced": 0,
+              "missed": 7,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            }
+          },
+          "not_fully_replaced": 82,
+          "strategies": {}
+        }
+      },
+      {
+        "value": "email_thread",
+        "document_count": 34,
+        "micro": {
+          "tp": 89,
+          "fp": 53,
+          "fn": 97,
+          "precision": 0.6267605633802817,
+          "recall": 0.478494623655914,
+          "f1": 0.5426829268292683
+        },
+        "per_label": {
+          "ACCOUNT": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 8,
+            "precision": null,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "DT_BIRTH": {
+            "tp": 8,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "EMAIL": {
+            "tp": 13,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "IP": {
+            "tp": 13,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "PERSON": {
+            "tp": 26,
+            "fp": 40,
+            "fn": 71,
+            "precision": 0.3939393939393939,
+            "recall": 0.26804123711340205,
+            "f1": 0.31901840490797545
+          },
+          "PHONE": {
+            "tp": 13,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "RRN": {
+            "tp": 8,
+            "fp": 0,
+            "fn": 5,
+            "precision": 1.0,
+            "recall": 0.6153846153846154,
+            "f1": 0.761904761904762
+          },
+          "URL": {
+            "tp": 0,
+            "fp": 8,
+            "fn": 8,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "VEHICLE": {
+            "tp": 8,
+            "fp": 5,
+            "fn": 5,
+            "precision": 0.6153846153846154,
+            "recall": 0.6153846153846154,
+            "f1": 0.6153846153846154
+          }
+        },
+        "output_evaluation": {
+          "contract": "source-span-substitution-v1",
+          "mode": "STRICT",
+          "strategy": "redact",
+          "counts": {
+            "replaced": 76,
+            "missed": 83,
+            "retained_by_policy": 26,
+            "partially_replaced": 1,
+            "partial_strategy": 0,
+            "literal_retained": 0
+          },
+          "per_label": {
+            "PERSON": {
+              "replaced": 21,
+              "missed": 70,
+              "retained_by_policy": 5,
+              "partially_replaced": 1,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "VEHICLE": {
+              "replaced": 0,
+              "missed": 0,
+              "retained_by_policy": 13,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "PHONE": {
+              "replaced": 13,
+              "missed": 0,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "ACCOUNT": {
+              "replaced": 0,
+              "missed": 8,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "RRN": {
+              "replaced": 8,
+              "missed": 5,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "EMAIL": {
+              "replaced": 13,
+              "missed": 0,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "IP": {
+              "replaced": 13,
+              "missed": 0,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "DT_BIRTH": {
+              "replaced": 8,
+              "missed": 0,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "URL": {
+              "replaced": 0,
+              "missed": 0,
+              "retained_by_policy": 8,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            }
+          },
+          "not_fully_replaced": 110,
+          "strategies": {}
+        }
+      },
+      {
+        "value": "employment",
+        "document_count": 40,
+        "micro": {
+          "tp": 91,
+          "fp": 119,
+          "fn": 44,
+          "precision": 0.43333333333333335,
+          "recall": 0.674074074074074,
+          "f1": 0.527536231884058
+        },
+        "per_label": {
+          "ACCOUNT": {
+            "tp": 9,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "ADDRESS": {
+            "tp": 4,
+            "fp": 0,
+            "fn": 19,
+            "precision": 1.0,
+            "recall": 0.17391304347826086,
+            "f1": 0.29629629629629634
+          },
+          "EMAIL": {
+            "tp": 23,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "MEDICAL_INSURANCE": {
+            "tp": 17,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "PERSON": {
+            "tp": 8,
+            "fp": 119,
+            "fn": 15,
+            "precision": 0.06299212598425197,
+            "recall": 0.34782608695652173,
+            "f1": 0.10666666666666666
+          },
+          "PHONE": {
+            "tp": 17,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "RRN": {
+            "tp": 13,
+            "fp": 0,
+            "fn": 10,
+            "precision": 1.0,
+            "recall": 0.5652173913043478,
+            "f1": 0.7222222222222222
+          }
+        },
+        "output_evaluation": {
+          "contract": "source-span-substitution-v1",
+          "mode": "STRICT",
+          "strategy": "redact",
+          "counts": {
+            "replaced": 92,
+            "missed": 41,
+            "retained_by_policy": 2,
+            "partially_replaced": 0,
+            "partial_strategy": 0,
+            "literal_retained": 0
+          },
+          "per_label": {
+            "ADDRESS": {
+              "replaced": 5,
+              "missed": 16,
+              "retained_by_policy": 2,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "RRN": {
+              "replaced": 13,
+              "missed": 10,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "PHONE": {
+              "replaced": 17,
+              "missed": 0,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "PERSON": {
+              "replaced": 8,
+              "missed": 15,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "EMAIL": {
+              "replaced": 23,
+              "missed": 0,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "MEDICAL_INSURANCE": {
+              "replaced": 17,
+              "missed": 0,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "ACCOUNT": {
+              "replaced": 9,
+              "missed": 0,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            }
+          },
+          "not_fully_replaced": 43,
+          "strategies": {}
+        }
+      },
+      {
+        "value": "financial",
+        "document_count": 38,
+        "micro": {
+          "tp": 65,
+          "fp": 27,
+          "fn": 31,
+          "precision": 0.7065217391304348,
+          "recall": 0.6770833333333334,
+          "f1": 0.6914893617021278
+        },
+        "per_label": {
+          "EMAIL": {
+            "tp": 10,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "MEDICAL_INSURANCE": {
+            "tp": 10,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "PASSPORT": {
+            "tp": 5,
+            "fp": 0,
+            "fn": 2,
+            "precision": 1.0,
+            "recall": 0.7142857142857143,
+            "f1": 0.8333333333333333
+          },
+          "PERSON": {
+            "tp": 10,
+            "fp": 23,
+            "fn": 21,
+            "precision": 0.30303030303030304,
+            "recall": 0.3225806451612903,
+            "f1": 0.3125
+          },
+          "PHONE": {
+            "tp": 17,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "RRN": {
+            "tp": 3,
+            "fp": 0,
+            "fn": 4,
+            "precision": 1.0,
+            "recall": 0.42857142857142855,
+            "f1": 0.6
+          },
+          "URL": {
+            "tp": 10,
+            "fp": 4,
+            "fn": 4,
+            "precision": 0.7142857142857143,
+            "recall": 0.7142857142857143,
+            "f1": 0.7142857142857143
+          }
+        },
+        "output_evaluation": {
+          "contract": "source-span-substitution-v1",
+          "mode": "STRICT",
+          "strategy": "redact",
+          "counts": {
+            "replaced": 53,
+            "missed": 27,
+            "retained_by_policy": 16,
+            "partially_replaced": 0,
+            "partial_strategy": 0,
+            "literal_retained": 0
+          },
+          "per_label": {
+            "URL": {
+              "replaced": 0,
+              "missed": 0,
+              "retained_by_policy": 14,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "PERSON": {
+              "replaced": 8,
+              "missed": 21,
+              "retained_by_policy": 2,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "MEDICAL_INSURANCE": {
+              "replaced": 10,
+              "missed": 0,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "PHONE": {
+              "replaced": 17,
+              "missed": 0,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "EMAIL": {
+              "replaced": 10,
+              "missed": 0,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "RRN": {
+              "replaced": 3,
+              "missed": 4,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "PASSPORT": {
+              "replaced": 5,
+              "missed": 2,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            }
+          },
+          "not_fully_replaced": 43,
+          "strategies": {}
+        }
+      },
+      {
+        "value": "government",
+        "document_count": 40,
+        "micro": {
+          "tp": 68,
+          "fp": 50,
+          "fn": 52,
+          "precision": 0.576271186440678,
+          "recall": 0.5666666666666667,
+          "f1": 0.5714285714285714
+        },
+        "per_label": {
+          "ADDRESS": {
+            "tp": 4,
+            "fp": 0,
+            "fn": 8,
+            "precision": 1.0,
+            "recall": 0.3333333333333333,
+            "f1": 0.5
+          },
+          "DRIVER_LICENSE": {
+            "tp": 5,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "EMAIL": {
+            "tp": 9,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "IP": {
+            "tp": 9,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "PASSPORT": {
+            "tp": 5,
+            "fp": 0,
+            "fn": 7,
+            "precision": 1.0,
+            "recall": 0.4166666666666667,
+            "f1": 0.5882352941176471
+          },
+          "PERSON": {
+            "tp": 22,
+            "fp": 48,
+            "fn": 32,
+            "precision": 0.3142857142857143,
+            "recall": 0.4074074074074074,
+            "f1": 0.3548387096774193
+          },
+          "RRN": {
+            "tp": 11,
+            "fp": 0,
+            "fn": 3,
+            "precision": 1.0,
+            "recall": 0.7857142857142857,
+            "f1": 0.88
+          },
+          "VEHICLE": {
+            "tp": 3,
+            "fp": 2,
+            "fn": 2,
+            "precision": 0.6,
+            "recall": 0.6,
+            "f1": 0.6
+          }
+        },
+        "output_evaluation": {
+          "contract": "source-span-substitution-v1",
+          "mode": "STRICT",
+          "strategy": "redact",
+          "counts": {
+            "replaced": 57,
+            "missed": 48,
+            "retained_by_policy": 15,
+            "partially_replaced": 0,
+            "partial_strategy": 0,
+            "literal_retained": 0
+          },
+          "per_label": {
+            "PERSON": {
+              "replaced": 14,
+              "missed": 32,
+              "retained_by_policy": 8,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "RRN": {
+              "replaced": 11,
+              "missed": 3,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "ADDRESS": {
+              "replaced": 4,
+              "missed": 6,
+              "retained_by_policy": 2,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "PASSPORT": {
+              "replaced": 5,
+              "missed": 7,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "EMAIL": {
+              "replaced": 9,
+              "missed": 0,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "IP": {
+              "replaced": 9,
+              "missed": 0,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "VEHICLE": {
+              "replaced": 0,
+              "missed": 0,
+              "retained_by_policy": 5,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "DRIVER_LICENSE": {
+              "replaced": 5,
+              "missed": 0,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            }
+          },
+          "not_fully_replaced": 63,
+          "strategies": {}
+        }
+      },
+      {
+        "value": "insurance",
+        "document_count": 50,
+        "micro": {
+          "tp": 86,
+          "fp": 39,
+          "fn": 84,
+          "precision": 0.688,
+          "recall": 0.5058823529411764,
+          "f1": 0.5830508474576271
+        },
+        "per_label": {
+          "ADDRESS": {
+            "tp": 5,
+            "fp": 0,
+            "fn": 15,
+            "precision": 1.0,
+            "recall": 0.25,
+            "f1": 0.4
+          },
+          "DT_BIRTH": {
+            "tp": 15,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "EMAIL": {
+            "tp": 8,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "PASSPORT": {
+            "tp": 7,
+            "fp": 0,
+            "fn": 5,
+            "precision": 1.0,
+            "recall": 0.5833333333333334,
+            "f1": 0.7368421052631579
+          },
+          "PERSON": {
+            "tp": 10,
+            "fp": 22,
+            "fn": 40,
+            "precision": 0.3125,
+            "recall": 0.2,
+            "f1": 0.24390243902439027
+          },
+          "PHONE": {
+            "tp": 27,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "RRN": {
+            "tp": 8,
+            "fp": 0,
+            "fn": 7,
+            "precision": 1.0,
+            "recall": 0.5333333333333333,
+            "f1": 0.6956521739130436
+          },
+          "URL": {
+            "tp": 0,
+            "fp": 15,
+            "fn": 15,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "VEHICLE": {
+            "tp": 6,
+            "fp": 2,
+            "fn": 2,
+            "precision": 0.75,
+            "recall": 0.75,
+            "f1": 0.75
+          }
+        },
+        "output_evaluation": {
+          "contract": "source-span-substitution-v1",
+          "mode": "STRICT",
+          "strategy": "redact",
+          "counts": {
+            "replaced": 79,
+            "missed": 65,
+            "retained_by_policy": 25,
+            "partially_replaced": 1,
+            "partial_strategy": 0,
+            "literal_retained": 0
+          },
+          "per_label": {
+            "ADDRESS": {
+              "replaced": 6,
+              "missed": 14,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "PERSON": {
+              "replaced": 8,
+              "missed": 39,
+              "retained_by_policy": 2,
+              "partially_replaced": 1,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "PASSPORT": {
+              "replaced": 7,
+              "missed": 5,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "PHONE": {
+              "replaced": 27,
+              "missed": 0,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "RRN": {
+              "replaced": 8,
+              "missed": 7,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "URL": {
+              "replaced": 0,
+              "missed": 0,
+              "retained_by_policy": 15,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "DT_BIRTH": {
+              "replaced": 15,
+              "missed": 0,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "VEHICLE": {
+              "replaced": 0,
+              "missed": 0,
+              "retained_by_policy": 8,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "EMAIL": {
+              "replaced": 8,
+              "missed": 0,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            }
+          },
+          "not_fully_replaced": 91,
+          "strategies": {}
+        }
+      },
+      {
+        "value": "legal",
+        "document_count": 44,
+        "micro": {
+          "tp": 113,
+          "fp": 124,
+          "fn": 55,
+          "precision": 0.4767932489451477,
+          "recall": 0.6726190476190477,
+          "f1": 0.5580246913580247
+        },
+        "per_label": {
+          "ACCOUNT": {
+            "tp": 8,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "ADDRESS": {
+            "tp": 3,
+            "fp": 3,
+            "fn": 7,
+            "precision": 0.5,
+            "recall": 0.3,
+            "f1": 0.37499999999999994
+          },
+          "DT_BIRTH": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 10,
+            "precision": null,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "EMAIL": {
+            "tp": 19,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "PERSON": {
+            "tp": 41,
+            "fp": 113,
+            "fn": 24,
+            "precision": 0.2662337662337662,
+            "recall": 0.6307692307692307,
+            "f1": 0.3744292237442922
+          },
+          "PHONE": {
+            "tp": 15,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "RRN": {
+            "tp": 27,
+            "fp": 0,
+            "fn": 6,
+            "precision": 1.0,
+            "recall": 0.8181818181818182,
+            "f1": 0.9
+          },
+          "URL": {
+            "tp": 0,
+            "fp": 8,
+            "fn": 8,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          }
+        },
+        "output_evaluation": {
+          "contract": "source-span-substitution-v1",
+          "mode": "STRICT",
+          "strategy": "redact",
+          "counts": {
+            "replaced": 110,
+            "missed": 44,
+            "retained_by_policy": 11,
+            "partially_replaced": 3,
+            "partial_strategy": 0,
+            "literal_retained": 0
+          },
+          "per_label": {
+            "PERSON": {
+              "replaced": 38,
+              "missed": 24,
+              "retained_by_policy": 3,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "PHONE": {
+              "replaced": 15,
+              "missed": 0,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "RRN": {
+              "replaced": 27,
+              "missed": 6,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "URL": {
+              "replaced": 0,
+              "missed": 0,
+              "retained_by_policy": 8,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "EMAIL": {
+              "replaced": 19,
+              "missed": 0,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "DT_BIRTH": {
+              "replaced": 0,
+              "missed": 10,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "ADDRESS": {
+              "replaced": 3,
+              "missed": 4,
+              "retained_by_policy": 0,
+              "partially_replaced": 3,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "ACCOUNT": {
+              "replaced": 8,
+              "missed": 0,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            }
+          },
+          "not_fully_replaced": 58,
+          "strategies": {}
+        }
+      },
+      {
+        "value": "medical",
+        "document_count": 39,
+        "micro": {
+          "tp": 86,
+          "fp": 86,
+          "fn": 81,
+          "precision": 0.5,
+          "recall": 0.5149700598802395,
+          "f1": 0.5073746312684366
+        },
+        "per_label": {
+          "ADDRESS": {
+            "tp": 3,
+            "fp": 4,
+            "fn": 10,
+            "precision": 0.42857142857142855,
+            "recall": 0.23076923076923078,
+            "f1": 0.3
+          },
+          "DT_BIRTH": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 10,
+            "precision": null,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "EMAIL": {
+            "tp": 11,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "PERSON": {
+            "tp": 9,
+            "fp": 66,
+            "fn": 30,
+            "precision": 0.12,
+            "recall": 0.23076923076923078,
+            "f1": 0.15789473684210525
+          },
+          "PHONE": {
+            "tp": 39,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "RRN": {
+            "tp": 24,
+            "fp": 0,
+            "fn": 15,
+            "precision": 1.0,
+            "recall": 0.6153846153846154,
+            "f1": 0.761904761904762
+          },
+          "URL": {
+            "tp": 0,
+            "fp": 16,
+            "fn": 16,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          }
+        },
+        "output_evaluation": {
+          "contract": "source-span-substitution-v1",
+          "mode": "STRICT",
+          "strategy": "redact",
+          "counts": {
+            "replaced": 85,
+            "missed": 61,
+            "retained_by_policy": 21,
+            "partially_replaced": 0,
+            "partial_strategy": 0,
+            "literal_retained": 0
+          },
+          "per_label": {
+            "PERSON": {
+              "replaced": 9,
+              "missed": 30,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "DT_BIRTH": {
+              "replaced": 0,
+              "missed": 10,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "RRN": {
+              "replaced": 24,
+              "missed": 15,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "PHONE": {
+              "replaced": 39,
+              "missed": 0,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "EMAIL": {
+              "replaced": 11,
+              "missed": 0,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "URL": {
+              "replaced": 0,
+              "missed": 0,
+              "retained_by_policy": 16,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "ADDRESS": {
+              "replaced": 2,
+              "missed": 6,
+              "retained_by_policy": 5,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            }
+          },
+          "not_fully_replaced": 82,
+          "strategies": {}
+        }
+      },
+      {
+        "value": "support_ticket",
+        "document_count": 37,
+        "micro": {
+          "tp": 79,
+          "fp": 31,
+          "fn": 49,
+          "precision": 0.7181818181818181,
+          "recall": 0.6171875,
+          "f1": 0.6638655462184874
+        },
+        "per_label": {
+          "CARD": {
+            "tp": 1,
+            "fp": 0,
+            "fn": 7,
+            "precision": 1.0,
+            "recall": 0.125,
+            "f1": 0.2222222222222222
+          },
+          "EMAIL": {
+            "tp": 26,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "MEDICAL_INSURANCE": {
+            "tp": 11,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "PERSON": {
+            "tp": 13,
+            "fp": 30,
+            "fn": 32,
+            "precision": 0.3023255813953488,
+            "recall": 0.28888888888888886,
+            "f1": 0.2954545454545454
+          },
+          "PHONE": {
+            "tp": 20,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.9523809523809523,
+            "recall": 1.0,
+            "f1": 0.975609756097561
+          },
+          "RRN": {
+            "tp": 8,
+            "fp": 0,
+            "fn": 10,
+            "precision": 1.0,
+            "recall": 0.4444444444444444,
+            "f1": 0.6153846153846153
+          }
+        },
+        "output_evaluation": {
+          "contract": "source-span-substitution-v1",
+          "mode": "STRICT",
+          "strategy": "redact",
+          "counts": {
+            "replaced": 73,
+            "missed": 48,
+            "retained_by_policy": 6,
+            "partially_replaced": 1,
+            "partial_strategy": 0,
+            "literal_retained": 0
+          },
+          "per_label": {
+            "RRN": {
+              "replaced": 8,
+              "missed": 10,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "EMAIL": {
+              "replaced": 26,
+              "missed": 0,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "PHONE": {
+              "replaced": 20,
+              "missed": 0,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "PERSON": {
+              "replaced": 7,
+              "missed": 32,
+              "retained_by_policy": 6,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "CARD": {
+              "replaced": 1,
+              "missed": 6,
+              "retained_by_policy": 0,
+              "partially_replaced": 1,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "MEDICAL_INSURANCE": {
+              "replaced": 11,
+              "missed": 0,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            }
+          },
+          "not_fully_replaced": 55,
+          "strategies": {}
+        }
+      },
+      {
+        "value": "telecommunications",
+        "document_count": 51,
+        "micro": {
+          "tp": 121,
+          "fp": 15,
+          "fn": 67,
+          "precision": 0.8897058823529411,
+          "recall": 0.6436170212765957,
+          "f1": 0.7469135802469136
+        },
+        "per_label": {
+          "ACCOUNT": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 22,
+            "precision": null,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "CARD": {
+            "tp": 1,
+            "fp": 0,
+            "fn": 13,
+            "precision": 1.0,
+            "recall": 0.07142857142857142,
+            "f1": 0.13333333333333333
+          },
+          "DRIVER_LICENSE": {
+            "tp": 12,
+            "fp": 0,
+            "fn": 1,
+            "precision": 1.0,
+            "recall": 0.9230769230769231,
+            "f1": 0.9600000000000001
+          },
+          "DT_BIRTH": {
+            "tp": 9,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "EMAIL": {
+            "tp": 13,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "PERSON": {
+            "tp": 24,
+            "fp": 15,
+            "fn": 26,
+            "precision": 0.6153846153846154,
+            "recall": 0.48,
+            "f1": 0.5393258426966293
+          },
+          "PHONE": {
+            "tp": 52,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "RRN": {
+            "tp": 10,
+            "fp": 0,
+            "fn": 5,
+            "precision": 1.0,
+            "recall": 0.6666666666666666,
+            "f1": 0.8
+          }
+        },
+        "output_evaluation": {
+          "contract": "source-span-substitution-v1",
+          "mode": "STRICT",
+          "strategy": "redact",
+          "counts": {
+            "replaced": 121,
+            "missed": 67,
+            "retained_by_policy": 0,
+            "partially_replaced": 0,
+            "partial_strategy": 0,
+            "literal_retained": 0
+          },
+          "per_label": {
+            "RRN": {
+              "replaced": 10,
+              "missed": 5,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "PERSON": {
+              "replaced": 24,
+              "missed": 26,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "PHONE": {
+              "replaced": 52,
+              "missed": 0,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "DT_BIRTH": {
+              "replaced": 9,
+              "missed": 0,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "ACCOUNT": {
+              "replaced": 0,
+              "missed": 22,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "DRIVER_LICENSE": {
+              "replaced": 12,
+              "missed": 1,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "EMAIL": {
+              "replaced": 13,
+              "missed": 0,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            },
+            "CARD": {
+              "replaced": 1,
+              "missed": 13,
+              "retained_by_policy": 0,
+              "partially_replaced": 0,
+              "partial_strategy": 0,
+              "literal_retained": 0
+            }
+          },
+          "not_fully_replaced": 67,
+          "strategies": {}
+        }
+      }
+    ]
+  }
+}

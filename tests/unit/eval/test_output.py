@@ -4,7 +4,7 @@ import pytest
 
 from ko_pii import Anonymizer, ProcessingMode
 from ko_pii.core.types import DetectionResult, RiskLevel
-from ko_pii.eval.domain import LabeledDocument, evaluate, main
+from ko_pii.eval.domain import LabeledDocument, compare_reports, evaluate, main
 from ko_pii.eval.output import assess_output
 from ko_pii.eval.synth import GoldDocument, GoldSpan
 
@@ -45,7 +45,7 @@ def test_undetected_gold_is_a_miss_not_replaced():
 
 def test_incomplete_detection_cannot_claim_full_replacement(monkeypatch):
     detection = DetectionResult(label="PHONE", text=PHONE[4:], start=4, end=len(PHONE), risk_level=RiskLevel.HIGH)
-    monkeypatch.setattr("ko_pii.anonymizer.detect_all", lambda *args, **kwargs: [detection])
+    monkeypatch.setattr("ko_pii.anonymizer._detect_candidates", lambda *args, **kwargs: [detection])
     result = Anonymizer(strategy="redact").process(PHONE)
     rows = assess_output(phone_document().gold, result, "redact")
     assert rows[0]["state"] == "partially_replaced"
@@ -78,7 +78,7 @@ def test_trace_uses_original_offsets_after_unicode_normalization():
 
 def test_review_decision_is_not_treated_as_substitution(monkeypatch):
     detection = DetectionResult("PHONE", PHONE, 0, len(PHONE), RiskLevel.HIGH, 0.6)
-    monkeypatch.setattr("ko_pii.anonymizer.detect_all", lambda *args, **kwargs: [detection])
+    monkeypatch.setattr("ko_pii.anonymizer._detect_candidates", lambda *args, **kwargs: [detection])
     result = Anonymizer(strategy="redact").process(PHONE)
     assert result.review_items()
     assert not result.substitutions
@@ -98,3 +98,55 @@ def test_no_gold_is_not_claimed_as_an_accuracy_pass():
     report = evaluate([LabeledDocument("negative", GoldDocument("normal", []))], output_mode=ProcessingMode.STRICT)
     assert sum(report["output_evaluation"]["counts"].values()) == 0
     assert report["micro"]["recall"] is None
+
+
+def test_output_regression_is_visible_even_when_detector_scores_are_unchanged(monkeypatch):
+    baseline = evaluate([phone_document()], labels=["PHONE"], output_mode=ProcessingMode.STRICT)
+    monkeypatch.setattr("ko_pii.anonymizer.label_to_hangul", lambda label: PHONE)
+    current = evaluate([phone_document()], labels=["PHONE"], output_mode=ProcessingMode.STRICT)
+    regression = compare_reports(current, baseline)
+    assert not any(regression["counts"].values())
+    assert regression["output"]["new_not_fully_replaced"] == 1
+    assert regression["output"]["changes"][0]["after"] == "literal_retained"
+    assert compare_reports(baseline, current)["output"]["resolved_not_fully_replaced"] == 1
+    assert PHONE not in json.dumps(regression)
+
+
+def test_output_comparison_rejects_different_per_label_policy():
+    baseline = evaluate([phone_document()], labels=["PHONE"], output_mode=ProcessingMode.STRICT)
+    current = evaluate([phone_document()], labels=["PHONE"], output_mode=ProcessingMode.STRICT,
+                       output_strategies={"PHONE": "partial"})
+    assert current["output_evaluation"]["counts"]["partial_strategy"] == 1
+    with pytest.raises(ValueError, match="output policies differ"):
+        compare_reports(current, baseline)
+
+
+def test_cli_new_retention_gate_checks_output_and_saves_report(tmp_path, monkeypatch):
+    source = tmp_path / "gold.jsonl"
+    source.write_text(json.dumps({"id": "sample-1", "text": PHONE,
+                                 "spans": [{"label": "PHONE", "start": 0, "end": len(PHONE)}]}),
+                      encoding="utf-8")
+    baseline, output = tmp_path / "baseline.json", tmp_path / "current.json"
+    args = [str(source), "--labels", "PHONE", "--output-mode", "STRICT"]
+    assert main([*args, "--output", str(baseline)]) == 0
+    check = [*args, "--baseline", str(baseline), "--output", str(output), "--fail-on-new-retained"]
+    assert main(check) == 0
+    monkeypatch.setattr("ko_pii.anonymizer.label_to_hangul", lambda label: PHONE)
+    assert main(check) == 1
+    report = json.loads(output.read_text(encoding="utf-8"))
+    assert report["comparison"]["output"]["new_not_fully_replaced"] == 1
+    assert not any(report["comparison"]["counts"].values())
+    assert PHONE not in output.read_text(encoding="utf-8")
+
+
+def test_cli_output_override_is_recorded_and_not_counted_as_full_removal(tmp_path):
+    source, output = tmp_path / "gold.jsonl", tmp_path / "output.json"
+    source.write_text(json.dumps({"id": "sample-1", "text": PHONE,
+                                 "spans": [{"label": "PHONE", "start": 0, "end": len(PHONE)}]}),
+                      encoding="utf-8")
+    assert main([str(source), "--labels", "PHONE", "--output-mode", "STRICT",
+                 "--output-strategy", "redact", "--output-strategy-for", "PHONE=partial",
+                 "--fail-on-retained", "--output", str(output)]) == 1
+    report = json.loads(output.read_text(encoding="utf-8"))
+    assert report["output_evaluation"]["strategies"] == {"PHONE": "partial"}
+    assert report["output_evaluation"]["counts"]["partial_strategy"] == 1

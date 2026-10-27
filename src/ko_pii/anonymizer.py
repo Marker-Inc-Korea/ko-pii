@@ -20,11 +20,12 @@ from ko_pii.analytics.combined_risk import (
     score_combined_risk,
 )
 from ko_pii.core.modes import Action, ProcessingMode, policy_for
+from ko_pii.core.overlap import resolve_overlaps
 from ko_pii.core.types import DetectionResult, RiskLevel
 from ko_pii.core.trace import OverlapTrace, validate_trace_limit
 from ko_pii.core.validation import validated_detection
 from ko_pii.integrations.hybrid import merge_detections, validate_merge_config
-from ko_pii.detect import detect_all
+from ko_pii.detect import _detect_candidates
 from ko_pii.labels import validate_label_filter
 from ko_pii.modes._apply import AppliedSpan, apply_substitutions
 from ko_pii.modes.redact import label_to_hangul
@@ -125,12 +126,13 @@ class Anonymizer:
         # Structured fields supply a per-call union, never mutate shared policy.
         mode, delegated = validate_merge_config(self.merge_mode, self.role_split_labels)
         trace = OverlapTrace(self.trace_limit) if self.trace_limit else None
-        primary = detect_all(
+        # Keep competing labels until merge confidence, delegation and the
+        # output policy are known. A REVIEW candidate must not hide a BLOCK.
+        primary = _detect_candidates(
             text,
             include=self.include,
             exclude=self.exclude,
             person_exclusions=exclusions,
-            trace=trace,
         )
         # Optional secondary detector (ML 어댑터 등) 가 있으면 결과 병합
         if self.secondary_detector is not None:
@@ -166,10 +168,9 @@ class Anonymizer:
                 trace=trace, policy=self.policy,
             )
         else:
-            detections = primary
+            detections = resolve_overlaps(primary, trace=trace, policy=self.policy)
         result = self._process_detections(text, detections)
-        if self.secondary_detector is not None:
-            result.summary["overlap_resolution"] = "block_risk_confidence_length_start"
+        result.summary["overlap_resolution"] = "block_risk_confidence_length_start"
         result.overlap_trace = trace
         return result
 

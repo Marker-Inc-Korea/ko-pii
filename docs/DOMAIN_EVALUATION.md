@@ -126,8 +126,23 @@ ko-pii-evaluate my-documents.jsonl --labels PHONE,PERSON \
 `replaced`도 철자 변형·의미적 복원 가능성이나 법적 익명성을 보장하지 않습니다.
 부분 마스킹이나 FPE와 같은 전략의 유지 정보가 용도에 적합한지는 별도 판단해야 합니다.
 
-`--baseline` 비교와 `--fail-on-new-misses`는 계속 **탐지 span만** 비교합니다.
-출력 검사는 현재 실행의 절대 조건이며 이전 실행 대비 출력 회귀 검사가 아닙니다.
+`--fail-on-new-misses`는 **탐지 span만** 비교합니다. 기준/현재 보고서 양쪽에 출력 평가가
+있으면 `--baseline`은 출력 상태 변화도 `comparison.output`에 별도로 기록합니다.
+`--fail-on-new-retained`를 추가하면 이전에는 `replaced`였지만 지금은 다른 상태인 정답
+구간이 생겼을 때 종료 코드 1을 반환합니다. 탐지 점수가 그대로여도 출력 회귀는 잡습니다.
+기존에 남던 항목까지 모두 실패시키려면 `--fail-on-retained`를 사용합니다.
+
+```bash
+ko-pii-evaluate my-documents.jsonl --labels PHONE,PERSON \
+  --output-mode STRICT --output-strategy redact --output baseline.json
+ko-pii-evaluate my-documents.jsonl --labels PHONE,PERSON \
+  --output-mode STRICT --output-strategy redact --baseline baseline.json \
+  --fail-on-new-retained --output current.json
+```
+
+출력 회귀 비교는 mode, 기본 strategy, 라벨별 strategy가 같은 경우에만 허용합니다.
+`--output-strategy-for PHONE=partial`처럼 실제 적용할 라벨별 설정도 평가할 수 있지만,
+이를 바꾼 결과를 같은 정책의 코드 회귀로 비교하지 않습니다.
 보고서는 mode/strategy와 상태·좌표만 담고 원문과 실제 치환 문자열은 복사하지 않습니다.
 
 ## 업데이트 전후 비교
@@ -150,7 +165,7 @@ PERSON 제외 목록과 패키지 버전은 비교 대상이므로 서로 달라
 종료 코드:
 
 - `0`: 평가 완료, 지정한 회귀 조건에 해당하지 않음. 정확도 합격을 뜻하지 않습니다.
-- `1`: 지정한 새 미탐/오탐 조건에 해당함. 결과 JSON은 저장됩니다.
+- `1`: 지정한 새 미탐/오탐 또는 출력 잔존 조건에 해당함. 결과 JSON은 저장됩니다.
 - `2`: 입력·기준 보고서·출력 경로 오류. 비교 결과를 만들지 않습니다.
 
 이전 릴리스에 평가 명령이 없으면 먼저 현재 버전에서 기준 보고서를 만들고, 다음 변경부터

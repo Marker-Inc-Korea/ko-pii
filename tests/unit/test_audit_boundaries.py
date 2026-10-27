@@ -26,7 +26,7 @@ def test_fallback_uses_covering_same_label_review_confirmation(monkeypatch, seco
     import ko_pii.anonymizer as module
     source = "010-2345-6789"
     primary = DetectionResult("PHONE", source, 0, len(source), RiskLevel.HIGH, 0.6)
-    monkeypatch.setattr(module, "detect_all", lambda *a, **k: [primary])
+    monkeypatch.setattr(module, "_detect_candidates", lambda *a, **k: [primary])
     secondary = RegexDetector(source, label="PHONE", confidence=secondary_conf)
     result = Anonymizer(secondary_detector=secondary, merge_mode="fallback_secondary").process(source)
     assert result.detections[0].action.value == expected
@@ -38,7 +38,7 @@ def test_fallback_does_not_promote_partial_or_other_label(monkeypatch, pattern, 
     import ko_pii.anonymizer as module
     source = "010-2345-6789"
     primary = DetectionResult("PHONE", source, 0, len(source), RiskLevel.HIGH, 0.6)
-    monkeypatch.setattr(module, "detect_all", lambda *a, **k: [primary])
+    monkeypatch.setattr(module, "_detect_candidates", lambda *a, **k: [primary])
     result = Anonymizer(secondary_detector=RegexDetector(pattern, label=label),
                         merge_mode="fallback_secondary").process(source)
     assert result.detections[0].action.value == "REVIEW"
