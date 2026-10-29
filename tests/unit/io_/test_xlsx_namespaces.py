@@ -54,15 +54,19 @@ def package(path, namespace, *, shared=False, prefix="", extra_sheet=None,
                          '<Default Extension="xml" ContentType="application/xml"/>'
                          '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
                          '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+                         + ('<Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>' if extra_sheet is not None else '')
                          + ('<Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/>' if shared else '')
                          + '</Types>')
         archive.writestr("_rels/.rels", '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
                          f'<Relationship Id="rId1" Type="{relationship_ns}/officeDocument" Target="xl/workbook.xml"/></Relationships>')
         archive.writestr("xl/workbook.xml", f'<workbook xmlns="{namespace}" xmlns:r="{relationship_ns}">'
-                         '<sheets><sheet name="Contacts" sheetId="1" r:id="rId1"/></sheets></workbook>')
+                         '<sheets><sheet name="Contacts" sheetId="1" r:id="rId1"/>'
+                         + ('<sheet name="Other" sheetId="2" r:id="rId3"/>' if extra_sheet is not None else '')
+                         + '</sheets></workbook>')
         archive.writestr("xl/_rels/workbook.xml.rels", '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
                          f'<Relationship Id="rId1" Type="{relationship_ns}/worksheet" Target="worksheets/sheet1.xml"/>'
                          + (f'<Relationship Id="rId2" Type="{relationship_ns}/sharedStrings" Target="sharedStrings.xml"/>' if shared else '')
+                         + (f'<Relationship Id="rId3" Type="{relationship_ns}/worksheet" Target="worksheets/sheet2.xml"/>' if extra_sheet is not None else '')
                          + '</Relationships>')
         archive.writestr("xl/worksheets/sheet1.xml", sheet)
         if shared:

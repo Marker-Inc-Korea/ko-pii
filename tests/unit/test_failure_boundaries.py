@@ -13,6 +13,19 @@ from ko_pii.tabular import anonymize_value
 from ko_pii.vault.reversible import ReversibleVault
 
 
+def _xlsx_structure(count, *, shared=False):
+    ns = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+    rel = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+    return {
+        "xl/workbook.xml": f'<workbook xmlns="{ns}" xmlns:r="{rel}"><sheets>' + ''.join(
+            f'<sheet name="Sheet{i}" sheetId="{i}" r:id="r{i}"/>' for i in range(1, count + 1)) + '</sheets></workbook>',
+        "xl/_rels/workbook.xml.rels": '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' + ''.join(
+            f'<Relationship Id="r{i}" Type="{rel}/worksheet" Target="worksheets/sheet{i}.xml"/>' for i in range(1, count + 1))
+            + (f'<Relationship Id="sst" Type="{rel}/sharedStrings" Target="sharedStrings.xml"/>' if shared else '')
+            + '</Relationships>',
+    }
+
+
 def test_explicit_empty_vault_is_preserved():
     vault = ReversibleVault(salt="review-salt")
     token, actual = anonymize_value("synthetic-person", "PERSON", vault=vault)
@@ -54,7 +67,7 @@ def test_partial_parse_failure_rejects_document(tmp_path, extension):
             "Contents/section1.xml": '<section><p><t>010-1234-5678',
         },
         "xlsx": {
-            "xl/workbook.xml": '<workbook/>',
+            **_xlsx_structure(2),
             "xl/worksheets/sheet1.xml": '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row><c r="A1" t="inlineStr"><is><t>ordinary body</t></is></c></row></sheetData></worksheet>',
             "xl/worksheets/sheet2.xml": '<worksheet><row><c>010-1234-5678',
         },
@@ -236,7 +249,8 @@ def test_invalid_shared_string_reference_is_not_an_empty_cell(tmp_path):
     path = tmp_path / "bad.xlsx"
     ns = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
     with zipfile.ZipFile(path, "w") as archive:
-        archive.writestr("xl/workbook.xml", "<workbook/>")
+        for name, text in _xlsx_structure(1, shared=True).items():
+            archive.writestr(name, text)
         archive.writestr("xl/sharedStrings.xml", f'<sst xmlns="{ns}"><si><t>normal</t></si></sst>')
         archive.writestr("xl/worksheets/sheet1.xml", f'<worksheet xmlns="{ns}"><row><c t="s"><v>-1</v></c></row></worksheet>')
     with pytest.raises(BoundedReadError) as error:
