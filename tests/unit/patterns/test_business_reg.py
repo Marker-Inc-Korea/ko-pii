@@ -36,6 +36,27 @@ class TestBusinessRegPositive:
         assert results[0].legal_basis is not None
         assert results[0].extra["digits"] == "1048149532"
 
+    def test_whitespace_wrapped_hyphens(self):
+        # 스캔본·표 서식에서 그룹 사이에 공백이 끼는 표기 (RRN 과 같은 허용 규칙)
+        text = "사업자등록번호: 104 - 81 - 49532"
+        results = _detect_list(text)
+        assert len(results) == 1
+        assert results[0].text == "104 - 81 - 49532"
+        assert results[0].extra["digits"] == "1048149532"
+
+    def test_space_separated_groups(self):
+        text = "사업자번호 104 81 49532"
+        results = _detect_list(text)
+        assert len(results) == 1
+        assert results[0].text == "104 81 49532"
+        assert results[0].extra["digits"] == "1048149532"
+
+    def test_dot_separated_groups(self):
+        text = "사업자번호 104.81.49532"
+        results = _detect_list(text)
+        assert len(results) == 1
+        assert results[0].text == "104.81.49532"
+
 
 class TestBusinessRegNegative:
     def test_invalid_checksum(self):
@@ -58,6 +79,10 @@ class TestBusinessRegNegative:
     def test_embedded_in_longer_digits(self):
         # 14-digit run with no separators
         assert _detect_list("12345678901234") == []
+
+    def test_three_spaces_between_groups_not_matched(self):
+        # 표 칼럼 나열 FP 방지: 순수 공백 3자 이상은 구분자로 보지 않는다
+        assert _detect_list("104   81   49532") == []
 
 
 class TestBusinessRegStructure:
