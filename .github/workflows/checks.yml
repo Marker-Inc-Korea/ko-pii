@@ -101,7 +101,7 @@ jobs:
                       message = message.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
                       print("::error::" + message)
                       count += 1
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: portable-tests-${{ matrix.os }}
@@ -170,7 +170,7 @@ jobs:
           python scripts/check_sdist.py dist --python /tmp/ko-pii-wheel/bin/python
       - name: Seal tested distributions
         run: python scripts/release_bundle.py seal --version "$(python -c 'import ko_pii; print(ko_pii.__version__)')" --commit "${{ github.sha }}"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ko-pii-distributions
           path: |
