@@ -143,3 +143,10 @@ def test_ci_checks_sdist_and_keeps_research_gate():
     assert any("--run-research" in step.get("run", "") for step in checks["jobs"]["test"]["steps"])
     assert any("check_sdist.py" in step.get("run", "") for step in checks["jobs"]["quality"]["steps"])
     assert any("test_mcp_server.py" in step.get("run", "") for step in checks["jobs"]["rag"]["steps"])
+
+
+def test_mcp_ci_covers_supported_sdk_generations():
+    job = workflow("checks.yml")["jobs"]["rag"]
+    versions = {entry["mcp"] for entry in job["strategy"]["matrix"]["include"]}
+    assert versions == {"mcp==1.28.1", "mcp>=1.28.1,<2", "mcp==2.0.0", "mcp>=2,<3"}
+    assert any("pip check" in step.get("run", "") for step in job["steps"])

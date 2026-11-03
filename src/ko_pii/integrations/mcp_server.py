@@ -1,7 +1,7 @@
 """MCP (Model Context Protocol) 서버 — LLM 이 ko-pii 를 *도구* 로 호출.
 
 MCP 는 Anthropic 이 표준화한 LLM 도구 인터페이스 프로토콜.
-Claude·OpenAI·기타 호환 클라이언트가 stdio/HTTP 로 본 서버에 연결하여
+Claude·OpenAI·기타 호환 클라이언트가 로컬 stdio 로 본 서버에 연결하여
 ko-pii 의 기능을 *함수* 처럼 호출할 수 있다.
 
 설치::
@@ -34,7 +34,9 @@ ko-pii 의 기능을 *함수* 처럼 호출할 수 있다.
 from __future__ import annotations
 
 import asyncio
+import inspect
 import json
+import logging
 import sys
 import uuid
 from typing import TYPE_CHECKING, Any
@@ -43,6 +45,7 @@ if TYPE_CHECKING:
     from ko_pii.vault.reversible import ReversibleVault
 
 try:
+    from jsonschema import Draft202012Validator
     from mcp.server import Server
     from mcp.server.stdio import stdio_server
     import mcp.types as types
@@ -52,11 +55,15 @@ except ImportError:
 
 
 def _ensure_mcp() -> None:
-    if not _HAS_MCP or not callable(getattr(Server, "call_tool", None)):
+    if not _HAS_MCP or not (
+        (callable(getattr(Server, "call_tool", None))
+         and "validate_input" in inspect.signature(Server.call_tool).parameters)
+        or "on_call_tool" in inspect.signature(Server).parameters
+    ):
         raise ImportError(
-            "MCP 서버는 'mcp>=1.0,<2' 패키지가 필요합니다.\n"
+            "MCP 서버는 'mcp>=1.28.1,<3' 패키지가 필요합니다.\n"
             "  pip install ko-pii[mcp]\n"
-            "또는 pip install 'mcp>=1.0,<2'"
+            "또는 pip install 'mcp>=1.28.1,<3'"
         )
 
 
@@ -64,8 +71,16 @@ def _ensure_mcp() -> None:
 _VAULTS: dict[str, "ReversibleVault"] = {}
 
 
-def _register_tools(server: Any) -> None:
-    @server.list_tools()  # type: ignore[misc]
+class _ToolNameLogFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        # SDK 1.x logs an unknown name before invoking our validated handler.
+        if record.msg == "Tool '%s' not listed, no validation will be performed":
+            record.msg = "Unknown MCP tool requested"
+            record.args = ()
+        return True
+
+
+def _register_tools(server: Any = None) -> Any:
     async def list_tools() -> "list[Any]":
         return [
             types.Tool(
@@ -143,8 +158,7 @@ def _register_tools(server: Any) -> None:
             ),
         ]
 
-    @server.call_tool()  # type: ignore[misc]
-    async def call_tool(name: str, arguments: dict[str, Any]) -> "list[Any]":
+    async def dispatch(name: str, arguments: dict[str, Any]) -> "list[Any]":
         from ko_pii import Anonymizer, ProcessingMode
         from ko_pii.detect import detect_all
         from ko_pii.analytics import score_combined_risk
@@ -187,10 +201,10 @@ def _register_tools(server: Any) -> None:
                 vault = ReversibleVault()
                 if not vault_id:
                     vault_id = str(uuid.uuid4())
-                _VAULTS[vault_id] = vault
 
             anon = Anonymizer(mode=mode, strategy=strategy, vault=vault)
             result = anon.process(text)
+            _VAULTS[vault_id] = vault
 
             # process() 는 항상 combined_risk 를 채움 (Optional 은 dataclass 기본값용).
             assert result.combined_risk is not None
@@ -210,11 +224,7 @@ def _register_tools(server: Any) -> None:
             vault_id = arguments["vault_id"]
             reveal_vault = _VAULTS.get(vault_id)
             if reveal_vault is None:
-                return [types.TextContent(
-                    type="text",
-                    text=json.dumps({"error": f"unknown vault_id: {vault_id}"},
-                                    ensure_ascii=False),
-                )]
+                raise ValueError("Unknown vault")
             original = reveal_vault.reveal(token, context="MCP reveal")
             payload = {
                 "token": token,
@@ -242,27 +252,64 @@ def _register_tools(server: Any) -> None:
                 text=json.dumps(payload, ensure_ascii=False, indent=2),
             )]
 
-        return [types.TextContent(
-            type="text",
-            text=json.dumps({"error": f"unknown tool: {name}"}, ensure_ascii=False),
-        )]
+        raise ValueError("Unknown tool")
+
+    def error_result(message: str) -> Any:
+        return types.CallToolResult.model_validate({
+            "isError": True,
+            "content": [{"type": "text", "text": json.dumps({"error": message})}],
+        })
+
+    async def call_tool(name: str, arguments: dict[str, Any]) -> Any:
+        tool = next((tool for tool in await list_tools() if tool.name == name), None)
+        if tool is None:
+            return error_result("Unknown tool")
+        schema = tool.model_dump(by_alias=True)["inputSchema"]
+        # SDK v2 does not validate low-level tool arguments or wrap exceptions.
+        # Keep both versions consistent without echoing rejected PII in errors.
+        if not Draft202012Validator(schema).is_valid(arguments):
+            return error_result("Invalid tool arguments")
+        try:
+            content = await dispatch(name, arguments)
+        except Exception:
+            return error_result("Tool execution failed")
+        return types.CallToolResult(content=content)
+
+    if server is not None:
+        server.list_tools()(list_tools)
+        server.call_tool(validate_input=False)(call_tool)
+        return server
+
+    async def on_list_tools(context: Any, params: Any) -> Any:
+        return types.ListToolsResult(tools=await list_tools())
+
+    async def on_call_tool(context: Any, params: Any) -> Any:
+        return await call_tool(params.name, params.arguments or {})
+
+    return Server("ko-pii", on_list_tools=on_list_tools, on_call_tool=on_call_tool)
 
 
 def build_server() -> Any:
     _ensure_mcp()
-    server = Server("ko-pii")
-    _register_tools(server)
-    return server
+    if callable(getattr(Server, "call_tool", None)):
+        return _register_tools(Server("ko-pii"))
+    return _register_tools()
 
 
 async def _run() -> None:
     server = build_server()
-    async with stdio_server() as (read_stream, write_stream):
-        await server.run(
-            read_stream,
-            write_stream,
-            server.create_initialization_options(),
-        )
+    logger = logging.getLogger("mcp.server.lowlevel.server")
+    name_filter = _ToolNameLogFilter()
+    logger.addFilter(name_filter)
+    try:
+        async with stdio_server() as (read_stream, write_stream):
+            await server.run(
+                read_stream,
+                write_stream,
+                server.create_initialization_options(),
+            )
+    finally:
+        logger.removeFilter(name_filter)
 
 
 def main() -> int:
