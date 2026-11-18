@@ -96,3 +96,31 @@ def test_address_unit_words_can_still_be_confirmed_as_names_in_explicit_fields(n
 def test_typed_address_units_do_not_turn_into_people_near_a_phone(detail):
     source = detail + "; 연락처: 010-1234-5678"
     assert detect_all(source, include=["PERSON"]) == []
+
+
+@pytest.mark.parametrize("empty", ["N/A", "n/a", "N.A.", "NA", "NULL", "None"])
+@pytest.mark.parametrize("prefix", ["성명: ", "[성명] ", "| 성명 | "])
+@pytest.mark.parametrize("wrapper", [("", ""), ('"', '"'), ("**", "**"), ("__", "__"), ("`", "`")])
+def test_ascii_empty_items_preserve_only_the_current_literal_name_list_context(prefix, empty, wrapper):
+    empty = wrapper[0] + empty + wrapper[1]
+    source = prefix + empty + ", 김다은, " + empty + ", 박보라"
+    result = Anonymizer(include=["PERSON"], strategy="redact").process(source)
+    assert result.text == prefix + empty + ", [성명], " + empty + ", [성명]"
+
+
+@pytest.mark.parametrize("source", [
+    "성명: N/A\n박보라", "성명: N/A | 박보라", "성명: N/A; 박보라",
+    "성명: nullable, 박보라", "성명: null_value, 박보라", "성명: noneworthy, 박보라",
+    "주소: N/A, 박보라", "성명: example.com/NA, 박보라", "성명: __None__value, 박보라",
+])
+def test_empty_markers_do_not_match_word_fragments_urls_or_other_records(source):
+    assert all("pattern:person_name_field_list" not in item.evidence
+               for item in detect_all(source, include=["PERSON"]))
+
+
+def test_ascii_empty_items_keep_audit_exclusions_and_per_document_isolation():
+    source = "성명: N/A, 김다은, NULL, 박보라"
+    engine = Anonymizer(include=["PERSON"], strategy="redact", person_exclusions=["김다은"])
+    assert engine.process(source).text == "성명: N/A, 김다은, NULL, [성명]"
+    assert engine.process("박보라").text == "박보라"
+    assert Anonymizer(mode=ProcessingMode.AUDIT).process(source).text == source

@@ -88,3 +88,41 @@ def test_typed_building_and_basement_units_are_fully_protected(detail, form):
 def test_unit_prefix_inside_an_ordinary_word_is_not_an_address_detail(tail):
     assert [item.text for item in detect(BASE + tail)] == [BASE]
     assert Anonymizer(include=["ADDRESS"], strategy="redact").process(BASE + tail).text == "[주소]" + tail
+
+
+@pytest.mark.parametrize("unit", ["101동", "1202호", "12층", "B1층", "101호실"])
+@pytest.mark.parametrize("tail", [
+    "근처에서 만나요.", "앞에서 기다립니다.", "로비에서 접수합니다.",
+    "내부로 이동", "에서만나요", "앞에서기다립니다", "옆상가로 이동", "맞은편입니다.",
+    "입니다.", "이라고 했습니다.", "이며 방문 예정입니다.",
+])
+def test_joined_location_phrases_do_not_leave_previously_protected_unit_numbers(unit, tail):
+    address = BASE + " " + unit
+    source = "주소: " + address + tail
+    # Location prose is not part of the address, and must not disappear with it.
+    assert [item.text for item in detect(source)] == [address]
+    result = Anonymizer(include=["ADDRESS"], strategy="redact").process(source)
+    assert result.text == "주소: [주소]" + tail
+
+
+@pytest.mark.parametrize("tail", [" 101동내역 확인", " 101동앞선 기록", " 1202호선택", " 12층로비스트"])
+def test_location_noun_prefixes_inside_other_words_are_not_continuations(tail):
+    assert [item.text for item in detect(BASE + tail)] == [BASE]
+
+
+@pytest.mark.parametrize("unit", ["101호", "101호실", "12층", "지하1층"])
+@pytest.mark.parametrize("form", ["NFC", "NFD"])
+def test_joined_unit_and_location_keep_vault_boundaries_in_the_full_pipeline(unit, form):
+    raw = unicodedata.normalize(form, BASE + " " + unit)
+    suffix = unicodedata.normalize(form, "앞에서 접수; 전화: ")
+    source = "주소: " + raw + suffix + "010-1234-5678"
+    vault = ReversibleVault(salt="unit-tails", secret_key="test", fingerprint_iterations=1)
+    result = Anonymizer(vault=vault).process(source)
+    assert result.text == "주소: <ADDRESS_1>" + suffix + "<PHONE_1>"
+    assert vault.reveal("<ADDRESS_1>") == raw
+
+
+@pytest.mark.parametrize("ending", ["", "의 담당자"])
+def test_markdown_underscores_are_outside_the_address_unit(ending):
+    source = "__" + BASE + " 101동" + ending + "__"
+    assert Anonymizer(include=["ADDRESS"], strategy="redact").process(source).text == "__[주소]" + ending + "__"

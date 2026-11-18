@@ -16,6 +16,7 @@ from __future__ import annotations
 import re
 from typing import Iterator
 
+from ko_pii.context.address_units import UNIT_TAIL
 from ko_pii.core.types import DetectionResult, RiskLevel
 from ko_pii.core._interval_index import ForwardIntervalIndex
 from ko_pii.dictionaries.districts import (
@@ -69,9 +70,7 @@ _UNIT = (r'(?:'
          r'|[A-Za-z]동'
          r'|[가-힣]동(?=[ \t]*[0-9]+(?:호실|호|층))'
          r')')
-_UNIT_END = (r'(?=\W|$|' + _UNIT
-             + r'|(?:으로부터|에서부터|으로|에서|부터|까지|에|로|은|는|이|가|을|를|도|만|의)'
-             r'(?:은|는|도|만|의)?(?!\w))')
+_UNIT_END = r'(?=' + _UNIT + '|' + UNIT_TAIL + ')'
 _PATTERN_DETAIL = re.compile(
     _DETAIL_PREFIX + _UNIT + _UNIT_END
 )

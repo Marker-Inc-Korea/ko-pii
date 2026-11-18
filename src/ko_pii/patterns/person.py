@@ -16,6 +16,7 @@ import re
 from bisect import bisect_left
 from typing import Any, Iterable, Iterator
 
+from ko_pii.context.address_units import has_unit_tail
 from ko_pii.context.context_rules import NameCandidate, _agency_sentence_boundaries, score_candidate
 from ko_pii.context.name_dictionary import NameDictionary
 from ko_pii.context.name_fields import (
@@ -44,17 +45,28 @@ CATEGORY = "일반개인정보"
 
 # 이름 후보: 한글 2~4글자 (조사 포함하면 더 길어질 수 있음)
 _CANDIDATE = re.compile(r"(?<![가-힣])([가-힣]{2,7})(?![가-힣])")
+_EMPTY_FIELD_ITEM = r"(?:n/a|n\.a\.|na|null|none)"
+_FIELD_ITEM = re.compile(
+    _CANDIDATE.pattern + r"|(?P<empty>(?<![\w/])(?:__" + _EMPTY_FIELD_ITEM + "__|"
+    + _EMPTY_FIELD_ITEM + r")(?![\w/]))",
+    re.IGNORECASE,
+)
 _FLOOR_AFTER = re.compile(r"[ \t]*[0-9]+층")
 _ROOM_AFTER = re.compile(r"[ \t]*[0-9]+(?:호실|호|층)")
 
 
 def _is_address_unit_context(text: str, start: int, name: str) -> bool:
-    if name == "호실":
-        return start > 0 and text[start - 1].isdecimal()
+    if start > 0 and text[start - 1].isdecimal():
+        for unit in ("호실", "호", "동", "층"):
+            if name.startswith(unit) and has_unit_tail(text, start + len(unit)):
+                return True
     if name in {"지하", "지상"}:
-        return _FLOOR_AFTER.match(text, start + len(name)) is not None
-    return (len(name) == 2 and name.endswith("동")
-            and _ROOM_AFTER.match(text, start + len(name)) is not None)
+        match = _FLOOR_AFTER.match(text, start + len(name))
+    elif len(name) == 2 and name.endswith("동"):
+        match = _ROOM_AFTER.match(text, start + len(name))
+    else:
+        return False
+    return match is not None and has_unit_tail(text, match.end())
 
 # 결정적 PII 의 *위치 마커* 만 빠르게 찾기 위한 보조 패턴 (성능)
 # 주: 길이 상한({1,64}/{1,255})과 lookaround 경계는 ReDoS/quadratic 방지용 — 이메일
@@ -377,7 +389,7 @@ def _labeled_name_values(
 ) -> Iterator[tuple[NameCandidate, str]]:
     previous_label: str | None = None
     previous_end = 0
-    for match in _CANDIDATE.finditer(text):
+    for match in _FIELD_ITEM.finditer(text):
         raw = match.group(1)
         label = name_field_before(text, match.start())
         if label is None and previous_label is not None and name_list_separator(text, previous_end, match.start()):
@@ -386,6 +398,8 @@ def _labeled_name_values(
         if label is None or not bounded_name_value_end(text, match.end()):
             continue
         previous_label, previous_end = label, match.end()
+        if raw is None:
+            continue
         stem, particle = strip_trailing_particle(raw)
         # A bounded 2-4 syllable field can itself end in a particle-like syllable.
         # Keep it whole rather than leaving part of a valid full name unmasked.

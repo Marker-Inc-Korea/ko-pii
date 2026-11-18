@@ -112,6 +112,7 @@ def test_dense_account_bank_anchors_stay_sub_quadratic() -> None:
     (birth.detect, "생년월일: 1988-01-01\n", 1),
     (person.detect, "홍길동 010-1234-5678\n", 1),
     (person.detect, "성명: 김다은, 박보라\n", 2),
+    (person.detect, "성명: N/A, 김다은, None, 박보라\n", 2),
 ])
 def test_dense_korean_records_stay_sub_quadratic(detector, row, count_per_row) -> None:
     def elapsed(count: int) -> float:
