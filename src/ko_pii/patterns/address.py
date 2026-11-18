@@ -44,9 +44,9 @@ _LOOSE_ANCHORS = (
 _PATTERN_ROAD = re.compile(
     r"(?:([가-힣]{1,8}(?:특별시|광역시|특별자치도|특별자치시|도))\s*)?"
     r"((?:[가-힣]{1,8}(?:시|군|구)\s*){0,2})"
-    r"([가-힣A-Za-z0-9]{1,16}(?:대로|로|길))"
+    r"([가-힣A-Za-z0-9]{1,16}(?:대로|로|길)(?:[ \t]+[0-9]+(?:번)?길)?)"
     r"\s*"
-    r"([0-9]+(?:-[0-9]+)?)(?![0-9-])"   # 뒤에 숫자/하이픈 이어지면 거부 → 전화번호 삼킴 방지
+    r"([0-9]+(?:-[0-9]+)?)(?![0-9-]|(?:번)?길)"
 )
 
 # 지번 주소: 동/읍/면/리 + 번지수 (0~2 시·군·구 허용)
@@ -60,8 +60,9 @@ _PATTERN_JIBUN = re.compile(
 )
 
 # 동호수 확장 패턴 — 주소 직후 "(N동N호)" / "N동 N호" / "N층" / "(아파트명)"
+_DETAIL_PREFIX = r'\s*(?:,\s*)?'
 _PATTERN_DETAIL = re.compile(
-    r'\s*'
+    _DETAIL_PREFIX +
     r'(?:'
     r'(\d+동\s*\d+호)'        # 103동1202호, 103동 1202호
     r'|(\d+동)'               # 103동 (호수 없이)
@@ -72,7 +73,7 @@ _PATTERN_DETAIL = re.compile(
 
 # 괄호 안 상세 — "(신정동,롯데캐슬킹덤아파트)" 등
 _PATTERN_PAREN_DETAIL = re.compile(
-    r'\s*\([가-힣A-Za-z0-9,·\s]+\)'
+    _DETAIL_PREFIX + r'\([가-힣A-Za-z0-9,·\s-]+\)'
 )
 
 # 건물명/단지명 — 도로명+번호 뒤 상세주소. 임의 고유명사라 사전 대신 위치로 식별.
@@ -91,8 +92,9 @@ _BLDG_SUFFIX = (
     "우미린|한라비발디|효성해링턴|어울림|하늘채|호반써밋|아크로|써밋|주공"
 )
 _PATTERN_BLDG = re.compile(
-    r'\s+[가-힣A-Za-z0-9]{2,}(?=\s+\d+(?:동|호|층))'     # (a) 뒤에 동/호/층
-    r'|\s+[가-힣A-Za-z0-9]*(?:' + _BLDG_SUFFIX + r')'     # (b) 건물 접미사
+    # Unknown bridge words must stay on one line, not consume another record.
+    r'(?: +| *, *)[가-힣A-Za-z0-9]{2,}(?= +\d+(?:동|호|층))'
+    r'|(?:\s+|\s*,\s*)[가-힣A-Za-z0-9]*(?:' + _BLDG_SUFFIX + r')'
 )
 
 # 대화체 단독 주소 — 시군구 또는 동 (번지 옵션), 광역 없음
@@ -152,14 +154,11 @@ def _extend_with_detail(det: DetectionResult, text: str) -> DetectionResult:
         if not m:
             m = _PATTERN_BLDG.match(text, pos)
         if not m:
+            m = _PATTERN_PAREN_DETAIL.match(text, pos)
+        if not m:
             break
         extended_end = m.end()
         pos = extended_end
-
-    # 괄호 상세 "(신정동,롯데캐슬킹덤아파트)"
-    m2 = _PATTERN_PAREN_DETAIL.match(text, pos)
-    if m2:
-        extended_end = m2.end()
 
     if extended_end == det.end:
         return det

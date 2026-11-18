@@ -200,6 +200,15 @@ def _detect_candidates(
         raw.extend(email_results)
         raw.extend(email.detect(source))
 
+    if (normalize and _EMAIL_LINE_CONTROLS.search(source)
+            and (inc is None or "PERSON" in inc) and "PERSON" not in (exc or ())):
+        # Numeric anti-evasion removes these controls and can fuse a name with
+        # the next field label. Add a line-aware PERSON view without dropping
+        # existing protection for controls inserted inside names or identifiers.
+        person_text, person_offsets = normalize_unicode(_EMAIL_LINE_CONTROLS.sub("\n", source))
+        person_results = list(person.detect(person_text, exclusions=normalized_exclusions))
+        raw.extend(remap_to_source(person_results, person_offsets, source))
+
     if offset_map is not None and (inc is None or "PASSPORT" in inc) and "PASSPORT" not in (exc or ()):
         # Numeric anti-evasion folds can erase valid passport letters (S/O/G).
         # Only this detector needs the literal-letter view, not a second full pass.

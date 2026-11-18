@@ -113,7 +113,7 @@ def test_prose_role_retains_unknown_surname_candidates_without_becoming_a_litera
     assert "pattern:person_name_field" not in found[0].evidence
 
 
-@pytest.mark.parametrize("prefix", ["파일이름인 ", "당사자명인 ", "신청인이 ", "성명서인 "])
+@pytest.mark.parametrize("prefix", ["파일이름인 ", "당사자명인 ", "신청인명이 ", "성명서인 "])
 def test_role_substrings_do_not_relax_surname_checks(prefix):
     assert name_role_before(prefix + "쥬하린", len(prefix)) is None
 

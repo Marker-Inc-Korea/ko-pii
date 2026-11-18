@@ -17,7 +17,7 @@ _CHECKS = frozenset({"checksum:valid", "checksum:invalid_or_post_2020", "checksu
 def explain(result: AnonymizationResult, *, include_trace: bool = False) -> dict[str, Any]:
     """Export only allowlisted metadata; text, tokens, evidence and extra stay local.
 
-    Rule IDs identify families; subrule IDs cover the documented email paths.
+    Rule IDs identify families; subrules also distinguish derived protection spans.
     Optional traces cover common overlap resolution, not every rejection/miss.
     """
     spans = {(s.start, s.end): s for s in result.substitutions}
@@ -48,8 +48,10 @@ def explain(result: AnonymizationResult, *, include_trace: bool = False) -> dict
             "reason": reason,
         })
     mode = result.summary.get("mode")
+    resolution = result.summary.get("overlap_resolution", "")
     priority = ("block_risk_confidence_length_start"
-                if result.summary.get("overlap_resolution") == "block_risk_confidence_length_start"
+                if isinstance(resolution, str)
+                and resolution.split(";", 1)[0] == "block_risk_confidence_length_start"
                 else "risk_confidence_length_start")
     report = {
         "schema_version": 1,

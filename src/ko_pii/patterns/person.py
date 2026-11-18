@@ -337,6 +337,15 @@ _UNSET_NAME_VALUES = frozenset({
     "없음", "미상", "익명", "비공개", "미기재", "미입력", "미등록", "미작성",
     "정보없음", "알수없음", "해당없음", "생략", "공란", "무기명",
 })
+_NAME_DECLARATION_ENDINGS = ("이라고", "이라는", "입니다", "이며", "이고", "이라")
+
+
+def _split_declaration_ending(raw: str) -> tuple[str, str | None]:
+    if raw.endswith(_NAME_DECLARATION_ENDINGS):
+        for ending in _NAME_DECLARATION_ENDINGS:
+            if raw.endswith(ending) and 2 <= len(raw) - len(ending) <= 4:
+                return raw[:-len(ending)], ending
+    return raw, None
 
 
 def _reject_labeled_value(value: str, label: str, exclusions: frozenset[str]) -> bool:
@@ -347,7 +356,7 @@ def _reject_labeled_value(value: str, label: str, exclusions: frozenset[str]) ->
         or is_agency(value) or normalize_agency(value) is not None
         or is_province(value) or is_district(value) or is_country(value)
         or is_common_dong(value) or is_extra_city(value) or is_university(value)
-        or value.endswith(("은행", "회사")) or _looks_like_anonymized(value)
+        or value.endswith(("은행", "회사", "팀", "부서")) or _looks_like_anonymized(value)
     )
 
 
@@ -372,6 +381,37 @@ def _labeled_name_values(
         if not 2 <= len(value) <= 4 or _reject_labeled_value(value, label, exclusions):
             continue
         yield NameCandidate(value, match.start(), match.start() + len(value)), label
+
+
+def _declared_name_values(
+    text: str, exclusions: frozenset[str], known_names: set[str],
+) -> Iterator[tuple[NameCandidate, str, str | None]]:
+    for match in _CANDIDATE.finditer(text):
+        raw = match.group(1)
+        if raw in known_names or is_person_excluded(raw, exclusions):
+            continue
+        field_label = name_field_before(text, match.start())
+        role_label = name_role_before(text, match.start()) if field_label is None else None
+        label = field_label or role_label
+        if label is None:
+            continue
+        value, ending = _split_declaration_ending(raw)
+        if ending is None:
+            continue
+        bounded = bounded_name_value_end(text, match.end())
+        # Short bounded role values have the same ambiguity as literal fields.
+        if role_label and len(raw) <= 4 and bounded and value not in known_names:
+            value, ending = raw, None
+        if not 2 <= len(value) <= 4 or _reject_labeled_value(value, label, exclusions):
+            continue
+        yield NameCandidate(value, match.start(), match.start() + len(value)), label, ending
+
+
+def _declaration_evidence(label: str, ending: str | None) -> list[str]:
+    evidence = ["pattern:person_name_declaration", f"pos:name_role({label})"]
+    if ending is not None:
+        evidence.append(f"pos:copula({ending})")
+    return evidence
 
 
 def detect(
@@ -415,9 +455,17 @@ def _detect_with_dict(
         for candidate, label in _labeled_name_values(text, exclusions)
     }
     field_names = {candidate.name for candidate, _ in labeled_values.values()}
+    declarations = {
+        candidate.start: (candidate, label, ending)
+        for candidate, label, ending in _declared_name_values(text, exclusions, field_names)
+    }
+    field_names.update(candidate.name for candidate, _, _ in declarations.values())
     for candidate, label in labeled_values.values():
         name_dict.add(candidate.name, 0.9, (candidate.start, candidate.end),
                       ["pattern:person_name_field", f"pos:field_label({label})"])
+    for candidate, label, ending in declarations.values():
+        name_dict.add(candidate.name, 0.9, (candidate.start, candidate.end),
+                      _declaration_evidence(label, ending))
 
     # ------ Pass 0: 3중 매크로 패턴 — <AGENCY> <PERSON> <TITLE>
     # 고신뢰 인명 추출 + 누적 사전에 *즉시 등록* → 같은 문서 내 다른 등장도
@@ -467,6 +515,18 @@ def _detect_with_dict(
         # 매크로로 이미 잡힌 span 은 중복 emit 방지
         if (m.start(), m.start() + len(raw)) in macro_spans:
             continue
+        declaration = declarations.get(m.start())
+        if declaration is not None:
+            candidate, label, ending = declaration
+            emitted.append((candidate, None, 0.9, _declaration_evidence(label, ending)))
+            continue
+        if field_names:
+            name, ending = _split_declaration_ending(raw)
+            if ending is not None and name in field_names and raw not in field_names:
+                candidate = NameCandidate(name, m.start(), m.start() + len(name))
+                emitted.append((candidate, None, 0.9,
+                                ["pos:confirmed_name_field_reuse", f"pos:copula({ending})"]))
+                continue
         stem, particle = strip_trailing_particle(raw)
         if raw in field_names or stem in field_names:
             if raw in field_names:

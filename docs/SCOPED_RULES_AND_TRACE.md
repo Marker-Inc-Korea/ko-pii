@@ -4,7 +4,7 @@
 소스에서 사용하려면 소스 디렉터리에서 `python -m pip install -e .`를 실행합니다.
 서버, OCR, 분류기 또는 새 런타임 의존성을 추가하지 않습니다.
 
-## 명시적 이름 필드의 경계 (1.22.18)
+## 명시적 이름 필드의 경계 (1.22.18~1.23.0)
 
 `성명: 김다은`, `성명: 김빛나라`처럼 경계가 분명한 2~4음절 이름 값은 마지막 음절을
 조사로 추측해 자르지 않습니다. `성함`, 이름/신청인 등 기존 이름 필드, 띄어 쓴 라벨,
@@ -31,6 +31,47 @@ assert anon.process("성명: 홍길동이 신청서를 냈다.").text == "성명
 필드 의미가 스키마로 확정돼 있다면 기존 `field_labels`/표의 `column_map` 단언을
 사용할 수 있습니다. `person_exclusions`의 정확한 전체값 제외는 이 휴리스틱보다 우선하고,
 명시적 `field_labels` 단언의 우선순위와 AUDIT 원문 보존은 바꾸지 않습니다.
+
+1.23.0에서는 CR/VT/FF/NEL/Unicode 줄·문단 구분, 빈 줄과 `“김다은”`, `「김다은」` 같은
+인용부호도 인식합니다. 필드 주변 구분자와 인용부호는 출력에 보존합니다. 라벨 근거는
+이름 직전 최대 32자의 문법으로 한정하며 멀리 떨어진 표 제목을 추측 연결하지 않습니다.
+`담당자`, `작성자`도 이름 필드에 포함합니다. `담당자는 김다은입니다`처럼 사람 역할과
+서술격 어미가 명확하면 이름을 확인하고 같은 문서에서 재사용합니다. 역할이나 필드 근거
+없이 `김다은이며`라는 단어만으로 모든 인명을 새로 찾는 범용 NER는 아닙니다.
+
+## 겹치는 완전 치환 후보의 나머지 보호 (1.23.0)
+
+주소 안의 전화번호는 고위험 전화번호를 우선 선택하면서도 주소의 나머지를 보호해야 합니다.
+
+```python
+from ko_pii import Anonymizer
+
+source = "주소: 서울특별시 강남구 테헤란로 152 (010-1234-5678)"
+result = Anonymizer(strategy="redact").process(source)
+assert result.text == "주소: [주소][전화번호][주소]"
+assert result.summary["overlap_protection"] == {"fragments": 2}
+```
+
+병합·필터·정책을 적용한 뒤, 버려진 BLOCK 후보의 전략이 `redact`, `tokenize`, `asterisk`,
+`hashed`라면 선택된 BLOCK 구간 밖의 나머지를 분리해 처리합니다. 선택된 고위험 후보의
+라벨과 전략은 바꾸지 않습니다. `partial`/FPE 부모 후보와 REVIEW/ALLOW를 복구하지 않고,
+`intersection`/`role_split`/`enrich_primary` 등 병합 정책에서 제외된 후보도 사용하지 않습니다.
+선택된 전화번호에 `partial`을 지정했다면 그 번호의 의도된 보존 부분은 그대로 남습니다.
+
+분리 구간은 `subrule_id="protection.overlap-remainder.v1"`,
+`evidence`의 `protection:overlap_remainder`, `extra.overlap_parent`의 라벨과 부모 원문 좌표로
+확인할 수 있습니다. 각 구간의 `text == source[start:end]`이며 겹치지 않습니다. 새로 탐지한
+독립 주소가 아니라 원래 후보에서 유래한 보호 구간이므로 탐지 건수를 인원·개체 수로
+해석하면 안 됩니다. 임의 `extra`는 값 없는 설명 보고서에 내보내지 않습니다.
+
+토큰 치환에서는 `<ADDRESS_1>`, `<PHONE_1>`, `<ADDRESS_2>`처럼 나뉠 수 있고, 각 Vault
+토큰은 해당 원문 조각을 복원합니다. 단일 주소 토큰 하나에 전체 주소가 저장된다고
+가정하던 애플리케이션은 전환 전에 확인하세요. 기존 Vault를 재작성하지 않습니다.
+비충돌 입력과 탐지 전용 `detect_all()`/공개 `merge_detections()`의 우선순위 선택은 유지합니다.
+
+이 처리는 이미 생성된 후보의 치환 누락을 막는 것이지 탐지하지 못한 값의 존재를
+증명하거나 해결하지는 않습니다. 잘못 넓게 잡힌 후보는 주변 문구까지 가릴 수 있으므로
+최종 출력의 잔존과 과다 마스킹을 함께 평가하세요.
 
 ## 1. 필드에 한정한 PERSON 제외
 
@@ -162,7 +203,8 @@ assert report["findings"][0]["subrule_id"] == "email.obfuscated.v1"
 ```
 
 기존 `rule_id`는 탐지기 계열을 유지합니다. 추가 `subrule_id`는 현재 이메일의
-`email.ascii.v1`, `email.korean_domain.v1`, `email.obfuscated.v1`만 식별합니다.
+`email.ascii.v1`, `email.korean_domain.v1`, `email.obfuscated.v1`과 위의
+`protection.overlap-remainder.v1`을 식별합니다.
 원문 좌표 역매핑과 보조 탐지기 병합 이후에도 해당 메타데이터를 유지합니다.
 정의하지 않은 세부 규칙은 `null`이며 없는 근거를 추측하지 않습니다.
 
@@ -183,6 +225,8 @@ assert report["findings"][0]["subrule_id"] == "email.obfuscated.v1"
 따라서 높은 위험도의 REVIEW 후보가 낮은 위험도의 BLOCK 후보를 숨기지 않습니다.
 
 보조 탐지기가 없으면 `primary`, 있으면 `hybrid` 단계에서 공통 겹침을 기록합니다.
+나머지 보호가 발생하면 최종 후보 선택을 `protection` 단계에 추가합니다. 같은 후보가
+여러 단계에 집계될 수 있으므로 단계별 후보 수를 고유 개체 수로 합산하지 마세요.
 이전처럼 병합 전에 별도의 primary 탈락 이벤트가 생기지 않으므로 추적 집계도 달라질 수
 있습니다. 탐지 전용 `detect_all()`은 처리 정책 없이 기존 위험도 우선 방식을 유지합니다.
 탐지 전용 결과에 정책을 나중에 적용하는 것을 Anonymizer와 동일하다고 가정하지 마세요.
@@ -213,7 +257,7 @@ python -m pytest -q tests/property --hypothesis-show-statistics
 ```
 
 [Hypothesis](https://hypothesis.readthedocs.io/en/latest/reference/api.html)의 `given`과
-재현 가능한 설정을 사용합니다. 각 속성당 최대 200개 사례를 생성하며 실패를 작은 입력으로
+재현 가능한 설정을 사용합니다. 속성별 설정에 따라 최대 200~300개 사례를 생성하며 실패를 작은 입력으로
 축소합니다. 실패 예시는 고정 회귀 사례로도 남깁니다. 테스트 전용 의존성이므로 일반 설치에는
 추가되지 않습니다. 데이터셋 다운로드나 모델 호출은 없습니다.
 

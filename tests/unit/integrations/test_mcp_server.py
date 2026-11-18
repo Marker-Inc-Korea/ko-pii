@@ -110,6 +110,25 @@ def test_real_stdio_all_tools_and_vault_reuse(tmp_path):
     assert "demo@example.com" not in log
 
 
+def test_real_stdio_korean_declaration_and_nested_address_restore_every_piece(tmp_path):
+    source = "담당자는 김다은입니다.\u2028주소: 서울특별시 강남구 테헤란로 152 (010-1234-5678)"
+
+    async def exercise(session):
+        masked = payload(await session.call_tool("anonymize", {"text": source}))
+        assert masked["text"] == "담당자는 <PERSON_1>입니다.\u2028주소: <ADDRESS_1><PHONE_1><ADDRESS_2>"
+        restored = masked["text"]
+        for token in ("<PERSON_1>", "<ADDRESS_1>", "<PHONE_1>", "<ADDRESS_2>"):
+            original = payload(await session.call_tool("reveal", {
+                "vault_id": masked["vault_id"], "token": token,
+            }))
+            assert original["found"] is True
+            restored = restored.replace(token, original["original"])
+        assert restored == source
+
+    log = run_stdio(tmp_path, exercise)
+    assert all(value not in log for value in ("김다은", "테헤란로", "010-1234-5678"))
+
+
 @pytest.mark.parametrize("name,arguments", [
     ("anonymize", {}),
     ("anonymize", {"text": 42}),

@@ -8,7 +8,8 @@ from ko_pii.core.modes import Action, ModePolicy
 from ko_pii.labels import ALL_LABELS
 
 RULE_IDS = frozenset({f"ko-pii.{label.lower()}.v1" for label in ALL_LABELS} | {"field.asserted.v1"})
-SUBRULE_IDS = frozenset({"email.ascii.v1", "email.korean_domain.v1", "email.obfuscated.v1"})
+SUBRULE_IDS = frozenset({"email.ascii.v1", "email.korean_domain.v1", "email.obfuscated.v1",
+                          "protection.overlap-remainder.v1"})
 
 
 def validate_trace_limit(limit: int) -> None:
@@ -39,7 +40,7 @@ class OverlapTrace:
 
     def record(self, candidate: DetectionResult, blocker: DetectionResult | None, stage: str,
                *, policy: ModePolicy | None = None) -> None:
-        if stage not in {"primary", "hybrid"}:
+        if stage not in {"primary", "hybrid", "protection"}:
             raise ValueError("unknown overlap stage")
         counts = self._stages.setdefault(stage, {"candidates": 0, "kept": 0, "discarded": 0})
         counts["candidates"] += 1

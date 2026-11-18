@@ -7,6 +7,10 @@ from ko_pii.dictionaries.field_labels import FIELD_LABELS, FIELD_LABELS_NAME
 
 
 PERSON_NAME_LABELS = frozenset({"성명", "성함"})
+_LINE_BREAK_CHARS = "\r\n\v\f\x1c\x1d\x1e\x85\u2028\u2029"
+_GAP = "[" + re.escape(" \t" + _LINE_BREAK_CHARS) + "]"
+_OPENING_QUOTES = "\"'\u201c\u2018\u300c\u300e"
+_CLOSING_QUOTES = "\"'\u201d\u2019\u300d\u300f"
 
 
 def _labels_pattern(labels: frozenset[str]) -> str:
@@ -20,21 +24,22 @@ def _labels_pattern(labels: frozenset[str]) -> str:
 _LABEL_BEFORE = re.compile(
     r"(?<![가-힣A-Za-z0-9_])(?P<label>(?:" + _labels_pattern(FIELD_LABELS_NAME) + r"))"
     r"(?:[ \t]*\((?:한글|국문|실명)\))?"
-    r"(?:[ \t]*[:：=][ \t]*(?:\r?\n[ \t]*)?|[ \t]+|[ \t]*\r?\n[ \t]*)[\"']?\Z"
+    r"(?:[ \t]*[:：=]" + _GAP + r"*|" + _GAP + r"+)"
+    + "[" + re.escape(_OPENING_QUOTES) + r"]?\Z"
 )
-_VALUE_END = re.compile(r" *\Z| *(?=[\r\n\t,;|/().\[\]{}\"'])")
+_VALUE_END = re.compile(r" *\Z| *(?=[" + re.escape(_LINE_BREAK_CHARS + "\t,;|/().[]{}" + _CLOSING_QUOTES) + r"])")
 _NEXT_FIELD = re.compile(r" +(?:" + _labels_pattern(FIELD_LABELS) + r")[ \t]*[:：=]")
 _LABEL_ENDINGS = frozenset(label[-1] for label in FIELD_LABELS_NAME) | {")"}
 _ROLE_BEFORE = re.compile(
     r"(?<![가-힣A-Za-z0-9_])(?P<label>(?:"
-    + _labels_pattern(FIELD_LABELS_NAME - PERSON_NAME_LABELS - {"이름", "이 름", "참조"})
-    + r"))인[ \t]+\Z"
+    + _labels_pattern(FIELD_LABELS_NAME - {"참조"})
+    + r"))(?:은|는|이|가|인)[ \t]+\Z"
 )
 
 
 def name_field_before(text: str, start: int, window: int = 6) -> str | None:
     begin = max(0, start - max(window + 4, 32))
-    head = text[begin:start].rstrip(" \t\r\n:：=\"'")
+    head = text[begin:start].rstrip(" \t:：=" + _OPENING_QUOTES + _LINE_BREAK_CHARS)
     if not head or head[-1] not in _LABEL_ENDINGS:
         return None
     match = _LABEL_BEFORE.search(text, begin, start)
@@ -51,7 +56,7 @@ def name_role_before(text: str, start: int) -> str | None:
     """Recognize a person role in prose without treating it as a literal field."""
     begin = max(0, start - 32)
     head = text[begin:start].rstrip(" \t")
-    if not head.endswith("인"):
+    if not head.endswith(("은", "는", "이", "가", "인")):
         return None
     match = _ROLE_BEFORE.search(text, begin, start)
     if match is None:

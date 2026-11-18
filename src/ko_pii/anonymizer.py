@@ -20,11 +20,12 @@ from ko_pii.analytics.combined_risk import (
     score_combined_risk,
 )
 from ko_pii.core.modes import Action, ProcessingMode, policy_for
+from ko_pii.core._coverage import protection_remainders
 from ko_pii.core.overlap import resolve_overlaps
 from ko_pii.core.types import DetectionResult, RiskLevel
 from ko_pii.core.trace import OverlapTrace, validate_trace_limit
 from ko_pii.core.validation import validated_detection
-from ko_pii.integrations.hybrid import merge_detections, validate_merge_config
+from ko_pii.integrations.hybrid import _merge_candidates, validate_merge_config
 from ko_pii.detect import _detect_candidates
 from ko_pii.labels import validate_label_filter
 from ko_pii.modes._apply import AppliedSpan, apply_substitutions
@@ -162,15 +163,26 @@ class Anonymizer:
                         )
                     )
                 ]
-            detections = merge_detections(
+            candidates = _merge_candidates(
                 primary, secondary, mode=mode,
                 role_split_labels=delegated,
-                trace=trace, policy=self.policy,
+                policy=self.policy,
             )
+            stage = "hybrid"
         else:
-            detections = resolve_overlaps(primary, trace=trace, policy=self.policy)
+            candidates = primary
+            stage = "primary"
+        detections = resolve_overlaps(candidates, trace=trace, stage=stage, policy=self.policy)
+        remainders = protection_remainders(text, candidates, detections, self.policy, self.strategy_for)
+        if remainders:
+            detections = resolve_overlaps(
+                [*detections, *remainders], trace=trace, stage="protection", policy=self.policy,
+            )
         result = self._process_detections(text, detections)
         result.summary["overlap_resolution"] = "block_risk_confidence_length_start"
+        if remainders:
+            result.summary["overlap_resolution"] += ";complete_replacement_remainders"
+            result.summary["overlap_protection"] = {"fragments": len(remainders)}
         result.overlap_trace = trace
         return result
 
