@@ -139,6 +139,7 @@ def test_research_corpus_is_rejected_in_source_archive():
     check = load_script("check_distributions").check_source
     names = [
         "README.md", "README.en.md", "CONTRIBUTING.md", "SECURITY.md",
+        "docs/HTML_REVIEW.md",
         "examples/quickstart.py", "examples/policy.json", "examples/input.txt",
         "examples/request.json", "scripts/check_examples.py", "scripts/release_bundle.py",
         ".github/workflows/checks.yml", "tests/contracts/fixtures/1.22.0.json",

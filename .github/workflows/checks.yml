@@ -94,6 +94,7 @@ jobs:
           tests/unit/eval/test_external.py
           tests/unit/eval/test_slices.py
           tests/unit/eval/test_evaluation_integrity.py
+          tests/unit/reporting/test_html_integrity.py
           tests/contracts/test_previous_release.py
           tests/contracts/test_table_headers.py
       - name: Annotate portable test failures

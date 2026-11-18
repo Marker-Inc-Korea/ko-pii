@@ -40,6 +40,9 @@ def main() -> None:
         forms = run([str(ROOT / "examples/form_fields.py")], work)
         assert "<DT_BIRTH_1>" in forms and "[생년월일]" in forms
         assert all(value not in forms for value in ("John Smith", "김빛나라", "1988-01-01", "demo@example.com"))
+        html_guide = (ROOT / "docs/HTML_REVIEW.md").read_text(encoding="utf-8")
+        html_example = html_guide.split("```python\n", 1)[1].split("\n```", 1)[0]
+        run(["-c", html_example + '\nassert "ko-pii-html-review-marks-v1" in html_content'], work)
         for kind, name in (("text", "input.txt"), ("json", "request.json")):
             destination = Path(work) / f"result.{kind}"
             run(["-m", "ko_pii.cli", str(ROOT / "examples" / name),
@@ -49,7 +52,7 @@ def main() -> None:
             assert "demo@example.com" not in value and "010-2345-6789" not in value
             if kind == "json":
                 assert json.loads(value)["count"] == 2
-    print("README Python, form/table, text CLI and structured CLI examples passed")
+    print("README Python, form/table, HTML review, text CLI and structured CLI examples passed")
 
 
 if __name__ == "__main__":

@@ -12,6 +12,7 @@ def check_source(names: list[str]) -> None:
                 for name in names}
     required = {
         "README.md", "README.en.md", "CONTRIBUTING.md", "SECURITY.md",
+        "docs/HTML_REVIEW.md",
         "examples/quickstart.py", "examples/policy.json", "examples/input.txt",
         "examples/request.json", "scripts/check_examples.py",
         "scripts/release_bundle.py", ".github/workflows/checks.yml",

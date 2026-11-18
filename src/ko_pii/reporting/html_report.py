@@ -12,10 +12,15 @@
 from __future__ import annotations
 
 import html
+import json
+from uuid import uuid4
 
 from ko_pii.anonymizer import AnonymizationResult, DetectionRecord
 from ko_pii.core.modes import Action
 from ko_pii.core.types import RiskLevel
+from ko_pii.core.validation import validated_detection
+from ko_pii.labels import ALL_LABELS
+from ko_pii.modes._apply import AppliedSpan
 
 
 _CATEGORY_COLORS: dict[str, str] = {
@@ -51,6 +56,35 @@ def _color_for(label: str) -> str:
     return _CATEGORY_COLORS.get(label, "#616161")
 
 
+def _validate_source_result(original: str, result: AnonymizationResult) -> None:
+    """Reject mismatched documents, including differences outside detected spans."""
+    try:
+        if not isinstance(original, str) or not isinstance(result, AnonymizationResult) or not isinstance(result.text, str):
+            raise ValueError
+        blocked = set()
+        for record in result.detections:
+            if not isinstance(record, DetectionRecord) or not isinstance(record.action, Action):
+                raise ValueError
+            detection = validated_detection(record.detection, original, allow_custom_labels=True)
+            if record.action == Action.BLOCK:
+                blocked.add((detection.start, detection.end))
+        source_cursor = output_cursor = 0
+        for span in result.substitutions:
+            if (not isinstance(span, AppliedSpan)
+                    or any(type(value) is not int for value in
+                           (span.start, span.end, span.output_start, span.output_end))
+                    or not source_cursor <= span.start < span.end <= len(original)
+                    or not output_cursor <= span.output_start <= span.output_end <= len(result.text)
+                    or (span.start, span.end) not in blocked
+                    or original[source_cursor:span.start] != result.text[output_cursor:span.output_start]):
+                raise ValueError
+            source_cursor, output_cursor = span.end, span.output_end
+        if original[source_cursor:] != result.text[output_cursor:]:
+            raise ValueError
+    except (AttributeError, TypeError, ValueError):
+        raise ValueError("HTML report requires matching source text, detections and substitution coordinates") from None
+
+
 def _annotate_html(
     text: str,
     detections: list[DetectionRecord],
@@ -61,7 +95,7 @@ def _annotate_html(
     sorted_d = sorted(detections, key=lambda r: (r.detection.start, -r.detection.end))
     out: list[str] = []
     cursor = 0
-    for r in sorted_d:
+    for finding_index, r in enumerate(sorted_d):
         d = r.detection
         if d.start < cursor:
             continue  # overlap (이미 포함됨)
@@ -73,14 +107,16 @@ def _annotate_html(
         if with_marking and r.action == Action.REVIEW:
             mark_btns = (
                 ' <span class="mark-buttons">'
-                '<button class="ok" onclick="mark(this,\'OK\')">✓</button>'
-                '<button class="fp" onclick="mark(this,\'FP\')">✗</button>'
+                '<button class="ok" aria-label="탐지 맞음" aria-pressed="false" onclick="mark(this,\'OK\')">✓</button>'
+                '<button class="fp" aria-label="오탐" aria-pressed="false" onclick="mark(this,\'FP\')">✗</button>'
                 '</span>'
             )
         out.append(
             f'<span class="pii pii-{html.escape(d.label)}" '
             f'style="background:{_color_for(d.label)}22;border-bottom:2px solid {_color_for(d.label)};" '
             f'data-label="{html.escape(d.label)}" '
+            f'data-review-label="{d.label if d.label in ALL_LABELS else "UNKNOWN"}" '
+            f'data-finding-id="finding-{finding_index}" data-start="{d.start}" data-end="{d.end}" '
             f'data-action="{action}" '
             f'data-risk="{risk}" '
             f'data-conf="{d.confidence:.2f}"'
@@ -103,6 +139,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
           box-shadow: 0 2px 4px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 10; }
 .header h1 { margin: 0; font-size: 18px; }
 .header .meta { font-size: 12px; opacity: 0.7; margin-top: 4px; }
+.privacy-notice { padding: 12px 24px; background: #fff3cd; color: #5a4300; line-height: 1.6; }
 .risk-badge { display:inline-block; padding: 2px 10px; border-radius: 12px;
               font-weight: 600; font-size: 11px; margin-left: 8px; }
 .risk-CRITICAL { background:#d32f2f; color:#fff; }
@@ -141,22 +178,41 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
 .rationale { padding: 16px 24px; }
 .rationale ul { margin: 4px 0 0 0; padding-left: 18px; }
 .rationale li { font-size: 13px; color: #555; line-height: 1.5; }
+@media (max-width: 720px) {
+  .container { grid-template-columns: 1fr; }
+  .mark-buttons button { min-width: 36px; min-height: 36px; }
+}
 """
 
 _JS = """
-let marks = {};
+const marks = new Map();
+const reviewMetadata = JSON.parse(document.getElementById('reviewMetadata').textContent);
 function mark(btn, verdict) {
   const span = btn.parentElement.previousElementSibling;
-  const token = span.dataset.token || (span.dataset.label + ':' + span.innerText);
-  marks[token] = verdict;
+  if (!span || !['OK', 'FP'].includes(verdict)) return;
+  const id = span.dataset.findingId;
+  const start = Number(span.dataset.start);
+  const end = Number(span.dataset.end);
+  if (!id || !span.dataset.reviewLabel || !Number.isInteger(start) || !Number.isInteger(end)
+      || start < 0 || end <= start || end > reviewMetadata.source_characters) return;
+  marks.set(id, {finding_id: id, label: span.dataset.reviewLabel, source_span: [start, end], verdict});
   span.style.outline = verdict === 'OK' ? '2px solid #4caf50' : '2px solid #f44336';
+  for (const button of btn.parentElement.children) {
+    button.setAttribute('aria-pressed', button === btn ? 'true' : 'false');
+  }
+  document.getElementById('markCount').textContent = String(marks.size);
 }
 function exportMarks() {
-  const blob = new Blob([JSON.stringify(marks, null, 2)], {type: 'application/json'});
+  const items = [...marks.values()].sort((a, b) => a.source_span[0] - b.source_span[0]
+    || a.source_span[1] - b.source_span[1] || a.finding_id.localeCompare(b.finding_id));
+  const payload = {...reviewMetadata, items};
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {type: 'application/json'});
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
+  const url = URL.createObjectURL(blob);
+  a.href = url;
   a.download = 'review_marks.json';
   a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 """
 
@@ -168,8 +224,14 @@ def generate_html_report(
     document_id: str = "(unspecified)",
     enable_marking: bool = True,
 ) -> str:
+    """Create a sensitive local review page for one matching source/result pair.
+
+    The downloaded v1 marks identify selected occurrences, not shared values.
+    Source text, tokens and the user-supplied document ID are not exported.
+    """
+    _validate_source_result(original_text, result)
     s = result.summary
-    combined_risk = s.get("combined_risk", "INFO")
+    combined_risk = html.escape(str(s.get("combined_risk", "INFO")))
     by_label = s.get("by_label", {})
     max_count = max(by_label.values()) if by_label else 1
 
@@ -200,14 +262,20 @@ def generate_html_report(
     by_action = s.get("by_action", {})
     by_risk_html = "".join(
         f'<div class="summary-card"><div class="label">{html.escape(k)}</div>'
-        f'<div class="value">{v}</div></div>'
+        f'<div class="value">{html.escape(str(v))}</div></div>'
         for k, v in by_action.items()
     )
+    review_metadata = json.dumps({
+        "schema_version": 1, "contract": "ko-pii-html-review-marks-v1",
+        "report_id": uuid4().hex, "scope": "selected_occurrences_only",
+        "offset_unit": "python_code_points", "source_characters": len(original_text),
+    })
 
     return f"""<!doctype html>
 <html lang="ko">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ko-pii 검토 리포트: {html.escape(document_id)}</title>
 <style>{_CSS}</style>
 </head>
@@ -217,7 +285,13 @@ def generate_html_report(
     <span class="risk-badge risk-{combined_risk}">{combined_risk}</span>
   </h1>
   <div class="meta">문서: {html.escape(document_id)} · 모드: {html.escape(s.get('mode', '-'))}
-    · 전략: {html.escape(s.get('strategy', '-'))} · 총 검출 {s.get('total', 0)} 건</div>
+    · 전략: {html.escape(s.get('strategy', '-'))} · 총 검출 {html.escape(str(s.get('total', 0)))} 건</div>
+</div>
+
+<div class="privacy-notice" role="note">
+  이 HTML에는 원문 개인정보가 포함됩니다. 외부에 공개하지 말고 접근을 제한하세요.
+  표시된 위험도는 탐지된 항목의 보조 지표이며, 미탐지 개인정보의 부재를 뜻하지 않습니다.
+  검토 표시는 선택한 위치에만 적용되며 사전이나 처리 정책을 자동 변경하지 않습니다.
 </div>
 
 <div class="summary-grid">
@@ -247,11 +321,13 @@ def generate_html_report(
   </div>
 </div>
 
-{('<div style="padding:16px 24px;"><button onclick="exportMarks()">'
+{('<div style="padding:16px 24px;">검토 표시 <strong id="markCount" aria-live="polite">0</strong>건 · '
+  '<button onclick="exportMarks()">'
   '검토 마킹 다운로드 (review_marks.json)</button></div>'
   if enable_marking else '')}
 
-<script>{_JS}</script>
+{('<script id="reviewMetadata" type="application/json">' + review_metadata + '</script><script>' + _JS + '</script>'
+  if enable_marking else '')}
 </body>
 </html>
 """

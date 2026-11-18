@@ -15,6 +15,7 @@
 - [직접 변환 API의 원문·좌표 검증](TRANSFORMATION_API.md)
 - [자기 문서 평가와 실제 출력 잔존 측정](DOMAIN_EVALUATION.md)
 - [라벨 검토 및 회귀 사례](REVIEW_AND_REGRESSION.md)
+- [HTML 원문 검토와 위치별 피드백 다운로드](HTML_REVIEW.md)
 - [공개 API와 저장 형식 호환성](COMPATIBILITY.md)
 - [기여·CI·배포](../CONTRIBUTING.md)
 
