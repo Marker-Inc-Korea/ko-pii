@@ -24,8 +24,7 @@ LABEL = "ACCOUNT"
 LEGAL_BASIS = "개인정보보호법 제2조; 금융실명법"
 CATEGORY = "일반개인정보"
 
-# 한국 은행·금융기관 키워드 — 정확한 명칭 + 약칭 모두 포함.
-# 짧은 약칭 (KB, NH 등) 은 단어 경계 충돌 위험으로 제외.
+# 한국 은행·금융기관 키워드 — 정확한 명칭 + 기존 약칭 모두 포함.
 _BANK_NAMES = (
     # 시중은행 (정식·약칭)
     "국민은행", "신한은행", "우리은행", "하나은행", "기업은행", "IBK",
@@ -52,23 +51,29 @@ _BANK_NAMES = (
     "국민", "신한", "우리", "하나",
 )
 
+# Hyphens bind a numeric block; a single space can separate account groups.
+# Consume whole blocks before validating so overlong values cannot be sliced.
+_BLOCK = r"[0-9]+(?: ?- ?[0-9]+)*"
+_BLOCK_PATTERN = re.compile(_BLOCK)
+_NUMBER = _BLOCK + r"(?: " + _BLOCK + r"){0,4}(?![0-9]| ?-)"
+
 # anchor 1: "계좌" 키워드가 *직전* 에 (콜론·번호 옵션 허용)
 _KEYWORD_PATTERN = re.compile(
     r"(?:계좌\s*(?:번호|번)?\s*:?\s*)"
-    r"([0-9][\s\-]*(?:[0-9][\s\-]*){9,19})"
+    r"(" + _NUMBER + r")"
 )
 
 # anchor 2: 은행명이 *앞* 에 (선택적 콜론·공백)
 _BANK_BEFORE_PATTERN = re.compile(
     r"(?:" + "|".join(map(re.escape, _BANK_NAMES)) + r")"
     r"\s*:?\s*"
-    r"([0-9]+(?:[\s\-][0-9]+){1,4}|[0-9]{10,16})"
+    r"(" + _NUMBER + r")"
 )
 
 # anchor 3: 은행명이 *뒤* 에 (숫자 + 공백/콤마 옵션 + 은행명)
 _BANK_AFTER_PATTERN = re.compile(
-    r"(?<![0-9])"
-    r"([0-9]+(?:[\s\-][0-9]+){1,4}|[0-9]{10,16})"
+    r"(?<![0-9-])(?<!- )"
+    r"(" + _NUMBER + r")"
     r"\s*"
     r"(?:" + "|".join(map(re.escape, _BANK_NAMES)) + r")"
 )
@@ -76,7 +81,7 @@ _BANK_AFTER_PATTERN = re.compile(
 
 def _normalize_and_check(raw: str) -> str | None:
     """공백/하이픈 제거 후 10~16자리 숫자만 반환."""
-    digits = re.sub(r"[\s\-]", "", raw)
+    digits = re.sub(r"[ -]", "", raw)
     if not digits.isdigit():
         return None
     if not (10 <= len(digits) <= 16):
@@ -84,12 +89,29 @@ def _normalize_and_check(raw: str) -> str | None:
     return digits
 
 
+def _account_prefix(raw: str) -> str | None:
+    """Keep a complete initial value separate from subsequent numeric fields."""
+    total = 0
+    end = 0
+    for index, block in enumerate(_BLOCK_PATTERN.finditer(raw)):
+        total += sum("0" <= char <= "9" for char in block.group())
+        if total > 16:
+            break
+        if total >= 10:
+            end = block.end()
+            if index == 0:
+                break
+    return raw[:end] if end else None
+
+
 def detect(text: str) -> Iterator[DetectionResult]:
     seen: set[tuple[int, int]] = set()
 
     # 1) "계좌" 키워드 anchor
     for m in _KEYWORD_PATTERN.finditer(text):
-        raw = m.group(1).rstrip()
+        raw = _account_prefix(m.group(1))
+        if raw is None:
+            continue
         digits = _normalize_and_check(raw)
         if digits is None:
             continue
@@ -107,7 +129,9 @@ def detect(text: str) -> Iterator[DetectionResult]:
 
     # 2) 은행명 anchor (앞)
     for m in _BANK_BEFORE_PATTERN.finditer(text):
-        raw = m.group(1).rstrip()
+        raw = _account_prefix(m.group(1))
+        if raw is None:
+            continue
         digits = _normalize_and_check(raw)
         if digits is None:
             continue

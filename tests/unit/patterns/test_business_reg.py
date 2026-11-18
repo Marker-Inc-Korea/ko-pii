@@ -1,3 +1,5 @@
+import pytest
+
 from ko_pii.core.types import RiskLevel
 from ko_pii.patterns.business_reg import detect
 
@@ -67,3 +69,30 @@ class TestBusinessRegStructure:
         assert len(results) == 1
         r = results[0]
         assert text[r.start:r.end] == "104-81-49532"
+
+
+@pytest.mark.parametrize("separator", ["", "-", " ", ".", " - ", ". ", " ."])
+def test_horizontal_group_separators_preserve_span_and_checksum(separator):
+    value = separator.join(("123", "45", "67891"))
+    text = "사업자등록번호: " + value + " [end]"
+    results = _detect_list(text)
+    assert len(results) == 1
+    assert results[0].text == value
+    assert results[0].extra["digits"] == "1234567891"
+    assert text[results[0].start:results[0].end] == value
+
+
+@pytest.mark.parametrize("separator", [" ", ".", " - "])
+def test_new_separators_do_not_skip_checksum_or_placeholder_rejection(separator):
+    assert _detect_list(separator.join(("123", "45", "67890"))) == []
+    assert _detect_list(separator.join(("000", "00", "00000"))) == []
+
+
+@pytest.mark.parametrize("separator", ["\n", "\r\n", "\t", "  ", "   ", "\u2028", "\u2029", "-\n"])
+def test_separate_rows_and_columns_are_not_joined(separator):
+    assert _detect_list(separator.join(("123", "45", "67891"))) == []
+
+
+@pytest.mark.parametrize("value", ["9123 45 67891", "123 45 678919"])
+def test_new_formats_do_not_extract_a_substring_of_a_longer_digit_group(value):
+    assert _detect_list(value) == []

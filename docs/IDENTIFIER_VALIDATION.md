@@ -42,6 +42,31 @@ Vault의 기존 토큰과 원문 복원 계약은 유지합니다.
 이 검사는 계산과 데이터 경로의 일관성을 확인하며, 운영 문서의 탐지율을 증명하지 않습니다.
 업무별 평가는 [평가 가이드](DOMAIN_EVALUATION.md)와 해당 조직의 라벨링된 문서로 따로 수행합니다.
 
+## 금융 식별번호의 구분자와 경계
+
+1.22.18은 탐지 조건을 모두 풀어 숫자를 더 많이 가리는 변경이 아니라, 지원 번호의
+표기와 다른 필드의 경계를 구분하는 수정입니다.
+
+- 계좌번호는 기존 계좌 키워드/은행명 맥락과 10~16자리 조건을 사용합니다. 하이픈으로
+  묶인 번호 또는 완전한 연속 숫자 뒤의 공백·줄바꿈·탭 숫자를 합치지 않습니다.
+  `계좌번호 110-123-456789 100000`에서는 번호만 처리하고 뒤 값은 보존합니다.
+  공백만으로 구분한 숫자는 계좌 그룹인지 인접 값인지 완전히 구분할 수 없으므로,
+  스키마를 아는 입력은 `field_labels`/`column_map`을 우선 사용하세요.
+- 카드는 기존 연속 숫자/4자리 그룹 외에 `4-6-5`, `4-6-4`, `4-4-4-4-3`도 지원합니다.
+  Luhn·길이·접두사 조건은 그대로입니다. 줄바꿈/탭만으로 그룹을 합치지 않지만,
+  명시적 구분자 뒤의 줄바꿈은 래핑으로 허용합니다.
+  [American Express의 4-6-5 표기 안내](https://www.americanexpress.com/content/dam/amex/sg/staticassets/merchant/pdf/useful-information/GuidetocheckingCardFaces.pdf)와
+  [PayPal의 공개 테스트 번호](https://www.paypalobjects.com/en_GB/vhelp/paypalmanager_help/credit_card_numbers.htm)를
+  참고했으며, 테스트 카드 번호와 계산한 합성 번호만 회귀 검사에 사용합니다.
+- 사업자번호는 `3-2-5` 그룹 사이의 하이픈·점·한 칸 공백과 구분자 앞뒤 한 칸 공백을
+  허용합니다. 줄·탭·두 칸 이상 공백은 연결하지 않습니다. 기존 체크섬과 전체 0 후보
+  거부를 유지하며, 점/공백을 사용했다고 해당 숫자가 실제 사업자번호라는 뜻은 아닙니다.
+
+파일의 숫자 줄 경계도 기본 보존합니다. `normalize_for_detection`의 `aggressive=True`는
+숫자 줄을 이어 붙일 수 있는 기존 선택 기능이므로, 행/열 경계가 중요한 입력에 사용하지
+마세요. 추출 문자열이 바뀌는 파일의 좌표·신규 토큰 순서는 이전 버전과 다를 수 있습니다.
+기존 Vault와 과거 출력은 자동 변경하지 않습니다.
+
 ## English Summary
 
 FRN and RRN have different legacy check digits. Since 1.22.11, FRN detection,
@@ -51,3 +76,9 @@ mismatch remains an unverified candidate, not proof that the value is non-PII.
 Policy thresholds are unchanged. FRN FPE output can differ from earlier versions;
 existing Vault data is not automatically rewritten. Validate downstream output
 and your own document distribution before upgrading production pipelines.
+
+Version 1.22.18 fixes account/amount boundaries, recognizes additional formatted
+card numbers and single-space/dot-separated business identifiers, and preserves
+numeric line boundaries during default file preprocessing. Checksums and existing
+prefix/length checks remain heuristics, not an issuance or zero-false-positive
+guarantee. Explicit delimiter-plus-newline card wrapping remains supported.

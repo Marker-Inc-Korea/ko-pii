@@ -31,9 +31,35 @@ def test_external_selection_is_order_independent(tmp_path):
     path.write_text("".join(json.dumps(row) + "\n" for row in reversed(rows)), encoding="utf-8")
     assert select_rows(path, 7) == (selected, count)
     assert count == 30
+    next_rows, next_count = select_rows(path, 7, offset=7)
+    assert (selected + next_rows, next_count) == select_rows(path, 14)
+    assert {row["doc_id"] for row in selected}.isdisjoint(row["doc_id"] for row in next_rows)
     path.write_text(json.dumps(rows[0]) + "\n" + json.dumps(rows[0]), encoding="utf-8")
     with pytest.raises(ValueError, match="duplicate"):
         select_rows(path, 1)
+
+
+@pytest.mark.parametrize("count,offset", [(0, 0), (-1, 0), (1, -1), (31, 0), (30, 1)])
+def test_invalid_external_sample_range_is_not_silently_shortened(tmp_path, count, offset):
+    path = tmp_path / "source.jsonl"
+    path.write_text("".join(json.dumps({"doc_id": str(n)}) + "\n" for n in range(30)), encoding="utf-8")
+    with pytest.raises(ValueError):
+        load_script("evaluate_external").select_rows(path, count, offset=offset)
+
+
+@pytest.mark.parametrize("offset", ["-1", "28143", "invalid"])
+def test_external_cli_rejects_invalid_ranks_without_network_or_output(tmp_path, monkeypatch, offset):
+    module = load_script("evaluate_external")
+    monkeypatch.setattr(module.urllib.request, "urlopen", lambda *a, **k: pytest.fail("unexpected network"))
+    cache, output = tmp_path / "cache", tmp_path / "out.json"
+    monkeypatch.setattr(sys, "argv", [
+        "evaluate_external", "--cache", str(cache), "--output", str(output),
+        "--download", "--rank-start", offset,
+    ])
+    with pytest.raises(SystemExit) as error:
+        module.main()
+    assert error.value.code == 2
+    assert not cache.exists() and not output.exists()
 
 
 def workflow(name):
@@ -94,6 +120,7 @@ def test_failed_external_download_is_cleaned_up(tmp_path, monkeypatch, failure):
         "url": "https://example.invalid/data",
         "source_bytes": 1 if failure == "oversize" else 10,
         "source_sha256": "0" * 64,
+        "population": 2, "sample_size": 1,
     }), encoding="utf-8")
     monkeypatch.setattr(module, "PROTOCOL", protocol)
     monkeypatch.setattr(module.urllib.request, "urlopen", lambda *a, **k: io.BytesIO(b"test"))

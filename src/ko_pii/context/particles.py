@@ -17,6 +17,8 @@ PARTICLES: tuple[str, ...] = (
 
 def strip_trailing_particle(token: str) -> tuple[str, str | None]:
     """Return ``(stem, particle)`` — particle is None if none stripped."""
+    if not token.endswith(PARTICLES):
+        return token, None
     for p in PARTICLES:
         if token.endswith(p) and len(token) > len(p):
             return token[: -len(p)], p
@@ -24,4 +26,4 @@ def strip_trailing_particle(token: str) -> tuple[str, str | None]:
 
 
 def starts_with_particle(token: str) -> bool:
-    return any(token.startswith(p) for p in PARTICLES)
+    return token.startswith(PARTICLES)

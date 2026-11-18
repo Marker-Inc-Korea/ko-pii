@@ -18,7 +18,9 @@ ADDRESS = "\uc11c\uc6b8\ud2b9\ubcc4\uc2dc \uac15\ub0a8\uad6c \ud14c\ud5e4\ub780\
 @pytest.mark.parametrize("suffix", ["\uc5d0\uac8c", "\uc758", "\uc740"])
 @pytest.mark.parametrize("strategy", ["redact", "tokenize", "asterisk", "partial", "hashed", "fpe"])
 def test_decomposed_name_is_replaced_without_consuming_prefix_or_particle(prefix, suffix, strategy):
-    source = ud.normalize("NFD", prefix + NAME + suffix)
+    # A following word establishes prose, rather than an ambiguous bounded field value.
+    tail = " \uc790\ub8cc" if suffix == "\uc758" else " \uc548\ub0b4\ud588\uc2b5\ub2c8\ub2e4."
+    source = ud.normalize("NFD", prefix + NAME + suffix + tail)
     result = Anonymizer(include=["PERSON"], strategy=strategy).process(source)
     assert len(result.detections) == 1
     detection = result.detections[0].detection

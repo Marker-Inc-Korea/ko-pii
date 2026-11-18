@@ -39,7 +39,7 @@ import json
 import logging
 import sys
 import uuid
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable, cast
 
 if TYPE_CHECKING:
     from ko_pii.vault.reversible import ReversibleVault
@@ -55,9 +55,9 @@ except ImportError:
 
 
 def _ensure_mcp() -> None:
+    decorator = getattr(Server, "call_tool", None) if _HAS_MCP else None
     if not _HAS_MCP or not (
-        (callable(getattr(Server, "call_tool", None))
-         and "validate_input" in inspect.signature(Server.call_tool).parameters)
+        (callable(decorator) and "validate_input" in inspect.signature(decorator).parameters)
         or "on_call_tool" in inspect.signature(Server).parameters
     ):
         raise ImportError(
@@ -83,27 +83,27 @@ class _ToolNameLogFilter(logging.Filter):
 def _register_tools(server: Any = None) -> Any:
     async def list_tools() -> "list[Any]":
         return [
-            types.Tool(
-                name="detect_pii",
-                description=(
+            types.Tool.model_validate({
+                "name": "detect_pii",
+                "description": (
                     "한국 공공 PII 검출. text 를 분석해 검출된 PII 의 라벨·위치·"
                     "신뢰도·법적 근거를 JSON 으로 반환. 가명화는 하지 않음."
                 ),
-                inputSchema={
+                "inputSchema": {
                     "type": "object",
                     "properties": {
                         "text": {"type": "string", "description": "분석할 텍스트"},
                     },
                     "required": ["text"],
                 },
-            ),
-            types.Tool(
-                name="anonymize",
-                description=(
+            }),
+            types.Tool.model_validate({
+                "name": "anonymize",
+                "description": (
                     "한국 공공 PII 검출 + 가명화. vault_id 가 있으면 같은 세션의 "
                     "기존 vault 재사용 (같은 사람 → 같은 토큰)."
                 ),
-                inputSchema={
+                "inputSchema": {
                     "type": "object",
                     "properties": {
                         "text": {"type": "string"},
@@ -126,14 +126,14 @@ def _register_tools(server: Any = None) -> Any:
                     },
                     "required": ["text"],
                 },
-            ),
-            types.Tool(
-                name="reveal",
-                description=(
+            }),
+            types.Tool.model_validate({
+                "name": "reveal",
+                "description": (
                     "토큰에서 원본 PII 복원. vault_id 와 token 필요. "
                     "경고: 감사 로그가 활성화되지 않은 환경에서 호출 시 추적 불가."
                 ),
-                inputSchema={
+                "inputSchema": {
                     "type": "object",
                     "properties": {
                         "token": {"type": "string", "description": "예: <RRN_1>"},
@@ -141,21 +141,21 @@ def _register_tools(server: Any = None) -> Any:
                     },
                     "required": ["token", "vault_id"],
                 },
-            ),
-            types.Tool(
-                name="combined_risk",
-                description=(
+            }),
+            types.Tool.model_validate({
+                "name": "combined_risk",
+                "description": (
                     "텍스트의 결합 위험도 평가 — 「개인정보 비식별 조치 가이드라인」 "
                     "기준 식별자/준식별자/민감속성 분류 후 종합 위험도 산출."
                 ),
-                inputSchema={
+                "inputSchema": {
                     "type": "object",
                     "properties": {
                         "text": {"type": "string"},
                     },
                     "required": ["text"],
                 },
-            ),
+            }),
         ]
 
     async def dispatch(name: str, arguments: dict[str, Any]) -> "list[Any]":
@@ -286,7 +286,9 @@ def _register_tools(server: Any = None) -> Any:
     async def on_call_tool(context: Any, params: Any) -> Any:
         return await call_tool(params.name, params.arguments or {})
 
-    return Server("ko-pii", on_list_tools=on_list_tools, on_call_tool=on_call_tool)
+    # SDK 2's callback constructor is selected by the runtime capability check.
+    constructor = cast(Callable[..., Any], Server)
+    return constructor("ko-pii", on_list_tools=on_list_tools, on_call_tool=on_call_tool)
 
 
 def build_server() -> Any:

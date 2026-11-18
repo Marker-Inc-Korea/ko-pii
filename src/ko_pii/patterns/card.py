@@ -32,10 +32,15 @@ CATEGORY = "일반개인정보"
 
 _VALID_BIN_FIRST_DIGITS: frozenset[str] = frozenset({"2", "3", "4", "5", "6", "9"})
 
+# An explicit delimiter may be line-wrapped; whitespace-only groups stay on one line.
+_SEPARATOR = r"(?:[-./](?:\r\n|[ \r\n])?| {1,2})"
+_FOUR_GROUPS = (r"[0-9]{4}" + _SEPARATOR) * 3
 _PATTERN = re.compile(
     r"(?<![0-9])"
     r"(?:"
-    r"[0-9]{4}[-. /]\s?[0-9]{4}[-. /]\s?[0-9]{4}[-. /]\s?[0-9]{1,7}"
+    r"[0-9]{4}" + _SEPARATOR + r"[0-9]{6}" + _SEPARATOR + r"[0-9]{4,5}"
+    r"|"
+    + _FOUR_GROUPS + r"(?:[0-9]{4}" + _SEPARATOR + r"[0-9]{1,3}|[0-9]{1,7})"
     r"|"
     r"[0-9]{13,19}"
     r")"

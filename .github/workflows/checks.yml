@@ -63,6 +63,11 @@ jobs:
           tests/unit/test_passport_pipeline.py tests/unit/test_output_normalization.py
           tests/unit/test_normalization_boundaries.py
           tests/unit/test_frn_pipeline.py tests/unit/checksum/test_frn_checksum.py
+          tests/unit/test_financial_pipeline.py
+          tests/unit/test_person_field_values.py
+          tests/unit/patterns/test_account.py tests/unit/patterns/test_card.py
+          tests/unit/patterns/test_business_reg.py
+          tests/unit/io_/test_numeric_boundaries.py
           tests/unit/modes/test_source_boundary.py
           tests/unit/analytics/test_k_anonymity.py tests/unit/eval/test_metrics.py
           tests/unit/test_bounded_io.py::test_xml_encoding_cannot_hide_dtd
@@ -133,6 +138,11 @@ jobs:
           python-version: ${{ matrix.python }}
       - run: python -m pip install ".[dev,langchain,llamaindex,mcp]" "${{ matrix.mcp }}"
       - run: python -m pip check
+      - name: Type-check MCP SDK boundary
+        if: matrix.python != '3.14'
+        run: |
+          python -m pip install "mypy==1.17.1"
+          python -m mypy --follow-imports=silent src/ko_pii/integrations/mcp_server.py
       - run: python -m pytest --import-mode=importlib -o pythonpath= -q tests/unit/integrations/test_rag_adapters.py tests/unit/integrations/test_mcp_server.py
 
   quality:

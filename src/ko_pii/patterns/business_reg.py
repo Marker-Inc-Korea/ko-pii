@@ -1,6 +1,6 @@
 """사업자등록번호 (Business Registration Number) detection.
 
-10-digit format: XXX-XX-XXXXX, optional hyphens.
+10-digit format: XXX-XX-XXXXX, with optional hyphens, dots or single spaces.
 
 Legal status: 사업자등록번호 자체는 법인의 경우 개인정보로 보기 어렵지만,
 개인사업자의 경우 사업자등록번호가 곧 개인을 식별하는 정보가 됨 → 보수적으로
@@ -21,11 +21,13 @@ LABEL = "BUSINESS_REG"
 LEGAL_BASIS = "개인정보보호법 제2조 (개인사업자의 경우 개인 식별 정보)"
 CATEGORY = "일반개인정보"
 
+# Only single spaces, not tabs, line breaks or multi-space column boundaries.
+_SEPARATOR = r"(?: ?[-.] ?| ?)"
 _PATTERN = re.compile(
     r"(?<![0-9])"
-    r"([0-9]{3})-?"
-    r"([0-9]{2})-?"
-    r"([0-9]{5})"
+    r"([0-9]{3})" + _SEPARATOR
+    + r"([0-9]{2})" + _SEPARATOR
+    + r"([0-9]{5})"
     r"(?![0-9])"
 )
 

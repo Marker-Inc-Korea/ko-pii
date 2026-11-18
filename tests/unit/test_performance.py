@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import time
+import gc
 from statistics import median
 
 import pytest
@@ -16,6 +17,9 @@ from ko_pii.patterns import email
 
 
 def _elapsed(text: str) -> float:
+    # Start each sample at the same GC phase; keep GC enabled during the call.
+    # Otherwise garbage from earlier tests can be charged only to the large input.
+    gc.collect()
     # Measure algorithmic CPU cost rather than scheduler wait. Wall-clock
     # thresholds produce false failures in CPU-quota CI/shared environments.
     start = time.process_time()
@@ -57,6 +61,7 @@ def test_dense_phone_processing_stays_sub_quadratic(strategy: str) -> None:
         samples = []
         for _ in range(3):
             anon = Anonymizer(strategy=strategy, include=["PHONE"])
+            gc.collect()
             start = time.process_time()
             result = anon.process(text)
             samples.append(time.process_time() - start)

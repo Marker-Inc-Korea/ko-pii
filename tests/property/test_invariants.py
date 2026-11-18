@@ -1,12 +1,31 @@
 """Synthetic invariants, not a real-domain accuracy or privacy benchmark."""
 from hypothesis import given, settings, strategies as st
+import unicodedata
 
 from ko_pii import Anonymizer, DetectionResult, RegexDetector, ReversibleVault, RiskLevel, anonymize_json
+from ko_pii.core.modes import ProcessingMode
 from ko_pii.core.overlap import resolve_overlaps
 from ko_pii.core.trace import OverlapTrace
 
 
 generated = settings(max_examples=200, derandomize=True, deadline=None, database=None)
+
+
+@generated
+@given(surname=st.sampled_from(["김", "이", "박", "최", "남궁", "제갈"]),
+       given_first=st.sampled_from(["다", "보", "지", "태", "수", "민", "하"]),
+       given_last=st.sampled_from(["은", "라", "성", "부", "로", "인", "운", "임"]),
+       form=st.sampled_from(["NFC", "NFD"]),
+       mode=st.sampled_from([ProcessingMode.STRICT, ProcessingMode.BALANCED, ProcessingMode.PARANOID]))
+def test_bounded_person_field_preserves_all_name_syllables(surname, given_first, given_last, form, mode):
+    name = unicodedata.normalize(form, surname + given_first + given_last)
+    prefix = unicodedata.normalize(form, "성명: ")
+    source = prefix + name + "\npublic"
+    result = Anonymizer(include=["PERSON"], strategy="redact", mode=mode).process(source)
+    assert result.text == prefix + "[성명]\npublic"
+    assert len(result.detections) == 1
+    detection = result.detections[0].detection
+    assert (detection.start, detection.end, detection.text) == (len(prefix), len(prefix) + len(name), name)
 
 
 @generated

@@ -1,4 +1,8 @@
-from ko_pii.context.context_rules import NameCandidate, score_candidate
+import pytest
+
+from ko_pii.context.context_rules import (
+    NameCandidate, _agency_sentence_boundaries, _has_agency_in_sentence, score_candidate,
+)
 
 
 def _score(text, name, **kwargs):
@@ -38,3 +42,35 @@ class TestNegativeSignals:
     def test_single_char_penalised(self):
         s = _score("그는 박이다", "박")
         assert s.value < 0.5  # length-1 + no other strong signals
+
+
+@pytest.mark.parametrize("text", [
+    "", ".", "\n", "환경부", "환경부.", "환경부\n", "환경부\n\n김철수.",
+    "환경부 김철수. 인사처 이영희\n아무 기관도 없는 문장", "환경부? 김철수! 이영희.",
+])
+def test_indexed_agency_context_matches_the_standalone_boundary_rules(text):
+    boundaries = _agency_sentence_boundaries(text)
+    cache = {}
+    for start in range(len(text) + 1):
+        for end in range(start, len(text) + 1):
+            expected = _has_agency_in_sentence(text, start, end)
+            assert _has_agency_in_sentence(text, start, end, cache, boundaries=boundaries) == expected
+
+
+def test_person_pipeline_does_not_rescan_the_document_for_each_sentence_boundary():
+    from ko_pii.patterns.person import detect
+
+    class CountingText(str):
+        boundary_searches = 0
+
+        def find(self, *args):
+            self.boundary_searches += 1
+            return super().find(*args)
+
+        def rfind(self, *args):
+            self.boundary_searches += 1
+            return super().rfind(*args)
+
+    text = CountingText("환경부 김철수 김영희 " * 200)
+    list(detect(text))
+    assert text.boundary_searches == 0

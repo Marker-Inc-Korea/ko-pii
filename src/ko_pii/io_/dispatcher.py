@@ -40,10 +40,8 @@ def read_text(path: str) -> str:
         raw = csv_reader.read_text(path)
     else:
         raw = plain.read_text(path)
-    # 셀 줄바꿈/래핑(하이픈+개행 `-\n`, 순수 개행 등)으로 쪼개진 PII 를 검출 전에
-    # 복원 — *모든 포맷* 공통. 이전엔 pdf.read_text 만 적용돼 xlsx/csv/hwpx/docx
-    # 에서 줄바꿈으로 분리된 RRN/전화/카드가 평문 누출됐다. (pdf 는 내부에서도
-    # 적용하나 _MID_PII_NEWLINE 은 idempotent.)
+    # Preserve numeric row boundaries. Supported wrapped identifiers are handled
+    # by whitespace-aware detectors, not by joining arbitrary extracted rows.
     normalized, _ = normalize_for_detection(raw)
     return normalized
 

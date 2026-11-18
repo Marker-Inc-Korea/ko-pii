@@ -18,10 +18,13 @@
 """
 from __future__ import annotations
 
+from bisect import bisect_right
 from collections.abc import Iterator
+import re
 
 from dataclasses import dataclass, field
 
+from ko_pii.context.name_fields import name_field_before
 from ko_pii.dictionaries.common_words import is_common_word
 from ko_pii.dictionaries.surnames import surname_prefix_len
 from ko_pii.dictionaries.titles import is_title, is_gov_title
@@ -42,20 +45,8 @@ class Score:
 
 
 def _has_field_label_before(text: str, start: int, window: int = 6) -> str | None:
-    """Look for a name-field label like "성명:" within ``window`` chars before."""
-    from ko_pii.dictionaries.field_labels import FIELD_LABELS_NAME
-    head = text[max(0, start - window - 4): start]
-    # Strip whitespace and common separators
-    for label in FIELD_LABELS_NAME:
-        # Allow "성명:", "성명 :", "성명 ", etc.
-        idx = head.rfind(label)
-        if idx == -1:
-            continue
-        between = head[idx + len(label):]
-        stripped = between.strip().lstrip(":：").strip()
-        if stripped == "":
-            return label
-    return None
+    """Match an adjacent field label, not a substring of a different heading."""
+    return name_field_before(text, start, window)
 
 
 def _has_title_adjacent(text: str, start: int, end: int, window: int = 5) -> tuple[str | None, bool]:
@@ -104,14 +95,20 @@ def _has_title_adjacent(text: str, start: int, end: int, window: int = 5) -> tup
 
 
 def _has_agency_in_sentence(
-    text: str, start: int, end: int, cache: dict[tuple[int, int], bool] | None = None
+    text: str, start: int, end: int, cache: dict[tuple[int, int], bool] | None = None,
+    *, boundaries: list[int] | None = None,
 ) -> bool:
     # Extract sentence boundaries: . / 다. / 음. / line break
-    left = max(text.rfind(".", 0, start), text.rfind("\n", 0, start)) + 1
-    right_dot = text.find(".", end)
-    right_nl = text.find("\n", end)
-    candidates = [r for r in (right_dot, right_nl) if r != -1]
-    right = min(candidates) if candidates else len(text)
+    if boundaries is None:
+        left = max(text.rfind(".", 0, start), text.rfind("\n", 0, start)) + 1
+        right_dot = text.find(".", end)
+        right_nl = text.find("\n", end)
+        candidates = [r for r in (right_dot, right_nl) if r != -1]
+        right = min(candidates) if candidates else len(text)
+    else:
+        left = boundaries[max(0, bisect_right(boundaries, start) - 1)]
+        next_boundary = bisect_right(boundaries, end)
+        right = boundaries[next_boundary] - 1 if next_boundary < len(boundaries) else len(text)
     # 같은 문장의 후보들은 동일한 (left, right) 범위를 공유 → 한 번만 단어 순회하도록
     # 캐시(없으면 O(후보×단어)=O(n²); 긴 문서·이름 다수에서 quadratic 폭주를 막는다).
     if cache is not None and (left, right) in cache:
@@ -120,6 +117,11 @@ def _has_agency_in_sentence(
     if cache is not None:
         cache[(left, right)] = result
     return result
+
+
+def _agency_sentence_boundaries(text: str) -> list[int]:
+    # Include a trailing delimiter so the indexed and standalone paths agree.
+    return [0, *(match.end() for match in re.finditer(r"[.\n]", text))]
 
 
 def _has_particle_attached(text: str, end: int) -> str | None:
@@ -148,6 +150,7 @@ def score_candidate(
     deterministic_nearby: bool = False,
     name_dictionary_boost: float = 0.0,
     agency_cache: dict[tuple[int, int], bool] | None = None,
+    agency_boundaries: list[int] | None = None,
 ) -> Score:
     """Compute a 0~1 score for ``cand`` based on surrounding signals."""
     ev: list[str] = []
@@ -205,7 +208,9 @@ def score_candidate(
         ev.append("pos:deterministic_pii_nearby")
 
     # Agency mention in same sentence
-    if _has_agency_in_sentence(text, cand.start, cand.end, agency_cache):
+    if _has_agency_in_sentence(
+        text, cand.start, cand.end, agency_cache, boundaries=agency_boundaries,
+    ):
         score += 0.10
         ev.append("pos:agency_in_sentence")
 

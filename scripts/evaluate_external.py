@@ -1,4 +1,4 @@
-"""Opt-in, fixed-protocol external synthetic evaluation; no model or rule tuning."""
+"""Opt-in, pinned-source synthetic evaluation; does not modify product rules."""
 from __future__ import annotations
 
 import argparse
@@ -26,7 +26,9 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def select_rows(path: Path, count: int) -> tuple[list[dict], int]:
+def select_rows(path: Path, count: int, *, offset: int = 0) -> tuple[list[dict], int]:
+    if count < 1 or offset < 0:
+        raise ValueError("sample count must be positive and rank offset nonnegative")
     seen = set()
 
     def records():
@@ -39,10 +41,10 @@ def select_rows(path: Path, count: int) -> tuple[list[dict], int]:
                 seen.add(identity)
                 yield hashlib.sha256(identity.encode()).hexdigest(), identity, row
 
-    selected = heapq.nsmallest(count, records(), key=lambda x: (x[0], x[1]))
-    if len(selected) != count:
+    selected = heapq.nsmallest(count + offset, records(), key=lambda x: (x[0], x[1]))
+    if len(selected) != count + offset:
         raise ValueError("dataset is smaller than the fixed sample")
-    return [row for _, _, row in selected], len(seen)
+    return [row for _, _, row in selected[offset:]], len(seen)
 
 
 def main() -> None:
@@ -50,10 +52,14 @@ def main() -> None:
     parser.add_argument("--cache", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--download", action="store_true", help="explicit network opt-in")
+    parser.add_argument("--rank-start", type=int, default=0,
+                        help="zero-based start in the fixed hash ordering; not a blind-evaluation claim")
     args = parser.parse_args()
     if args.output.exists():
         parser.error("output already exists; preserve previous measurements")
     protocol = json.loads(PROTOCOL.read_text(encoding="utf-8"))
+    if not 0 <= args.rank_start <= protocol["population"] - protocol["sample_size"]:
+        parser.error("rank-start is outside the pinned population")
     args.cache.mkdir(parents=True, exist_ok=True)
     source = args.cache / "k-pii-bench-track-a.jsonl"
     if not source.exists():
@@ -78,7 +84,7 @@ def main() -> None:
                 temporary.unlink(missing_ok=True)
     if source.stat().st_size != protocol["source_bytes"] or sha256(source) != protocol["source_sha256"]:
         raise ValueError("cached dataset does not match pinned source")
-    rows, population = select_rows(source, protocol["sample_size"])
+    rows, population = select_rows(source, protocol["sample_size"], offset=args.rank_start)
     if population != protocol["population"]:
         raise ValueError("source document count changed")
     with tempfile.TemporaryDirectory() as work:
@@ -89,6 +95,11 @@ def main() -> None:
         report = evaluate(documents, labels=[x for x in K_PII_LABELS.values() if x],
                           output_mode=ProcessingMode.STRICT, output_strategy="redact")
     report["external_protocol"] = protocol
+    report["external_sample"] = {
+        "rank_range": [args.rank_start, args.rank_start + protocol["sample_size"]],
+        "warning": "Disjoint ranks do not prove unseen data or customer-domain safety. "
+                   "The original maintenance-release commitments describe the historical source protocol.",
+    }
     report["protocol_sha256"] = sha256(PROTOCOL)
     report["runner_sha256"] = sha256(Path(__file__))
     report["python"] = platform.python_version()

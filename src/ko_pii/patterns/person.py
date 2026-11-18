@@ -15,8 +15,11 @@ from __future__ import annotations
 import re
 from typing import Any, Iterable, Iterator
 
-from ko_pii.context.context_rules import NameCandidate, score_candidate
+from ko_pii.context.context_rules import NameCandidate, _agency_sentence_boundaries, score_candidate
 from ko_pii.context.name_dictionary import NameDictionary
+from ko_pii.context.name_fields import (
+    PERSON_NAME_LABELS, bounded_name_value_end, name_field_before, name_role_before,
+)
 from ko_pii.context.name_origin import classify_name_origin
 from ko_pii.context.name_syllables import name_shape_bonus
 from ko_pii.context.particles import strip_trailing_particle
@@ -29,7 +32,7 @@ from ko_pii.dictionaries.common_words import is_common_word
 from ko_pii.dictionaries.districts import (
     is_country, is_common_dong, is_district, is_extra_city, is_province,
 )
-from ko_pii.dictionaries.field_labels import FIELD_LABELS_NAME, is_field_label
+from ko_pii.dictionaries.field_labels import is_field_label
 from ko_pii.dictionaries.universities import is_university
 from ko_pii.dictionaries.surnames import surname_prefix_len
 from ko_pii.dictionaries.titles import is_title
@@ -39,7 +42,7 @@ LEGAL_BASIS = "개인정보보호법 제2조"
 CATEGORY = "일반개인정보"
 
 # 이름 후보: 한글 2~4글자 (조사 포함하면 더 길어질 수 있음)
-_CANDIDATE = re.compile(r"(?<![가-힣])([가-힣]{2,6})(?![가-힣])")
+_CANDIDATE = re.compile(r"(?<![가-힣])([가-힣]{2,7})(?![가-힣])")
 
 # 결정적 PII 의 *위치 마커* 만 빠르게 찾기 위한 보조 패턴 (성능)
 # 주: 길이 상한({1,64}/{1,255})과 lookaround 경계는 ReDoS/quadratic 방지용 — 이메일
@@ -105,7 +108,7 @@ _NOUN_SUFFIXES_FORBIDDEN: tuple[str, ...] = (
 
 def _looks_like_common_noun_suffix(raw: str) -> bool:
     """3자+ 토큰 끝이 일반 명사 접미사면 True (예: 사람들·연기력·매력·기대감)."""
-    return len(raw) >= 3 and any(raw.endswith(s) for s in _NOUN_SUFFIXES_FORBIDDEN)
+    return len(raw) >= 3 and raw.endswith(_NOUN_SUFFIXES_FORBIDDEN)
 
 
 # 토큰 마지막 글자가 *명확한 동사 활용 어미* 면 거부.
@@ -137,7 +140,7 @@ _COMMON_KOREAN_ENDINGS: tuple[str, ...] = (
 
 def _ends_with_common_korean_ending(raw: str) -> bool:
     """토큰이 흔한 한국어 어말로 끝나면 True (PERSON 거부 신호)."""
-    return any(raw.endswith(end) for end in _COMMON_KOREAN_ENDINGS)
+    return raw.endswith(_COMMON_KOREAN_ENDINGS)
 
 
 def _ends_with_verb_or_particle(raw: str) -> bool:
@@ -158,7 +161,7 @@ _VERB_STEM_FINAL_PATTERNS: tuple[str, ...] = (
 
 
 def _looks_like_verb_stem(raw: str) -> bool:
-    return any(raw.endswith(p) for p in _VERB_STEM_FINAL_PATTERNS)
+    return raw.endswith(_VERB_STEM_FINAL_PATTERNS)
 
 
 # 토큰 안에 직책이 *포함* 된 경우 — 예: "강회장이", "김의원이", "박교수가"
@@ -177,6 +180,7 @@ _EMBEDDED_TITLE_SUFFIXES: tuple[str, ...] = (
     "선수", "감독", "코치",
     "기자", "PD", "작가",
 )
+_ORDERED_TITLE_SUFFIXES = tuple(sorted(_EMBEDDED_TITLE_SUFFIXES, key=len, reverse=True))
 
 
 def _split_embedded_title(stem: str) -> tuple[str, str | None]:
@@ -184,7 +188,7 @@ def _split_embedded_title(stem: str) -> tuple[str, str | None]:
 
     조건: stem 끝이 직책으로 끝나야 하고, 앞부분이 1~3자 한글이어야 한다.
     """
-    for suf in sorted(_EMBEDDED_TITLE_SUFFIXES, key=len, reverse=True):
+    for suf in _ORDERED_TITLE_SUFFIXES:
         if stem.endswith(suf) and len(stem) > len(suf):
             front = stem[: -len(suf)]
             if 1 <= len(front) <= 3 and all("가" <= c <= "힣" for c in front):
@@ -277,7 +281,7 @@ def _has_age_or_gender_after(text: str, end: int, window: int = 12) -> str | Non
 
 def _looks_like_verb_form(token: str) -> bool:
     """Heuristic: True if ``token`` ends with a common Korean verb/adj ending."""
-    return any(token.endswith(s) for s in _VERB_LIKE_SUFFIXES)
+    return token.endswith(_VERB_LIKE_SUFFIXES)
 
 
 # 행정구역 접미사. "경기도", "성남시", "가평군" 등이 surname-starting 2~3자
@@ -294,7 +298,7 @@ def _looks_like_admin_unit(raw: str) -> bool:
 
 
 def _looks_like_street_name(raw: str) -> bool:
-    return len(raw) >= 3 and any(raw.endswith(s) for s in _STREET_SUFFIXES)
+    return len(raw) >= 3 and raw.endswith(_STREET_SUFFIXES)
 
 
 def normalize_exclusions(
@@ -327,6 +331,47 @@ def is_person_excluded(value: str, exclusions: frozenset[str]) -> bool:
 
 def _is_common_or_excluded(value: str, exclusions: frozenset[str]) -> bool:
     return is_person_excluded(value, exclusions) or is_common_word(value)
+
+
+_UNSET_NAME_VALUES = frozenset({
+    "없음", "미상", "익명", "비공개", "미기재", "미입력", "미등록", "미작성",
+    "정보없음", "알수없음", "해당없음", "생략", "공란", "무기명",
+})
+
+
+def _reject_labeled_value(value: str, label: str, exclusions: frozenset[str]) -> bool:
+    if value in _UNSET_NAME_VALUES or is_field_label(value) or is_person_excluded(value, exclusions):
+        return True
+    return label not in PERSON_NAME_LABELS and (
+        is_common_word(value) or is_title(value)
+        or is_agency(value) or normalize_agency(value) is not None
+        or is_province(value) or is_district(value) or is_country(value)
+        or is_common_dong(value) or is_extra_city(value) or is_university(value)
+        or value.endswith(("은행", "회사")) or _looks_like_anonymized(value)
+    )
+
+
+def _labeled_name_values(
+    text: str, exclusions: frozenset[str],
+) -> Iterator[tuple[NameCandidate, str]]:
+    for match in _CANDIDATE.finditer(text):
+        raw = match.group(1)
+        label = name_field_before(text, match.start())
+        if label is None or not bounded_name_value_end(text, match.end()):
+            continue
+        # "이름" can describe a herb/product; "성명" specifically describes a person.
+        if _reject_labeled_value(raw, label, exclusions):
+            continue
+        stem, particle = strip_trailing_particle(raw)
+        # A bounded 2-4 syllable field can itself end in a particle-like syllable.
+        # Keep it whole rather than leaving part of a valid full name unmasked.
+        if particle and len(raw) > 4:
+            value = stem
+        else:
+            value = raw
+        if not 2 <= len(value) <= 4 or _reject_labeled_value(value, label, exclusions):
+            continue
+        yield NameCandidate(value, match.start(), match.start() + len(value)), label
 
 
 def detect(
@@ -363,6 +408,16 @@ def _detect_with_dict(
     # 문장별 '기관 포함 여부' 캐시 — 같은 문장의 후보들이 단어 순회를 반복하지 않도록
     # score_candidate 에 공유(이게 없으면 person 검출이 O(n²)).
     _agency_cache: dict[tuple[int, int], bool] = {}
+    agency_boundaries = _agency_sentence_boundaries(text)
+
+    labeled_values = {
+        (candidate.start, candidate.end): (candidate, label)
+        for candidate, label in _labeled_name_values(text, exclusions)
+    }
+    field_names = {candidate.name for candidate, _ in labeled_values.values()}
+    for candidate, label in labeled_values.values():
+        name_dict.add(candidate.name, 0.9, (candidate.start, candidate.end),
+                      ["pattern:person_name_field", f"pos:field_label({label})"])
 
     # ------ Pass 0: 3중 매크로 패턴 — <AGENCY> <PERSON> <TITLE>
     # 고신뢰 인명 추출 + 누적 사전에 *즉시 등록* → 같은 문서 내 다른 등장도
@@ -407,10 +462,28 @@ def _detect_with_dict(
     # ------ Pass A
     for m in _CANDIDATE.finditer(text):
         raw = m.group(1)
+        if is_person_excluded(raw, exclusions):
+            continue
         # 매크로로 이미 잡힌 span 은 중복 emit 방지
         if (m.start(), m.start() + len(raw)) in macro_spans:
             continue
-        label_before = _label_before(text, m.start())
+        stem, particle = strip_trailing_particle(raw)
+        if raw in field_names or stem in field_names:
+            if raw in field_names:
+                stem, particle = raw, None
+            cand = NameCandidate(stem, m.start(), m.start() + len(stem))
+            labeled = labeled_values.get((cand.start, cand.end))
+            evidence = (["pattern:person_name_field", f"pos:field_label({labeled[1]})"]
+                        if labeled else ["pos:confirmed_name_field_reuse"])
+            if particle:
+                evidence.append(f"pos:particle({particle})")
+            emitted.append((cand, particle, 0.9, evidence))
+            continue
+        candidate_label = name_field_before(text, m.start())
+        label_before = candidate_label is not None
+        if (candidate_label is not None and bounded_name_value_end(text, m.end())
+                and _reject_labeled_value(raw, candidate_label, exclusions)):
+            continue
         # Reject raw tokens that match an agency in the dictionary, or look
         # like an administrative-unit name (경기도, 성남시, 가평군) — unless
         # a person-field label is right before.
@@ -424,7 +497,6 @@ def _detect_with_dict(
                     or _looks_like_street_name(raw)):
                 continue
         # Try stripping a trailing particle to get the bare name
-        stem, particle = strip_trailing_particle(raw)
         if len(stem) < 2 or len(stem) > 4:
             continue
         # 부분 가명 표기 (박씨/이모/김군) — 이미 익명화된 표기이므로 거부
@@ -483,7 +555,8 @@ def _detect_with_dict(
         # Heuristic: skip tokens without any leading surname unless the
         # field label is right before (we'll let the scorer decide).
         sp = surname_prefix_len(stem)
-        if sp == 0 and not label_before:
+        role_before = name_role_before(text, m.start()) if sp == 0 and not label_before else None
+        if sp == 0 and not label_before and role_before is None:
             continue
 
         cand_start = m.start()
@@ -493,6 +566,8 @@ def _detect_with_dict(
         # 추가 신호: 토큰 안 직책, 이름끝 음절, 나이/성별 인접, 음절 통계
         extra_signals: list[str] = []
         extra_score = 0.0
+        if role_before is not None:
+            extra_signals.append(f"pos:name_role({role_before})")
         if embedded_title:
             extra_score += 0.35
             extra_signals.append(f"pos:embedded_title({embedded_title})")
@@ -514,6 +589,7 @@ def _detect_with_dict(
             deterministic_nearby=det_nearby,
             name_dictionary_boost=name_dict.boost_for(stem),
             agency_cache=_agency_cache,
+            agency_boundaries=agency_boundaries,
         )
         # 추가 신호 합산
         total_value = min(1.0, score.value + extra_score)
@@ -581,14 +657,10 @@ def _detect_with_dict(
             ),
             name_dictionary_boost=boost,
             agency_cache=_agency_cache,
+            agency_boundaries=agency_boundaries,
         )
         if rescored.value >= threshold:
             yield _emit(cand, particle, rescored.value, rescored.evidence)
-
-
-def _label_before(text: str, start: int) -> bool:
-    head = text[max(0, start - 10): start]
-    return any(lbl in head for lbl in FIELD_LABELS_NAME)
 
 
 def _is_within(

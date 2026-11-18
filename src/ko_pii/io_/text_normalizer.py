@@ -1,7 +1,7 @@
-"""PDF 등에서 추출된 텍스트의 불필요 줄바꿈/공백 정규화 + offset 역매핑.
+"""PDF 등 추출 텍스트의 자릿수 분할 공백 정규화 + offset 역매핑.
 
 PDF 텍스트 추출기는 글자 좌표 기반이라:
-1. 단어/숫자 중간에 줄바꿈 삽입 (pypdf 흔함)
+1. 단어/숫자 중간에 줄바꿈 삽입 (줄 합치기는 aggressive=True에서만)
 2. 서식 칸별 입력 시 글자 사이 공백 삽입 (주민번호: "9 5 1 2 3 0 - 1 8 5 0 4 3 1")
 
 사용:
@@ -43,9 +43,10 @@ _SPACED_FIELD = re.compile(
 # 숫자/하이픈이 공백으로 구분되되 하이픈 앞뒤 공백이 있거나 없을 수 있음
 _SPACED_FIELD_WITH_HYPHEN = re.compile(
     r'(?<![0-9A-Za-z\-])'
-    r'(\d[\d ]{2,}\s*-\s*[\d ]{1,}\s*-?\s*[\d ]{2,}\d)'
+    r'(\d[\d ]{2,} *- *[\d ]{1,} *-? *[\d ]{2,}\d)'
     r'(?![0-9])'
 )
+_SINGLE_DIGIT = re.compile(r'(?<![0-9])[0-9](?![0-9])')
 
 
 def _collapse_spaced_field(text: str) -> tuple[str, list[int]]:
@@ -55,16 +56,23 @@ def _collapse_spaced_field(text: str) -> tuple[str, list[int]]:
     for m in _SPACED_FIELD.finditer(text):
         matches.append((m.start(), m.end()))
     for m in _SPACED_FIELD_WITH_HYPHEN.finditer(text):
-        # 기본 패턴과 겹치지 않는 경우만 추가
-        s, e = m.start(), m.end()
-        if not any(ms <= s < me or ms < e <= me for ms, me in matches):
-            matches.append((s, e))
+        # A grouped account followed by an amount is not a digit-by-digit field.
+        # Do not erase its field separator just because both contain digits.
+        if len(_SINGLE_DIGIT.findall(m.group(0))) < 4:
+            continue
+        matches.append((m.start(), m.end()))
     matches.sort()
+    merged: list[tuple[int, int]] = []
+    for start, end in matches:
+        if merged and start < merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+        else:
+            merged.append((start, end))
 
     result: list[str] = []
     offset_map: list[int] = []
     last_end = 0
-    for ms, me in matches:
+    for ms, me in merged:
         for i in range(last_end, ms):
             result.append(text[i])
             offset_map.append(i)
@@ -90,21 +98,25 @@ def normalize_for_detection(
 
     Returns (normalized, offset_map).
     offset_map[i] = normalized[i]에 대응하는 원본 위치.
+    기본값은 한글/숫자 줄 경계를 유지한다. aggressive=True는 추출 순서가 확인된
+    PDF의 줄 합치기용이며, 일반 텍스트나 표에서는 다른 필드를 합칠 수 있다.
     """
     # Phase 1: 칸별 공백 정규화 (줄바꿈은 유지 — 토큰 경계)
     text_p1, map_p1 = _collapse_spaced_field(text)
 
     # Phase 2: 줄바꿈 정규화
     remove_positions: set[int] = set()
-    for m in _MID_KOREAN_NEWLINE.finditer(text_p1):
-        remove_positions.add(m.start())
 
     replace_positions: set[int] = set()
-    for m in _MID_PII_NEWLINE.finditer(text_p1):
-        pos = m.start()
-        if pos not in remove_positions:
-            replace_positions.add(pos)
     if aggressive:
+        for m in _MID_KOREAN_NEWLINE.finditer(text_p1):
+            remove_positions.add(m.start())
+        # Joining numeric lines can turn unrelated rows into a valid identifier.
+        # Whitespace-aware detectors already handle supported wrapped formats.
+        for m in _MID_PII_NEWLINE.finditer(text_p1):
+            pos = m.start()
+            if pos not in remove_positions:
+                replace_positions.add(pos)
         for m in _SOFT_LINEBREAK.finditer(text_p1):
             pos = m.start()
             if pos not in remove_positions and pos not in replace_positions:
