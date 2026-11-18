@@ -21,97 +21,10 @@ from typing import Any, Iterable, Literal, Optional
 
 from ko_pii.anonymizer import Anonymizer
 from ko_pii.core.modes import ProcessingMode
+from ko_pii.core.unicode_norm import normalize_unicode
+from ko_pii.dictionaries.table_headers import TABLE_HEADER_MAP as _HEADER_MAP
+from ko_pii.dictionaries.table_headers import ENGLISH_SUBJECTS, KOREAN_SUBJECTS
 from ko_pii.vault.reversible import ReversibleVault
-
-
-# 헤더 → PII 라벨 매핑 (한국 공문서·민원·인사 도메인 빈출 표현)
-_HEADER_MAP: dict[str, str] = {
-    # 성명
-    "성명": "PERSON", "이름": "PERSON", "성함": "PERSON", "성  명": "PERSON",
-    "신청인": "PERSON", "민원인": "PERSON", "기안자": "PERSON", "수신자": "PERSON",
-    "당사자": "PERSON", "환자명": "PERSON", "환자": "PERSON",
-    "name": "PERSON", "Name": "PERSON", "NAME": "PERSON",
-    "성명(한글)": "PERSON",
-
-    # RRN
-    "주민번호": "RRN", "주민등록번호": "RRN", "주민": "RRN",
-    "주민등록번호 13자리": "RRN",
-    "rrn": "RRN", "RRN": "RRN",
-
-    # 외국인등록번호
-    "외국인등록번호": "FRN", "외등번호": "FRN",
-
-    # 사업자번호
-    "사업자등록번호": "BUSINESS_REG", "사업자번호": "BUSINESS_REG",
-    "biz_reg": "BUSINESS_REG",
-
-    # 법인번호
-    "법인등록번호": "CORP_REG", "법인번호": "CORP_REG",
-
-    # 운전면허
-    "운전면허번호": "DRIVER_LICENSE", "면허번호": "DRIVER_LICENSE",
-
-    # 여권
-    "여권번호": "PASSPORT", "여권": "PASSPORT",
-
-    # 카드
-    "카드번호": "CARD", "신용카드번호": "CARD", "체크카드번호": "CARD",
-
-    # 의료보험
-    "건강보험증번호": "MEDICAL_INSURANCE", "건강보험번호": "MEDICAL_INSURANCE",
-
-    # 처방
-    "처방번호": "PRESCRIPTION_ID", "처방전번호": "PRESCRIPTION_ID",
-
-    # 전화
-    "전화번호": "PHONE", "연락처": "PHONE", "휴대전화": "PHONE",
-    "휴대폰": "PHONE", "휴대폰번호": "PHONE", "핸드폰": "PHONE",
-    "이동전화": "PHONE", "휴대전화번호": "PHONE",
-    "phone": "PHONE", "tel": "PHONE", "Tel": "PHONE", "TEL": "PHONE",
-    "Phone": "PHONE",
-
-    # 팩스
-    "팩스": "FAX", "팩스번호": "FAX",
-
-    # 이메일
-    "이메일": "EMAIL", "전자우편": "EMAIL", "메일": "EMAIL",
-    "email": "EMAIL", "Email": "EMAIL", "E-mail": "EMAIL", "EMAIL": "EMAIL",
-
-    # 주소
-    "주소": "ADDRESS", "거주지": "ADDRESS", "거주지 주소": "ADDRESS",
-    "도로명주소": "ADDRESS", "지번주소": "ADDRESS",
-    "address": "ADDRESS", "Address": "ADDRESS",
-
-    # 우편번호
-    "우편번호": "POSTAL_CODE", "우편": "POSTAL_CODE",
-    "zip": "POSTAL_CODE", "zipcode": "POSTAL_CODE", "Zip": "POSTAL_CODE",
-
-    # 차량
-    "차량번호": "VEHICLE", "자동차번호": "VEHICLE", "차량": "VEHICLE",
-
-    # 계좌
-    "계좌번호": "ACCOUNT", "계좌": "ACCOUNT", "통장번호": "ACCOUNT",
-    "은행계좌": "ACCOUNT",
-
-    # 사번
-    "사번": "EMPLOYEE_ID", "공무원번호": "EMPLOYEE_ID", "직원번호": "EMPLOYEE_ID",
-    "교번": "EMPLOYEE_ID",
-
-    # IP
-    "IP": "IP", "ip": "IP", "IP주소": "IP", "ip_address": "IP",
-
-    # URL
-    "URL": "URL", "url": "URL", "홈페이지": "URL", "웹사이트": "URL",
-
-    # 토지
-    "PNU": "PNU", "필지고유번호": "PNU", "토지고유번호": "PNU",
-
-    # 약품
-    "약품코드": "EDI_DRUG", "의약품코드": "EDI_DRUG",
-
-    # 사건번호
-    "사건번호": "COURT_CASE",
-}
 
 
 _SCHEMA_AMBIGUOUS_HEADERS = frozenset({
@@ -150,8 +63,9 @@ class SchemaColumnClassification:
 
 
 def _normalize_header(h: str) -> str:
-    """공백·괄호 등 정규화."""
-    return re.sub(r"\s+", "", h).strip()
+    """Normalize the lookup view only; output column names remain unchanged."""
+    normalized, _offsets = normalize_unicode(h)
+    return re.sub(r"\s+", "", normalized).strip()
 
 
 def _normalize_schema_header(header: str) -> str:
@@ -205,8 +119,8 @@ def classify_schema_columns(
 
 
 _QUALIFIED_HEADER = re.compile(
-    r"^(?:신청인|민원인|기안자|수신자|당사자|환자|고객|사용자|직원|담당자|보호자)[\s_-]*(.+)$"
-    r"|^(?:applicant|patient|customer|user|employee)[\s_-]+(.+)$",
+    r"^(?:" + "|".join(map(re.escape, KOREAN_SUBJECTS)) + r")[\s_-]*(.+)$"
+    r"|^(?:" + "|".join(map(re.escape, ENGLISH_SUBJECTS)) + r")[\s_-]+(.+)$",
     re.IGNORECASE,
 )
 
@@ -234,7 +148,8 @@ def map_columns(
         for h in names:
             if h in mapping or not isinstance(h, str):
                 continue
-            match = _QUALIFIED_HEADER.fullmatch(h.strip())
+            normalized, _offsets = normalize_unicode(h)
+            match = _QUALIFIED_HEADER.fullmatch(normalized.strip())
             if match is not None:
                 field = match.group(1) or match.group(2)
                 classified = classify_schema_columns([field])
@@ -251,8 +166,9 @@ def map_columns(
             mapping[h] = _HEADER_MAP[norm]
         else:
             # 부분 매칭 — "신청인 성명" 같은 합성 헤더
+            normalized, _offsets = normalize_unicode(h)
             for key, lbl in _HEADER_MAP.items():
-                if len(key) >= 2 and key in h:
+                if len(key) >= 2 and key in normalized:
                     mapping[h] = lbl
                     break
     return mapping

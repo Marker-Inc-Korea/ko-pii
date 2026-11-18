@@ -5,7 +5,8 @@ import re
 import unicodedata
 from collections.abc import Iterator
 
-from ko_pii.dictionaries.field_labels import FIELD_LABELS, FIELD_LABELS_NAME
+from ko_pii.dictionaries.field_labels import FIELD_BOUNDARY_LABELS, FIELD_LABELS_NAME
+from ko_pii.dictionaries.table_headers import ENGLISH_SUBJECTS, KOREAN_SUBJECTS
 
 
 PERSON_NAME_LABELS = frozenset({"성명", "성함"})
@@ -38,7 +39,19 @@ _LABEL_BEFORE = re.compile(_label_prefix(FIELD_LABELS_NAME)
                           + r"(?:\*\*|__|`|[" + re.escape(_OPENING_QUOTES) + r"])?\Z")
 _STRONG_FIELD = re.compile(_label_prefix(PERSON_NAME_LABELS))
 _VALUE_END = re.compile(r" *\Z| *(?=[" + re.escape(_LINE_BREAK_CHARS + "\t,;|/&().[]{}-·*_`" + _CLOSING_QUOTES) + r"])")
-_NEXT_FIELD = re.compile(r" +(?:" + _labels_pattern(FIELD_LABELS) + r")[ \t]*[:：=]")
+_ANNOTATION = r" *\([^" + re.escape("()\t" + _LINE_BREAK_CHARS) + r"]{0,32}\)"
+_SUBJECT = (r"(?:(?:" + "|".join(map(re.escape, KOREAN_SUBJECTS)) + r")[ _-]*"
+            r"|(?:" + "|".join(map(re.escape, ENGLISH_SUBJECTS)) + r")[ _-]+)")
+_NEXT_FIELD = re.compile(
+    r" +(?P<next_subject>" + _SUBJECT + r")?"
+    r"(?:(?P<next_square>\[)|(?P<next_corner>【)|(?P<next_bold>\*\*)|(?P<next_strong>__)|(?P<next_code>`))?"
+    r"(?(next_subject)|(?:" + _SUBJECT + r")?)"
+    r"(?:" + _labels_pattern(FIELD_BOUNDARY_LABELS) + r")"
+    r"(?P<next_annotation>" + _ANNOTATION + r")?"
+    r"(?(next_square)\])(?(next_corner)】)(?(next_bold)\*\*)(?(next_strong)__)(?(next_code)`)"
+    r"(?(next_annotation)|(?:" + _ANNOTATION + r")?)"
+    r"[ \t]*[:：=]", re.IGNORECASE,
+)
 _LABEL_ENDINGS = frozenset(label[-1] for label in FIELD_LABELS_NAME) | {")", "]", "】", "*", "_", "`"}
 _LIST_SEPARATOR = re.compile(
     r"[ \t]*(?:(?:\*\*|__|`|[" + re.escape(_CLOSING_QUOTES) + r"])[ \t]*)?"

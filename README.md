@@ -42,6 +42,8 @@ assert result.vault.reveal("<EMAIL_1>") == "demo@example.com"
 - 선택적 문서 형식 처리와 Vault 암호화. ML/RAG 연동은 별도 extras이며 코어에 필요하지 않습니다.
 
 최신 릴리스의 정확한 변경 범위는 [CHANGELOG](CHANGELOG.md)를 확인하세요.
+한 줄 양식의 항목 경계와 생년월일·Unicode 표 헤더는 [실행 예제](examples/form_fields.py)와
+[표 처리 안내](docs/STRUCTURED_PROCESSING.md)에서 확인할 수 있습니다.
 
 ## CLI와 같은 정책 재사용
 

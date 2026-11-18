@@ -37,6 +37,9 @@ def main() -> None:
             raise ValueError("source tree imported instead of installed wheel")
         output = run([str(ROOT / "examples/quickstart.py")], work)
         assert "<EMAIL_1>" in output and "<PHONE_1>" in output
+        forms = run([str(ROOT / "examples/form_fields.py")], work)
+        assert "<DT_BIRTH_1>" in forms and "[생년월일]" in forms
+        assert all(value not in forms for value in ("John Smith", "김빛나라", "1988-01-01", "demo@example.com"))
         for kind, name in (("text", "input.txt"), ("json", "request.json")):
             destination = Path(work) / f"result.{kind}"
             run(["-m", "ko_pii.cli", str(ROOT / "examples" / name),
@@ -46,7 +49,7 @@ def main() -> None:
             assert "demo@example.com" not in value and "010-2345-6789" not in value
             if kind == "json":
                 assert json.loads(value)["count"] == 2
-    print("README Python, text CLI and structured CLI examples passed")
+    print("README Python, form/table, text CLI and structured CLI examples passed")
 
 
 if __name__ == "__main__":

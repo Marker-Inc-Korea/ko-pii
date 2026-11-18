@@ -67,6 +67,7 @@ jobs:
           tests/unit/test_financial_boundaries.py
           tests/unit/test_person_field_values.py
           tests/unit/test_person_field_lists.py tests/unit/test_person_extended_fields.py
+          tests/unit/test_form_field_boundaries.py tests/unit/test_birth_columns.py
           tests/unit/test_detector_interval_index.py
           tests/unit/test_person_line_boundaries.py tests/unit/test_person_declarations.py
           tests/unit/test_address_pipeline.py tests/unit/test_overlap_protection.py
@@ -93,6 +94,7 @@ jobs:
           tests/unit/eval/test_external.py
           tests/unit/eval/test_slices.py
           tests/contracts/test_previous_release.py
+          tests/contracts/test_table_headers.py
       - name: Annotate portable test failures
         if: failure()
         shell: python

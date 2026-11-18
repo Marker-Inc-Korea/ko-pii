@@ -16,6 +16,7 @@ from ko_pii import Anonymizer, detect_all
 from ko_pii.patterns import email
 from ko_pii.patterns import account
 from ko_pii.patterns import address, birth, person
+from ko_pii.context.name_fields import next_field_after_name
 
 
 def _elapsed(text: str) -> float:
@@ -154,3 +155,27 @@ def test_many_distinct_literal_names_and_repeated_mentions_stay_sub_quadratic(pr
 
     small, large = elapsed(500), elapsed(2_000)
     assert large < small * 8, f"literal name scaling: {small:.3f}s -> {large:.3f}s"
+
+
+@pytest.mark.parametrize("tail", ["X", "(", "(work)", "(work)X"])
+@pytest.mark.parametrize("key", ["전화번호", "신청인", "고객 전화번호", "customer_email"])
+def test_following_field_without_a_colon_does_not_partition_long_whitespace(tail, key):
+    source = " " + key + " " * 100_000 + tail
+    start = time.process_time()
+    assert not next_field_after_name(source, 0)
+    assert time.process_time() - start < 1.0
+
+
+def test_dense_forms_with_following_metadata_stay_sub_quadratic():
+    def elapsed(count: int) -> float:
+        source = "성명: John Smith **전화번호**: public 생년월일(양력): public\n" * count
+        samples = []
+        for _ in range(3):
+            gc.collect()
+            start = time.process_time()
+            found = list(person.detect(source))
+            samples.append(time.process_time() - start)
+            assert len(found) == count
+        return median(samples)
+    small, large = elapsed(500), elapsed(2_000)
+    assert large < small * 8, f"form metadata scaling: {small:.3f}s -> {large:.3f}s"
