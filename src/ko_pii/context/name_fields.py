@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import re
+import unicodedata
+from collections.abc import Iterator
 
 from ko_pii.dictionaries.field_labels import FIELD_LABELS, FIELD_LABELS_NAME
 
@@ -21,15 +23,20 @@ def _labels_pattern(labels: frozenset[str]) -> str:
     )
 
 
-_LABEL_BEFORE = re.compile(
-    r"(?<![가-힣A-Za-z0-9_])"
-    r"(?:(?P<square>\[)|(?P<corner>【)|(?P<bold>\*\*)|(?P<strong>__)|(?P<code>`))?"
-    r"(?P<label>(?:" + _labels_pattern(FIELD_LABELS_NAME) + r"))"
-    r"(?:[ \t]*\((?:한글|국문|실명)\))?"
-    r"(?(square)\])(?(corner)】)(?(bold)\*\*)(?(strong)__)(?(code)`)"
-    r"(?:[ \t]*[:：=|]" + _GAP + r"*|" + _GAP + r"+)"
-    + r"(?:\*\*|__|`|[" + re.escape(_OPENING_QUOTES) + r"])?\Z"
-)
+def _label_prefix(labels: frozenset[str]) -> str:
+    return (
+        r"(?<!\w)"
+        r"(?:(?P<square>\[)|(?P<corner>【)|(?P<bold>\*\*)|(?P<strong>__)|(?P<code>`))?"
+        r"(?P<label>(?:" + _labels_pattern(labels) + r"))"
+        r"(?:[ \t]*\((?:한글|국문|실명|영문|영어|한자)\))?"
+        r"(?(square)\])(?(corner)】)(?(bold)\*\*)(?(strong)__)(?(code)`)"
+        r"(?:[ \t]*[:：=|]" + _GAP + r"*|" + _GAP + r"+)"
+    )
+
+
+_LABEL_BEFORE = re.compile(_label_prefix(FIELD_LABELS_NAME)
+                          + r"(?:\*\*|__|`|[" + re.escape(_OPENING_QUOTES) + r"])?\Z")
+_STRONG_FIELD = re.compile(_label_prefix(PERSON_NAME_LABELS))
 _VALUE_END = re.compile(r" *\Z| *(?=[" + re.escape(_LINE_BREAK_CHARS + "\t,;|/&().[]{}-·*_`" + _CLOSING_QUOTES) + r"])")
 _NEXT_FIELD = re.compile(r" +(?:" + _labels_pattern(FIELD_LABELS) + r")[ \t]*[:：=]")
 _LABEL_ENDINGS = frozenset(label[-1] for label in FIELD_LABELS_NAME) | {")", "]", "】", "*", "_", "`"}
@@ -50,13 +57,28 @@ def name_field_before(text: str, start: int, window: int = 6) -> str | None:
     if not head or head[-1] not in _LABEL_ENDINGS:
         return None
     match = _LABEL_BEFORE.search(text, begin, start)
-    if match is None:
+    if match is None or not _label_boundary(text, match.start()):
         return None
     return match.group("label").replace(" ", "").replace("\t", "")
 
 
 def bounded_name_value_end(text: str, end: int) -> bool:
     return bool(_VALUE_END.match(text, end) or _NEXT_FIELD.match(text, end))
+
+
+def strong_name_field_starts(text: str) -> Iterator[tuple[int, str]]:
+    for match in _STRONG_FIELD.finditer(text):
+        if _label_boundary(text, match.start()):
+            yield match.end(), match.group("label").replace(" ", "").replace("\t", "")
+
+
+def _label_boundary(text: str, start: int) -> bool:
+    # Python's \w excludes combining marks, which still belong to a preceding word.
+    return start == 0 or not unicodedata.category(text[start - 1]).startswith("M")
+
+
+def next_field_after_name(text: str, end: int) -> bool:
+    return _NEXT_FIELD.match(text, end) is not None
 
 
 def name_list_separator(text: str, start: int, end: int) -> bool:

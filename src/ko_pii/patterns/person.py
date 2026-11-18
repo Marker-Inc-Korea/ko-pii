@@ -17,6 +17,7 @@ from bisect import bisect_left
 from typing import Any, Iterable, Iterator
 
 from ko_pii.context.address_units import has_unit_tail
+from ko_pii.context.literal_name_fields import literal_name_fields, literal_name_mentions
 from ko_pii.context.context_rules import NameCandidate, _agency_sentence_boundaries, score_candidate
 from ko_pii.context.name_dictionary import NameDictionary
 from ko_pii.context.name_fields import (
@@ -490,14 +491,61 @@ def _detect_with_dict(
     _agency_cache: dict[tuple[int, int], bool] = {}
     agency_boundaries = _agency_sentence_boundaries(text)
 
+    parsed_fields = list(literal_name_fields(text))
+    excluded_fields = [candidate for candidate in parsed_fields if is_person_excluded(candidate.name, exclusions)]
+    excluded_spans = {(candidate.start, candidate.end) for candidate in excluded_fields}
+    excluded_spans.update((start, end) for start, end, _ending in
+                          literal_name_mentions(text, [candidate.name for candidate in excluded_fields]))
+    literal_fields = [candidate for candidate in parsed_fields
+                      if not _reject_labeled_value(candidate.name, "이름" if candidate.parenthetical else candidate.label, exclusions)
+                      and candidate.name.replace(" ", "") not in _UNSET_NAME_VALUES]
+    literal_by_span = {(candidate.start, candidate.end): candidate for candidate in literal_fields}
+    literal_spans = {(start, end): ending for start, end, ending in
+                     literal_name_mentions(text, [candidate.name for candidate in literal_fields])}
+    # A declared value may be wrapped in underscores; reuse still needs word boundaries.
+    literal_spans.update({span: candidate.ending for span, candidate in literal_by_span.items()})
+    literal_values: list[tuple[NameCandidate, str | None, float, list[str]]] = []
+    for (start, end), ending in sorted(literal_spans.items()):
+        direct = literal_by_span.get((start, end))
+        evidence = (["pattern:person_name_field", "pattern:person_literal_name_field",
+                     f"pos:field_label({direct.label})"] if direct else
+                    ["pos:confirmed_name_field_reuse", "pattern:person_literal_name_field"])
+        if ending is not None:
+            evidence.append(f"pos:confirmed_name_ending({ending})")
+        literal_values.append((NameCandidate(text[start:end], start, end), None, 0.9, evidence))
+    occupied: list[tuple[int, int]] = []
+    for start, end in sorted(literal_spans.keys() | excluded_spans):
+        if occupied and start < occupied[-1][1]:
+            occupied[-1] = occupied[-1][0], max(occupied[-1][1], end)
+        else:
+            occupied.append((start, end))
+    literal_starts = [start for start, _end in occupied]
+    extended_direct = [candidate for candidate in literal_fields if not candidate.legacy]
+    # Exact excluded values also reserve their spans against partial legacy candidates.
+    extended_direct_starts = sorted({(candidate.start, candidate.end) for candidate in extended_direct} | excluded_spans)
+    extended_starts = [start for start, _end in extended_direct_starts]
+    extended_ends: list[int] = []
+    for _start, end in extended_direct_starts:
+        extended_ends.append(max(extended_ends[-1], end) if extended_ends else end)
+
+    def claimed(start: int, end: int) -> bool:
+        index = bisect_left(literal_starts, end) - 1
+        return index >= 0 and occupied[index][1] > start
+
+    def reserved(start: int, end: int) -> bool:
+        index = bisect_left(extended_starts, end) - 1
+        return index >= 0 and extended_ends[index] > start
+
     labeled_values = {
         (candidate.start, candidate.end): (candidate, label)
         for candidate, label in _labeled_name_values(text, exclusions)
+        if not reserved(candidate.start, candidate.end)
     }
     field_names = {candidate.name for candidate, _ in labeled_values.values()}
     declarations = {
         candidate.start: (candidate, label, ending)
         for candidate, label, ending in _declared_name_values(text, exclusions, field_names)
+        if not reserved(candidate.start, candidate.end)
     }
     field_names.update(candidate.name for candidate, _, _ in declarations.values())
     for candidate, label in labeled_values.values():
@@ -512,6 +560,8 @@ def _detect_with_dict(
     # 누적 사전 부스트로 잡힘
     macro_spans: set[tuple[int, int]] = set()
     for p_start, p_end, agency, person_text, title in _macro_matches(text):
+        if claimed(p_start, p_end):
+            continue
         # 합리성 추가 검증 — 이름 부분이 common_word 가 아닌지
         if _is_common_or_excluded(person_text, exclusions):
             continue
@@ -534,6 +584,8 @@ def _detect_with_dict(
     emitted: list[tuple[Any, ...]] = []  # (cand, particle, score, evidence)
     # 매크로로 잡은 것은 우선 emit
     for p_start, p_end, agency, person_text, title in _macro_matches(text):
+        if claimed(p_start, p_end):
+            continue
         if _is_common_or_excluded(person_text, exclusions):
             continue
         if is_field_label(person_text) or is_title(person_text):
@@ -550,6 +602,8 @@ def _detect_with_dict(
     # ------ Pass A
     for m in _CANDIDATE.finditer(text):
         raw = m.group(1)
+        if claimed(m.start(), m.end()):
+            continue
         if is_person_excluded(raw, exclusions):
             continue
         # 매크로로 이미 잡힌 span 은 중복 emit 방지
@@ -727,6 +781,8 @@ def _detect_with_dict(
     # 보강 후 임계값 재평가.
     sentence_boundaries = _find_sentence_boundaries(text)
     strong_sentence_ids: set[int] = set()
+    for candidate, _label in labeled_values.values():
+        strong_sentence_ids.add(_sentence_id(candidate.start, sentence_boundaries))
     for cand, _p, score_v, _ev in emitted:
         if score_v >= 0.70:
             sid = _sentence_id(cand.start, sentence_boundaries)
@@ -747,6 +803,8 @@ def _detect_with_dict(
         still_pending.append((cand, score_v, ev, particle))
 
     # 모두 emit
+    for cand, particle, score_v, ev in literal_values:
+        yield _emit(cand, particle, score_v, ev)
     for cand, particle, score_v, ev in emitted + co_boosted:
         yield _emit(cand, particle, score_v, ev)
 

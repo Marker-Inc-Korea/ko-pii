@@ -16,7 +16,7 @@ class TestKoreanNames:
 
 class TestForeignNames:
     def test_long_names_classified_foreign(self):
-        # 5자 이상 한글 인명 = 거의 외래어 (룰로 안전 분리 가능)
+        # Legacy string-shape tag, not a nationality or masking-policy decision.
         for name in ("소피마르소", "아오이유우", "마이클잭슨"):
             assert classify_name_origin(name) == "foreign"
             assert is_foreign_name(name)
@@ -24,7 +24,7 @@ class TestForeignNames:
     def test_4char_foreign_limitation(self):
         # 4자 한글 + 한국 surname 시작 = 룰만으론 외래어 판별 어려움
         # ("조지부시" 는 "조" surname 으로 시작 → korean 분류)
-        # 이건 룰 기반의 본질적 한계. 사용자가 필요 시 직접 사전 추가.
+        # This result must not be used to exempt a person from masking.
         assert classify_name_origin("조지부시") == "korean"
 
     def test_r_initial_foreign(self):

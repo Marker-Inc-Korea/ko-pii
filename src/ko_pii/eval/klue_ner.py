@@ -157,11 +157,10 @@ def evaluate_person(
     ``mode``:
       - ``"partial"`` : span 겹침 = TP (오프셋 차이 허용)
       - ``"strict"``  : 정확 일치
-    ``fullname_only`` : True 면 *한글 2자+ 풀네임* 만 gold 로 인정.
-      - 1자 단독 성씨 ("박", "김") — PII 아님 (확실성 부족)
-      - 영문 1자 ("A", "B") — 이미 가명화된 표기
-      - 외래어·외국인명 (알파치노, 저우쉰 등) — 한국 공공 가명화 대상 아님
-      → 본 라이브러리의 *현실적* 평가 대상에 맞춤.
+    ``fullname_only`` : True 면 3~5자 한글 표기로 gold를 제한하는 레거시 평가 옵션.
+      이 표본 제한은 개인정보 여부나 보호 대상의 판정이 아니며 전체 PERSON 성능을
+      나타내지 않는다. ``korean_only`` 도 문자열 형태 태그에 따른 추가 표본 제한이다.
+      과거 결과의 재현을 위해 필터 동작을 유지한다.
     """
     from ko_pii.patterns.person import detect as detect_person
 
@@ -178,7 +177,7 @@ def evaluate_person(
         if not all("가" <= ch <= "힣" for ch in text):
             return False
         if korean_only:
-            # Method 7: 한국 이름만 평가 (외국인명 제외)
+            # Legacy shape-filtered subset, not verified nationality.
             from ko_pii.context.name_origin import classify_name_origin
             return classify_name_origin(text) == "korean"
         return True
@@ -190,7 +189,7 @@ def evaluate_person(
             if s.label == "PS" and _is_valid_korean_fullname(s.text)
         ]
         predicted_raw = list(detect_person(sent.text))
-        # korean_only 모드면 외국인 origin 검출도 평가에서 제외
+        # Preserve the historical subset filter; it does not define masking eligibility.
         if korean_only:
             predicted = [
                 p for p in predicted_raw

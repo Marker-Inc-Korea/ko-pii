@@ -128,3 +128,29 @@ def test_dense_korean_records_stay_sub_quadratic(detector, row, count_per_row) -
 
     small, large = elapsed(500), elapsed(2_000)
     assert large < small * 8, f"dense record scaling: {small:.3f}s -> {large:.3f}s"
+
+
+@pytest.mark.parametrize("prefix", ["Alias", "A" * 119])
+@pytest.mark.parametrize("excluded", [False, True])
+def test_many_distinct_literal_names_and_repeated_mentions_stay_sub_quadratic(prefix: str, excluded: bool) -> None:
+    def name(index: int) -> str:
+        suffix = ""
+        for _ in range(4):
+            index, digit = divmod(index, 26)
+            suffix = chr(65 + digit) + suffix
+        return prefix + " " + suffix
+
+    def elapsed(count: int) -> float:
+        source = "\n".join("성명: " + name(index) + "\n" + name(index) for index in range(count))
+        exclusions = [name(index) for index in range(count)] if excluded else None
+        samples = []
+        for _ in range(3):
+            gc.collect()
+            start = time.process_time()
+            found = list(person.detect(source, exclusions=exclusions))
+            samples.append(time.process_time() - start)
+            assert len(found) == (0 if excluded else count * 2)
+        return median(samples)
+
+    small, large = elapsed(500), elapsed(2_000)
+    assert large < small * 8, f"literal name scaling: {small:.3f}s -> {large:.3f}s"

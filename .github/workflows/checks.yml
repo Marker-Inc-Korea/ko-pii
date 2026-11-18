@@ -66,7 +66,8 @@ jobs:
           tests/unit/test_financial_pipeline.py
           tests/unit/test_financial_boundaries.py
           tests/unit/test_person_field_values.py
-          tests/unit/test_person_field_lists.py tests/unit/test_detector_interval_index.py
+          tests/unit/test_person_field_lists.py tests/unit/test_person_extended_fields.py
+          tests/unit/test_detector_interval_index.py
           tests/unit/test_person_line_boundaries.py tests/unit/test_person_declarations.py
           tests/unit/test_address_pipeline.py tests/unit/test_overlap_protection.py
           tests/unit/test_korean_workflow.py
