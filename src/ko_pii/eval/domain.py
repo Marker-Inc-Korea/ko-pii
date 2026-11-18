@@ -21,15 +21,16 @@ from ko_pii.eval.synth import GoldDocument, GoldSpan
 from ko_pii.eval.output import assess_output, summarize_output, compare_output_reports
 from ko_pii.policy import validate_strategies
 from ko_pii.io_.atomic import write_text_atomic
-from ko_pii.labels import ALL_LABELS
+from ko_pii.labels import ALL_LABELS, validate_label_filter
 from ko_pii.patterns.person import normalize_exclusions
-from ko_pii.structured import loads_json
+from ko_pii.structured import StructuredLimits, loads_json
 
 MAX_DATASET_BYTES = 16 * 1024 * 1024
 MAX_DOCUMENTS = 10_000
 MAX_DOCUMENT_CHARS = 100_000
 MAX_SPANS = 2_000
 REPORT_SCHEMA_VERSION = 1
+MAX_REPORT_BYTES = 64 * 1024 * 1024
 
 
 @dataclass(frozen=True)
@@ -126,6 +127,34 @@ def _span_rows(spans: Iterable[tuple[str, int, int]]) -> list[dict[str, Any]]:
     return [{"label": label, "start": start, "end": end} for label, start, end in sorted(spans)]
 
 
+def _validate_documents(documents: list[LabeledDocument]) -> None:
+    """Validate the entire Python input before filtering labels or running detection."""
+    if not documents:
+        raise ValueError("dataset must contain at least one document")
+    if len(documents) > MAX_DOCUMENTS:
+        raise ValueError("dataset exceeds the document count limit")
+    seen = set()
+    for doc in documents:
+        if (not isinstance(doc, LabeledDocument) or not isinstance(doc.id, str)
+                or not doc.id.strip() or len(doc.id) > 128 or doc.id in seen):
+            raise ValueError("evaluation requires bounded documents with unique short ids")
+        seen.add(doc.id)
+        if (not isinstance(doc.gold, GoldDocument) or not isinstance(doc.gold.text, str)
+                or len(doc.gold.text) > MAX_DOCUMENT_CHARS):
+            raise ValueError("text exceeds the document character limit or is not a string")
+        if any(0xD800 <= ord(c) <= 0xDFFF for c in doc.gold.text):
+            raise ValueError("evaluation text contains an invalid Unicode surrogate")
+        if (not isinstance(doc.gold.spans, list) or len(doc.gold.spans) > MAX_SPANS
+                or any(not isinstance(span, GoldSpan) for span in doc.gold.spans)):
+            raise ValueError("spans must be a bounded list of GoldSpan values")
+        _spans([{"label": s.label, "start": s.start, "end": s.end} for s in doc.gold.spans],
+               len(doc.gold.text), set(ALL_LABELS))
+        if any(s.text != doc.gold.text[s.start:s.end] for s in doc.gold.spans):
+            raise ValueError("gold span text does not match its source offsets")
+        _slice_value(doc.domain)
+        _slice_value(doc.variant)
+
+
 def _counts(metric: PerLabelMetrics) -> dict[str, Any]:
     return {
         "tp": metric.tp, "fp": metric.fp, "fn": metric.fn,
@@ -195,16 +224,13 @@ def evaluate(
     output_strategies: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     """Evaluate detection and optionally actual replacement of annotated spans."""
-    if not documents:
-        raise ValueError("dataset must contain at least one document")
-    ids = [doc.id for doc in documents]
-    if (len(documents) > MAX_DOCUMENTS
-            or any(not isinstance(i, str) or not i.strip() or len(i) > 128 for i in ids)
-            or len(set(ids)) != len(ids)):
-        raise ValueError("evaluation requires bounded documents with unique short ids")
+    _validate_documents(documents)
+    if output_mode is not None and not isinstance(output_mode, ProcessingMode):
+        raise ValueError("output_mode must be a ProcessingMode or None")
     overrides = validate_strategies(output_strategy, output_strategies)
-    active = set(ALL_LABELS if labels is None else labels)
-    if not active or not active <= set(ALL_LABELS):
+    selected = validate_label_filter(labels, name="labels")
+    active = set(ALL_LABELS if selected is None else selected)
+    if not active:
         raise ValueError("evaluated labels must be a nonempty subset of ko-pii labels")
     exclusions = sorted(normalize_exclusions(person_exclusions))
     canonical: list[dict[str, Any]] = [{
@@ -415,14 +441,17 @@ def main(argv: list[str] | None = None) -> int:
         if provenance is not None:
             report["provenance"] = provenance
         if args.baseline:
-            baseline = json.loads(_read_json_file(args.baseline, 64 * 1024 * 1024))
+            baseline = loads_json(_read_json_file(args.baseline, MAX_REPORT_BYTES), limits=StructuredLimits(
+                max_chars=MAX_REPORT_BYTES, max_string_chars=MAX_REPORT_BYTES,
+                max_nodes=MAX_REPORT_BYTES,
+            ))
             if not isinstance(baseline, dict):
                 raise ValueError("baseline must be a JSON object")
             report["comparison"] = compare_reports(report, baseline)
             if args.fail_on_new_retained and "output" not in report["comparison"]:
                 raise ValueError("baseline requires output evaluation for retention comparison")
         serialized = json.dumps(report, ensure_ascii=False, indent=2) + "\n"
-        if len(serialized.encode("utf-8")) > 64 * 1024 * 1024:
+        if len(serialized.encode("utf-8")) > MAX_REPORT_BYTES:
             raise ValueError("report exceeds 64 MiB; split the evaluation dataset")
         write_text_atomic(output, serialized)
     except (OSError, ValueError) as exc:

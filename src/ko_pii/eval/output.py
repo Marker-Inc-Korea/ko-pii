@@ -4,7 +4,9 @@ from __future__ import annotations
 from typing import Any
 
 from ko_pii.anonymizer import AnonymizationResult
+from ko_pii.core.modes import ProcessingMode
 from ko_pii.eval.synth import GoldDocument
+from ko_pii.policy import validate_strategies
 
 OUTPUT_STATES = (
     "replaced", "missed", "retained_by_policy", "partially_replaced",
@@ -62,6 +64,14 @@ def compare_output_reports(current: dict[str, Any], baseline: dict[str, Any]) ->
     for key in ("contract", "mode", "strategy", "strategies"):
         if new.get(key, {}) != old.get(key, {}):
             raise ValueError("output policies differ; do not compare them as code regressions")
+    if (new.get("contract") != "source-span-substitution-v1"
+            or new.get("mode") not in [mode.value for mode in ProcessingMode]):
+        raise ValueError("invalid output evaluation contract or mode")
+    strategy = new.get("strategy")
+    if not isinstance(strategy, str):
+        raise ValueError("invalid output evaluation strategy")
+    validate_strategies(strategy, new.get("strategies", {}))
+    source_documents = {row["id"]: row for row in current["documents"]}
 
     def index(report: dict[str, Any]) -> dict[tuple[str, str, int, int], str]:
         rows = report.get("documents")
@@ -70,7 +80,8 @@ def compare_output_reports(current: dict[str, Any], baseline: dict[str, Any]) ->
         result: dict[tuple[str, str, int, int], str] = {}
         seen = set()
         for row in rows:
-            if not isinstance(row, dict) or not isinstance(row.get("id"), str) or row["id"] in seen:
+            if (not isinstance(row, dict) or not isinstance(row.get("id"), str)
+                    or row["id"] in seen or row["id"] not in source_documents):
                 raise ValueError("invalid output evaluation document")
             seen.add(row["id"])
             if not isinstance(row.get("spans"), list):
@@ -79,13 +90,24 @@ def compare_output_reports(current: dict[str, Any], baseline: dict[str, Any]) ->
                 if not isinstance(span, dict) or set(span) != {"label", "start", "end", "state", "covered_source_characters"}:
                     raise ValueError("invalid output evaluation span")
                 if (not isinstance(span["label"], str) or type(span["start"]) is not int
-                        or type(span["end"]) is not int or not 0 <= span["start"] < span["end"]
+                        or type(span["end"]) is not int
+                        or not 0 <= span["start"] < span["end"] <= source_documents[row["id"]]["characters"]
+                        or not isinstance(span["state"], str)
                         or span["state"] not in OUTPUT_STATES):
                     raise ValueError("invalid output evaluation state")
+                covered, length = span["covered_source_characters"], span["end"] - span["start"]
+                if (type(covered) is not int or not 0 <= covered <= length
+                        or (span["state"] in ("missed", "retained_by_policy") and covered != 0)
+                        or (span["state"] == "partially_replaced" and not 0 < covered < length)
+                        or (span["state"] in ("replaced", "partial_strategy", "literal_retained")
+                            and covered != length)):
+                    raise ValueError("output evaluation state and covered characters disagree")
                 key = (row["id"], span["label"], span["start"], span["end"])
                 if key in result:
                     raise ValueError("duplicate output evaluation span")
                 result[key] = span["state"]
+        if seen != source_documents.keys():
+            raise ValueError("output evaluation document set differs")
         return result
 
     now, previous = index(new), index(old)
