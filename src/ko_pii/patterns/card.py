@@ -33,7 +33,15 @@ CATEGORY = "일반개인정보"
 _VALID_BIN_FIRST_DIGITS: frozenset[str] = frozenset({"2", "3", "4", "5", "6", "9"})
 
 # An explicit delimiter may be line-wrapped; whitespace-only groups stay on one line.
-_SEPARATOR = r"(?:[-./](?:\r\n|[ \r\n])?| {1,2})"
+_HARD_SEPARATOR = r"[-./](?:\r\n|[ \r\n])?"
+_SEPARATOR = r"(?:" + _HARD_SEPARATOR + r"| {1,2})"
+_HARD_BLOCK = r"[0-9]+(?:" + _HARD_SEPARATOR + r"[0-9]+)*"
+_SHORT_BLOCK = r"[0-9]{1,7}(?![0-9])(?:" + _HARD_SEPARATOR + r"[0-9]+)*"
+# Inspect whole connected groups before format/checksum validation. Space-separated
+# complete numbers remain separate fields rather than one oversized candidate.
+_CANDIDATE = re.compile(
+    r"(?<![0-9])(?:" + _SHORT_BLOCK + r"(?: {1,2}" + _SHORT_BLOCK + r")*|" + _HARD_BLOCK + r")"
+)
 _FOUR_GROUPS = (r"[0-9]{4}" + _SEPARATOR) * 3
 _PATTERN = re.compile(
     r"(?<![0-9])"
@@ -60,8 +68,10 @@ def _brand_for(first_digit: str) -> str:
 
 
 def detect(text: str) -> Iterator[DetectionResult]:
-    for m in _PATTERN.finditer(text):
+    for m in _CANDIDATE.finditer(text):
         raw = m.group(0)
+        if _PATTERN.fullmatch(raw) is None:
+            continue
         digits = re.sub(r"\D", "", raw)
         if not (13 <= len(digits) <= 19):
             continue

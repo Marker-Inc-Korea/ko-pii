@@ -129,6 +129,21 @@ def test_real_stdio_korean_declaration_and_nested_address_restore_every_piece(tm
     assert all(value not in log for value in ("김다은", "테헤란로", "010-1234-5678"))
 
 
+def test_real_stdio_financial_quotes_keep_the_numeric_vault_value(tmp_path):
+    source = "계좌번호=“110-123-456789”\n카드: 4111-1111-1111-1111"
+
+    async def exercise(session):
+        masked = payload(await session.call_tool("anonymize", {"text": source}))
+        assert masked["text"] == "계좌번호=“<ACCOUNT_1>”\n카드: <CARD_1>"
+        value = payload(await session.call_tool("reveal", {
+            "vault_id": masked["vault_id"], "token": "<ACCOUNT_1>",
+        }))
+        assert value["original"] == "110-123-456789"
+
+    log = run_stdio(tmp_path, exercise)
+    assert "110-123-456789" not in log and "4111-1111-1111-1111" not in log
+
+
 @pytest.mark.parametrize("name,arguments", [
     ("anonymize", {}),
     ("anonymize", {"text": 42}),

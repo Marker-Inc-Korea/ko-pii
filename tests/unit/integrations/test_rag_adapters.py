@@ -129,14 +129,18 @@ def test_empty_include_has_same_validation_as_core():
         KoPiiRedactor(include=[])
 
 
-def test_korean_business_note_has_the_same_protection_in_rag_paths():
+@pytest.mark.parametrize("source,expected", [
+    ("담당자는 김다은입니다.\u2028주소: 서울특별시 강남구 테헤란로 152 (010-1234-5678)",
+     "담당자는 [성명]입니다.\u2028주소: [주소][전화번호][주소]"),
+    ("계좌번호=“110-123-456789”\n카드: 4111-1111-1111-1111",
+     "계좌번호=“[계좌번호]”\n카드: [카드번호]"),
+])
+def test_korean_business_note_has_the_same_protection_in_rag_paths(source, expected):
     documents = pytest.importorskip("langchain_core.documents")
     schema = pytest.importorskip("llama_index.core.schema")
     from ko_pii.integrations.langchain import KoPiiRedactor
     from ko_pii.integrations.llamaindex import KoPiiNodePostprocessor
 
-    source = "담당자는 김다은입니다.\u2028주소: 서울특별시 강남구 테헤란로 152 (010-1234-5678)"
-    expected = "담당자는 [성명]입니다.\u2028주소: [주소][전화번호][주소]"
     doc = documents.Document(page_content=source, metadata={"note": source})
     result = KoPiiRedactor(strategy="redact").invoke(doc)
     assert result.page_content == expected and result.metadata == {"note": expected}

@@ -14,6 +14,7 @@ import pytest
 
 from ko_pii import Anonymizer, detect_all
 from ko_pii.patterns import email
+from ko_pii.patterns import account
 
 
 def _elapsed(text: str) -> float:
@@ -79,3 +80,27 @@ def test_email_long_local_run_without_valid_domain_does_not_retry_each_word(suff
     found = list(email.detect(text))
     assert time.process_time() - start < 1.0
     assert len(found) == int(suffix.endswith("com"))
+
+
+@pytest.mark.parametrize("anchor", ["계좌", "계좌번호", "신한은행", '계좌번호= "'])
+def test_account_label_without_a_value_does_not_partition_long_whitespace(anchor: str) -> None:
+    text = anchor + " " * 100_000 + "X"
+    start = time.process_time()
+    assert list(account.detect(text)) == []
+    assert time.process_time() - start < 1.0
+
+
+def test_dense_account_bank_anchors_stay_sub_quadratic() -> None:
+    def elapsed(count: int) -> float:
+        source = "신한은행 110-123-456789\n" * count
+        samples = []
+        for _ in range(3):
+            gc.collect()
+            start = time.process_time()
+            result = list(account.detect(source))
+            samples.append(time.process_time() - start)
+            assert len(result) == count
+        return median(samples)
+
+    small, large = elapsed(1_000), elapsed(4_000)
+    assert large < small * 8, f"account scaling: {small:.3f}s -> {large:.3f}s"
