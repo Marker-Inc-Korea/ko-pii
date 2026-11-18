@@ -62,3 +62,29 @@ def test_adjacent_person_and_phone_are_not_swallowed_or_displace_the_address():
     assert result.text == "주소: <ADDRESS_1>\n성명: <PERSON_1>\n전화: <PHONE_1>"
     saved = ReversibleVault.from_dict(engine.vault.to_dict())
     assert saved.reveal("<ADDRESS_1>") == BASE + ", 101동, 1202호"
+
+
+@pytest.mark.parametrize("detail", [
+    " B1층", " b2층 B101호", " 지하1층", " 지하 1층 101호실", " 지상 2층",
+    " A동101호", " A동 지하1층 101호실", " 가동101호", " 101동1202호",
+    " 101동/1202호", " 101동-1202호", " B101호실",
+])
+@pytest.mark.parametrize("form", ["NFC", "NFD"])
+def test_typed_building_and_basement_units_are_fully_protected(detail, form):
+    canonical = BASE + detail
+    assert [item.text for item in detect(canonical)] == [canonical]
+    raw = unicodedata.normalize(form, canonical)
+    source = "주소: " + raw + "에서 접수; 전화: 010-1234-5678"
+    vault = ReversibleVault(salt="address-units", secret_key="test", fingerprint_iterations=1)
+    result = Anonymizer(vault=vault).process(source)
+    assert result.text == "주소: <ADDRESS_1>에서 접수; 전화: <PHONE_1>"
+    assert vault.reveal("<ADDRESS_1>") == raw
+
+
+@pytest.mark.parametrize("tail", [
+    " 3호선으로 이동", " 101동작 시험", " A동작은 오류", " 가동률 상승", " 10층수 통계",
+    " 101호실적 증가", " 101동네 방문", " 12층위 분류",
+])
+def test_unit_prefix_inside_an_ordinary_word_is_not_an_address_detail(tail):
+    assert [item.text for item in detect(BASE + tail)] == [BASE]
+    assert Anonymizer(include=["ADDRESS"], strategy="redact").process(BASE + tail).text == "[주소]" + tail

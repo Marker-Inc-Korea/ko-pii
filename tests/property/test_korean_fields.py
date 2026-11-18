@@ -40,3 +40,18 @@ def test_an_explicit_role_declaration_keeps_the_name_before_its_copula(surname, 
     source = prefix + raw + suffix
     result = Anonymizer(strategy="redact", include=["PERSON"]).process(source)
     assert result.text == prefix + "[성명]" + suffix
+
+
+@settings(max_examples=200, deadline=None, derandomize=True)
+@given(names=st.lists(st.sampled_from(["김다은", "이지은", "박보라", "김태성", "남궁다은", "조성"]),
+                     min_size=2, max_size=8),
+       separator=st.sampled_from([", ", " / ", "·", "-", " & "]),
+       wrapper=st.sampled_from([("", ""), ('"', '"'), ("**", "**"), ("`", "`")]),
+       form=st.sampled_from(["NFC", "NFD"]))
+def test_name_list_replacement_keeps_all_original_separators(names, separator, wrapper, form):
+    prefix = unicodedata.normalize(form, "[성명] ")
+    raw_names = [unicodedata.normalize(form, name) for name in names]
+    source = prefix + separator.join(wrapper[0] + name + wrapper[1] for name in raw_names)
+    result = Anonymizer(strategy="redact", include=["PERSON"]).process(source)
+    assert result.text == prefix + separator.join(wrapper[0] + "[성명]" + wrapper[1] for _ in names)
+    assert [source[item.detection.start:item.detection.end] for item in result.detections] == raw_names

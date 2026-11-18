@@ -27,6 +27,7 @@ from datetime import date
 from typing import Iterator
 
 from ko_pii.core.types import DetectionResult, RiskLevel
+from ko_pii.core._interval_index import ForwardIntervalIndex
 
 LABEL = "DT_BIRTH"
 LEGAL_BASIS = "개인정보보호법 제2조"
@@ -225,9 +226,10 @@ def detect(text: str) -> Iterator[DetectionResult]:
         )
 
     # 패턴 2: 숫자 구분자 (YYYY.M.D)
+    occupied = ForwardIntervalIndex(seen)
     for m in _PATTERN_NUMERIC.finditer(text):
         span = (m.start(), m.end())
-        if any(span[0] < e and s < span[1] for s, e in seen):
+        if occupied.overlaps(*span):
             continue
         year = _normalize_year(int(m.group(1)))
         if year is None:
@@ -243,6 +245,7 @@ def detect(text: str) -> Iterator[DetectionResult]:
         if kw is None and not _has_person_context_nearby(text, m.start(), m.end()):
             continue
         seen.add(span)
+        occupied.add(*span)
         yield DetectionResult(
             label=LABEL,
             text=m.group(0),
@@ -263,14 +266,16 @@ def detect(text: str) -> Iterator[DetectionResult]:
         )
 
     # 패턴 3: YY년생 (연도만, "생" marker 자체가 anchor)
+    occupied = ForwardIntervalIndex(seen)
     for m in _PATTERN_BIRTH_YEAR.finditer(text):
         span = (m.start(), m.end())
-        if any(span[0] < e and s < span[1] for s, e in seen):
+        if occupied.overlaps(*span):
             continue
         year = _normalize_year(int(m.group(1)))
         if year is None:
             continue
         seen.add(span)
+        occupied.add(*span)
         yield DetectionResult(
             label=LABEL,
             text=m.group(0),

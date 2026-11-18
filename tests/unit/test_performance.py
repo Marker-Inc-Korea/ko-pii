@@ -15,6 +15,7 @@ import pytest
 from ko_pii import Anonymizer, detect_all
 from ko_pii.patterns import email
 from ko_pii.patterns import account
+from ko_pii.patterns import address, birth, person
 
 
 def _elapsed(text: str) -> float:
@@ -104,3 +105,25 @@ def test_dense_account_bank_anchors_stay_sub_quadratic() -> None:
 
     small, large = elapsed(1_000), elapsed(4_000)
     assert large < small * 8, f"account scaling: {small:.3f}s -> {large:.3f}s"
+
+
+@pytest.mark.parametrize("detector,row,count_per_row", [
+    (address.detect, "주소: 서울특별시 강남구 테헤란로 152\n", 1),
+    (birth.detect, "생년월일: 1988-01-01\n", 1),
+    (person.detect, "홍길동 010-1234-5678\n", 1),
+    (person.detect, "성명: 김다은, 박보라\n", 2),
+])
+def test_dense_korean_records_stay_sub_quadratic(detector, row, count_per_row) -> None:
+    def elapsed(count: int) -> float:
+        source = row * count
+        samples = []
+        for _ in range(3):
+            gc.collect()
+            start = time.process_time()
+            found = list(detector(source))
+            samples.append(time.process_time() - start)
+            assert len(found) == count * count_per_row
+        return median(samples)
+
+    small, large = elapsed(500), elapsed(2_000)
+    assert large < small * 8, f"dense record scaling: {small:.3f}s -> {large:.3f}s"

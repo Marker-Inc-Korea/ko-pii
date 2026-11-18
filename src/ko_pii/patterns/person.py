@@ -13,12 +13,13 @@ Legal basis: 개인정보보호법 제2조 (성명을 통한 개인 식별).
 from __future__ import annotations
 
 import re
+from bisect import bisect_left
 from typing import Any, Iterable, Iterator
 
 from ko_pii.context.context_rules import NameCandidate, _agency_sentence_boundaries, score_candidate
 from ko_pii.context.name_dictionary import NameDictionary
 from ko_pii.context.name_fields import (
-    PERSON_NAME_LABELS, bounded_name_value_end, name_field_before, name_role_before,
+    PERSON_NAME_LABELS, bounded_name_value_end, name_field_before, name_list_separator, name_role_before,
 )
 from ko_pii.context.name_origin import classify_name_origin
 from ko_pii.context.name_syllables import name_shape_bonus
@@ -43,6 +44,17 @@ CATEGORY = "일반개인정보"
 
 # 이름 후보: 한글 2~4글자 (조사 포함하면 더 길어질 수 있음)
 _CANDIDATE = re.compile(r"(?<![가-힣])([가-힣]{2,7})(?![가-힣])")
+_FLOOR_AFTER = re.compile(r"[ \t]*[0-9]+층")
+_ROOM_AFTER = re.compile(r"[ \t]*[0-9]+(?:호실|호|층)")
+
+
+def _is_address_unit_context(text: str, start: int, name: str) -> bool:
+    if name == "호실":
+        return start > 0 and text[start - 1].isdecimal()
+    if name in {"지하", "지상"}:
+        return _FLOOR_AFTER.match(text, start + len(name)) is not None
+    return (len(name) == 2 and name.endswith("동")
+            and _ROOM_AFTER.match(text, start + len(name)) is not None)
 
 # 결정적 PII 의 *위치 마커* 만 빠르게 찾기 위한 보조 패턴 (성능)
 # 주: 길이 상한({1,64}/{1,255})과 lookaround 경계는 ReDoS/quadratic 방지용 — 이메일
@@ -363,14 +375,17 @@ def _reject_labeled_value(value: str, label: str, exclusions: frozenset[str]) ->
 def _labeled_name_values(
     text: str, exclusions: frozenset[str],
 ) -> Iterator[tuple[NameCandidate, str]]:
+    previous_label: str | None = None
+    previous_end = 0
     for match in _CANDIDATE.finditer(text):
         raw = match.group(1)
         label = name_field_before(text, match.start())
+        if label is None and previous_label is not None and name_list_separator(text, previous_end, match.start()):
+            label = previous_label
+        previous_label = None
         if label is None or not bounded_name_value_end(text, match.end()):
             continue
-        # "이름" can describe a herb/product; "성명" specifically describes a person.
-        if _reject_labeled_value(raw, label, exclusions):
-            continue
+        previous_label, previous_end = label, match.end()
         stem, particle = strip_trailing_particle(raw)
         # A bounded 2-4 syllable field can itself end in a particle-like syllable.
         # Keep it whole rather than leaving part of a valid full name unmasked.
@@ -378,9 +393,19 @@ def _labeled_name_values(
             value = stem
         else:
             value = raw
-        if not 2 <= len(value) <= 4 or _reject_labeled_value(value, label, exclusions):
+        if not 2 <= len(value) <= 4:
+            continue
+        # An excluded/empty item must not stop protection of the next list item.
+        if _reject_labeled_value(raw, label, exclusions) or _reject_labeled_value(value, label, exclusions):
             continue
         yield NameCandidate(value, match.start(), match.start() + len(value)), label
+
+
+def _field_evidence(text: str, candidate: NameCandidate, label: str) -> list[str]:
+    evidence = ["pattern:person_name_field", f"pos:field_label({label})"]
+    if name_field_before(text, candidate.start) is None:
+        evidence.append("pattern:person_name_field_list")
+    return evidence
 
 
 def _declared_name_values(
@@ -444,6 +469,7 @@ def _detect_with_dict(
     deterministic_spans = [
         (m.start(), m.end()) for m in _DETERMINISTIC_HINTS.finditer(text)
     ]
+    deterministic_endpoints = [point for span in deterministic_spans for point in span]
     threshold = 0.50
     # 문장별 '기관 포함 여부' 캐시 — 같은 문장의 후보들이 단어 순회를 반복하지 않도록
     # score_candidate 에 공유(이게 없으면 person 검출이 O(n²)).
@@ -462,7 +488,7 @@ def _detect_with_dict(
     field_names.update(candidate.name for candidate, _, _ in declarations.values())
     for candidate, label in labeled_values.values():
         name_dict.add(candidate.name, 0.9, (candidate.start, candidate.end),
-                      ["pattern:person_name_field", f"pos:field_label({label})"])
+                      _field_evidence(text, candidate, label))
     for candidate, label, ending in declarations.values():
         name_dict.add(candidate.name, 0.9, (candidate.start, candidate.end),
                       _declaration_evidence(label, ending))
@@ -533,7 +559,7 @@ def _detect_with_dict(
                 stem, particle = raw, None
             cand = NameCandidate(stem, m.start(), m.start() + len(stem))
             labeled = labeled_values.get((cand.start, cand.end))
-            evidence = (["pattern:person_name_field", f"pos:field_label({labeled[1]})"]
+            evidence = (_field_evidence(text, cand, labeled[1])
                         if labeled else ["pos:confirmed_name_field_reuse"])
             if particle:
                 evidence.append(f"pos:particle({particle})")
@@ -558,6 +584,10 @@ def _detect_with_dict(
                 continue
         # Try stripping a trailing particle to get the bare name
         if len(stem) < 2 or len(stem) > 4:
+            continue
+        # Typed room/floor syntax is not a generic name hint. Explicit person
+        # fields and names already confirmed in this document take precedence.
+        if not label_before and _is_address_unit_context(text, m.start(), stem):
             continue
         # 부분 가명 표기 (박씨/이모/김군) — 이미 익명화된 표기이므로 거부
         if _looks_like_anonymized(stem):
@@ -622,7 +652,8 @@ def _detect_with_dict(
         cand_start = m.start()
         cand_end = m.start() + len(stem)
         cand = NameCandidate(name=stem, start=cand_start, end=cand_end)
-        det_nearby = _is_within(deterministic_spans, cand_start, window=25)
+        det_nearby = _is_within(deterministic_spans, cand_start, window=25,
+                                endpoints=deterministic_endpoints)
         # 추가 신호: 토큰 안 직책, 이름끝 음절, 나이/성별 인접, 음절 통계
         extra_signals: list[str] = []
         extra_score = 0.0
@@ -713,7 +744,7 @@ def _detect_with_dict(
         rescored = score_candidate(
             text, cand,
             deterministic_nearby=_is_within(
-                deterministic_spans, cand.start, window=25
+                deterministic_spans, cand.start, window=25, endpoints=deterministic_endpoints,
             ),
             name_dictionary_boost=boost,
             agency_cache=_agency_cache,
@@ -724,8 +755,12 @@ def _detect_with_dict(
 
 
 def _is_within(
-    spans: Iterable[tuple[int, int]], pos: int, window: int = 25
+    spans: Iterable[tuple[int, int]], pos: int, window: int = 25,
+    *, endpoints: list[int] | None = None,
 ) -> bool:
+    if endpoints is not None:
+        index = bisect_left(endpoints, pos - window)
+        return index < len(endpoints) and endpoints[index] <= pos + window
     for s, e in spans:
         if abs(s - pos) <= window or abs(e - pos) <= window:
             return True

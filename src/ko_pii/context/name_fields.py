@@ -22,14 +22,21 @@ def _labels_pattern(labels: frozenset[str]) -> str:
 
 
 _LABEL_BEFORE = re.compile(
-    r"(?<![가-힣A-Za-z0-9_])(?P<label>(?:" + _labels_pattern(FIELD_LABELS_NAME) + r"))"
+    r"(?<![가-힣A-Za-z0-9_])"
+    r"(?:(?P<square>\[)|(?P<corner>【)|(?P<bold>\*\*)|(?P<strong>__)|(?P<code>`))?"
+    r"(?P<label>(?:" + _labels_pattern(FIELD_LABELS_NAME) + r"))"
     r"(?:[ \t]*\((?:한글|국문|실명)\))?"
-    r"(?:[ \t]*[:：=]" + _GAP + r"*|" + _GAP + r"+)"
-    + "[" + re.escape(_OPENING_QUOTES) + r"]?\Z"
+    r"(?(square)\])(?(corner)】)(?(bold)\*\*)(?(strong)__)(?(code)`)"
+    r"(?:[ \t]*[:：=|]" + _GAP + r"*|" + _GAP + r"+)"
+    + r"(?:\*\*|__|`|[" + re.escape(_OPENING_QUOTES) + r"])?\Z"
 )
-_VALUE_END = re.compile(r" *\Z| *(?=[" + re.escape(_LINE_BREAK_CHARS + "\t,;|/().[]{}" + _CLOSING_QUOTES) + r"])")
+_VALUE_END = re.compile(r" *\Z| *(?=[" + re.escape(_LINE_BREAK_CHARS + "\t,;|/&().[]{}-·*_`" + _CLOSING_QUOTES) + r"])")
 _NEXT_FIELD = re.compile(r" +(?:" + _labels_pattern(FIELD_LABELS) + r")[ \t]*[:：=]")
-_LABEL_ENDINGS = frozenset(label[-1] for label in FIELD_LABELS_NAME) | {")"}
+_LABEL_ENDINGS = frozenset(label[-1] for label in FIELD_LABELS_NAME) | {")", "]", "】", "*", "_", "`"}
+_LIST_SEPARATOR = re.compile(
+    r"[ \t]*(?:(?:\*\*|__|`|[" + re.escape(_CLOSING_QUOTES) + r"])[ \t]*)?"
+    r"[,/&·-][ \t]*(?:(?:\*\*|__|`|[" + re.escape(_OPENING_QUOTES) + r"])[ \t]*)?\Z"
+)
 _ROLE_BEFORE = re.compile(
     r"(?<![가-힣A-Za-z0-9_])(?P<label>(?:"
     + _labels_pattern(FIELD_LABELS_NAME - {"참조"})
@@ -39,7 +46,7 @@ _ROLE_BEFORE = re.compile(
 
 def name_field_before(text: str, start: int, window: int = 6) -> str | None:
     begin = max(0, start - max(window + 4, 32))
-    head = text[begin:start].rstrip(" \t:：=" + _OPENING_QUOTES + _LINE_BREAK_CHARS)
+    head = text[begin:start].rstrip(" \t:：=|*_`" + _OPENING_QUOTES + _LINE_BREAK_CHARS)
     if not head or head[-1] not in _LABEL_ENDINGS:
         return None
     match = _LABEL_BEFORE.search(text, begin, start)
@@ -50,6 +57,11 @@ def name_field_before(text: str, start: int, window: int = 6) -> str | None:
 
 def bounded_name_value_end(text: str, end: int) -> bool:
     return bool(_VALUE_END.match(text, end) or _NEXT_FIELD.match(text, end))
+
+
+def name_list_separator(text: str, start: int, end: int) -> bool:
+    """List context stays in one cell/line, never across arbitrary prose."""
+    return _LIST_SEPARATOR.fullmatch(text, start, end) is not None
 
 
 def name_role_before(text: str, start: int) -> str | None:
